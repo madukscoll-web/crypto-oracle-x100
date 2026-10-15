@@ -1,68 +1,44 @@
-
-
 name: CRYPTO-ORACLE X100 Scanner
 
 on:
   workflow_dispatch:
-    schedule:
+  schedule:
     - cron: '0 * * * *'
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: crypto-oracle-hourly
+  cancel-in-progress: false
 
 jobs:
-  scanner-test:
+  scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
-
+    timeout-minutes: 5
     steps:
       - name: Download repository
         uses: actions/checkout@v4
-
+        with:
+          persist-credentials: true
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
-      - name: Check scanner syntax
-        run: python -m py_compile crypto_oracle_scanner.py
-
-      - name: Send Telegram test alert
+      - name: Run scanner
         env:
-          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python crypto_oracle_scanner.py
+      - name: Save reported pool IDs
+        if: always()
         run: |
-          python - <<'PY'
-          import os
-          import json
-          import urllib.parse
-          import urllib.request
-
-          token = os.environ["BOT_TOKEN"]
-          chat_id = os.environ["CHAT_ID"]
-
-          if not token or not chat_id:
-              raise RuntimeError("Telegram secrets missing")
-
-          url = f"https://api.telegram.org/bot{token}/sendMessage"
-          data = urllib.parse.urlencode({
-              "chat_id": chat_id,
-              "text": (
-                  "CRYPTO-ORACLE X100\n"
-                  "Telegram connection successful!\n"
-                  "GitHub Actions alerts are working."
-              )
-          }).encode()
-
-          request = urllib.request.Request(
-              url, data=data, method="POST"
-          )
-
-          with urllib.request.urlopen(request, timeout=20) as response:
-              result = json.load(response)
-
-          if not result.get("ok"):
-              raise RuntimeError("Telegram message rejected")
-
-          print("Telegram notification sent successfully")
-          PY
+          if [ -f reported_pools.json ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add reported_pools.json
+            if ! git diff --cached --quiet; then
+              git commit -m "Update reported pool IDs [skip ci]"
+              git push
+            fi
+          fi
