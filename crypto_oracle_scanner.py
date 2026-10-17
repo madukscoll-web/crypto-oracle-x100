@@ -1,4 +1,4 @@
-"""CRYPTO-ORACLE X100 v2: research-only new-pool discovery.
+"""CRYPTO-ORACLE X100 v2.1: research-only new-pool discovery.
 
 Market data: GeckoTerminal public API. This is not a contract-security audit,
 verification of trading legitimacy, or investment recommendation.
@@ -17,21 +17,37 @@ API = "https://api.geckoterminal.com/api/v2"
 NETWORKS = ("solana", "base")
 HEADERS = {
     "Accept": "application/json;version=20230302",
-    "User-Agent": "CRYPTO-ORACLE-X100/2.0",
+    "User-Agent": "CRYPTO-ORACLE-X100/2.1",
 }
 MIN_LIQUIDITY_USD = 50_000
 MIN_24H_VOLUME_USD = 100_000
 MIN_1H_TRANSACTIONS = 40
 MAX_POOL_AGE_HOURS = 72
 PAGES_PER_NETWORK = 3  # GeckoTerminal typically returns 20 pools per page.
+REQUEST_DELAY_SECONDS = 5
+RATE_LIMIT_RETRIES = 2
+RATE_LIMIT_WAIT_SECONDS = (12, 24)
 MAX_ALERTS_PER_RUN = 10
 STATE_FILE = pathlib.Path("reported_pools.json")
 
 
 def fetch_json(url):
     request = urllib.request.Request(url, headers=HEADERS)
-    with urllib.request.urlopen(request, timeout=25) as response:
-        return json.load(response)
+    for attempt in range(RATE_LIMIT_RETRIES + 1):
+        try:
+            with urllib.request.urlopen(request, timeout=25) as response:
+                return json.load(response)
+        except urllib.error.HTTPError as exc:
+            if exc.code != 429 or attempt == RATE_LIMIT_RETRIES:
+                raise
+            retry_after = exc.headers.get("Retry-After")
+            try:
+                wait = max(float(retry_after), RATE_LIMIT_WAIT_SECONDS[attempt]) if retry_after else RATE_LIMIT_WAIT_SECONDS[attempt]
+            except (ValueError, TypeError):
+                wait = RATE_LIMIT_WAIT_SECONDS[attempt]
+            wait = min(wait, 60)  # Bound runtime for GitHub Actions.
+            print(f"Rate limited (HTTP 429); retrying in {wait:g}s", flush=True)
+            time.sleep(wait)
 
 
 def number(value):
@@ -128,6 +144,7 @@ def main():
     seen = load_state()
     candidates = []
     errors = []
+    warnings = []
     total_checked = 0
     for network in NETWORKS:
         network_checked = 0
@@ -145,9 +162,13 @@ def main():
                 if not pools:
                     break
             except (urllib.error.URLError, ValueError, KeyError, TimeoutError) as exc:
-                errors.append(f"{network} page {page}: {type(exc).__name__}: {exc}")
+                detail = f"{network} page {page}: {type(exc).__name__}: {exc}"
+                if isinstance(exc, urllib.error.HTTPError) and exc.code == 429 and total_checked > 0:
+                    warnings.append(f"Incomplete scan after rate limiting: {detail}")
+                else:
+                    errors.append(detail)
                 break
-            time.sleep(2)  # Be considerate of public API rate limits.
+            time.sleep(REQUEST_DELAY_SECONDS)  # Respect public API rate limits.
         print(f"{network}: checked {network_checked} pools", flush=True)
 
     # Highest liquidity first; a discovery heuristic, not a safety score.
@@ -167,6 +188,8 @@ def main():
 
     print(f"Total pools checked: {total_checked}", flush=True)
     print(f"Candidates found: {len(candidates)}; alerts delivered: {delivered}", flush=True)
+    for warning in warnings:
+        print(f"WARNING: {warning}", flush=True)
     for error in errors:
         print(f"ERROR: {error}", flush=True)
     if errors:
