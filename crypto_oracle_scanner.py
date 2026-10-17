@@ -23,7 +23,7 @@ SCAN_MODES = ("new_pools", "trending_pools")
 DATA_SOURCE = "GeckoTerminal public API"
 HEADERS = {
     "Accept": "application/json;version=20230302",
-    "User-Agent": "CRYPTO-ORACLE-Z/0.1",
+    "User-Agent": "CRYPTO-ORACLE-Z/0.2",
 }
 MIN_LIQUIDITY_USD = 50_000
 MIN_24H_VOLUME_USD = 100_000
@@ -38,6 +38,12 @@ RATE_LIMIT_WAIT_SECONDS = (12, 24)
 MAX_ALERTS_PER_RUN = max(1, min(20, int(os.environ.get("ORACLE_MAX_ALERTS", "10"))))
 NEW_POOL_TARGET_SHARE = 0.70  # Minimum priority allocation when enough new candidates qualify.
 STATE_FILE = pathlib.Path("reported_pools.json")
+# Enrichment is limited to selected, not all discovered pools, to control API use.
+SECURITY_CHAIN_IDS = {"eth": "1", "bsc": "56", "polygon_pos": "137",
+                      "arbitrum": "42161", "base": "8453", "optimism": "10",
+                      "avax": "43114"}
+ENRICHMENT_DELAY_SECONDS = 2
+
 
 
 def number(value):
@@ -148,6 +154,119 @@ def inspect(pool, network, mode="new_pools"):
     }
 
 
+def _relationship_token(payload, relation):
+    """Extract an address only when GeckoTerminal includes a matching token object."""
+    relationships = (payload.get("data") or {}).get("relationships") or {}
+    identifier = ((relationships.get(relation) or {}).get("data") or {}).get("id")
+    for entry in payload.get("included") or []:
+        if entry.get("type") == "token" and entry.get("id") == identifier:
+            attrs = entry.get("attributes") or {}
+            return attrs.get("address"), attrs.get("symbol") or "UNKNOWN"
+    return None, None
+
+
+def _risk_indicator(label, value, positive_is_risk=True):
+    """GoPlus flags: 1/0 are observations, not a full audit."""
+    if str(value) not in ("0", "1"):
+        return None
+    risky = str(value) == ("1" if positive_is_risk else "0")
+    return f"{label}: {'FLAGGED' if risky else 'not flagged by provider'}"
+
+
+def enrich(item):
+    """Best-effort token identification; never suppress an alert on API failure."""
+    item.update(token_address="UNVERIFIED", token_symbol="UNVERIFIED",
+                previous_pools="UNKNOWN", security_source="NOT CHECKED",
+                security_details="UNVERIFIED", holder_details="UNVERIFIED",
+                token_identity_status="UNVERIFIED")
+    network = item["network"]
+    try:
+        pool_url = f"{API}/networks/{urllib.parse.quote(network, safe='')}/pools/{urllib.parse.quote(item['address'], safe='')}?include=base_token,quote_token"
+        payload = fetch_json(pool_url)
+        address, symbol = _relationship_token(payload, "base_token")
+        if not address:
+            item["token_identity_status"] = "UNVERIFIED (base-token relationship unavailable)"
+            return item
+        item["token_address"] = address
+        item["token_symbol"] = symbol
+        item["token_identity_status"] = "Base token from GeckoTerminal pool relationship"
+    except (urllib.error.URLError, ValueError, KeyError, TimeoutError, OSError) as exc:
+        print(f"Enrichment identity unavailable for {item['key']}: {type(exc).__name__}", flush=True)
+        return item
+    finally:
+        time.sleep(ENRICHMENT_DELAY_SECONDS)
+
+    # A first-page check can prove older pools exist, but cannot prove none exist.
+    try:
+        url = (f"{API}/networks/{urllib.parse.quote(network, safe='')}/tokens/"
+               f"{urllib.parse.quote(address, safe='')}/pools?page=1")
+        response = fetch_json(url)
+        older = 0
+        for pool in response.get("data") or []:
+            created = (pool.get("attributes") or {}).get("pool_created_at")
+            if not created:
+                continue
+            try:
+                when = dt.datetime.fromisoformat(created.replace("Z", "+00:00"))
+                if when.tzinfo is None:
+                    when = when.replace(tzinfo=dt.timezone.utc)
+                if (dt.datetime.now(dt.timezone.utc) - when).total_seconds() > 72 * 3600:
+                    older += 1
+            except (ValueError, TypeError, OverflowError):
+                continue
+        item["previous_pools"] = (f"YES: {older} older pools on first API page" if older
+                                  else "NOT FOUND on first API page (not proof of absence)")
+    except (urllib.error.URLError, ValueError, KeyError, TimeoutError, OSError) as exc:
+        print(f"Previous-pool check unavailable for {item['key']}: {type(exc).__name__}", flush=True)
+    finally:
+        time.sleep(ENRICHMENT_DELAY_SECONDS)
+
+    chain_id = SECURITY_CHAIN_IDS.get(network)
+    if not chain_id or not address.lower().startswith("0x"):
+        item["security_source"] = "GoPlus not queried for this network/address"
+        return item
+    try:
+        params = urllib.parse.urlencode({"contract_addresses": address})
+        url = f"https://api.gopluslabs.io/api/v1/token_security/{chain_id}?{params}"
+        payload = fetch_json(url)
+        result = payload.get("result") or {}
+        info = result.get(address.lower()) or result.get(address) or {}
+        if not isinstance(info, dict) or not info:
+            item["security_source"] = "GoPlus: no matching token report returned"
+            return item
+        item["security_source"] = "GoPlus token_security API (provider data; not an audit)"
+        checks = [
+            _risk_indicator("Honeypot", info.get("is_honeypot")),
+            _risk_indicator("Trading cooldown", info.get("trading_cooldown")),
+            _risk_indicator("Owner can change balance", info.get("owner_change_balance")),
+            _risk_indicator("Hidden owner", info.get("hidden_owner")),
+            _risk_indicator("Mintable", info.get("is_mintable")),
+            _risk_indicator("Blacklist", info.get("is_blacklisted")),
+            _risk_indicator("Open source", info.get("is_open_source"), positive_is_risk=False),
+        ]
+        checks = [check for check in checks if check]
+        item["security_details"] = "; ".join(checks) if checks else "No interpretable provider flags"
+        holders = info.get("holders")
+        if isinstance(holders, list) and holders:
+            percentages = []
+            for holder in holders[:10]:
+                try:
+                    pct = float(holder.get("percent"))
+                    if 0 <= pct <= 1:
+                        percentages.append(pct)
+                except (TypeError, ValueError):
+                    pass
+            if percentages:
+                item["holder_details"] = (f"Provider's first {len(percentages)} listed holders: "
+                                          f"{sum(percentages):.1%} combined; exclusions/LP unknown")
+    except (urllib.error.URLError, ValueError, KeyError, TimeoutError, OSError) as exc:
+        print(f"GoPlus security unavailable for {item['key']}: {type(exc).__name__}", flush=True)
+        item["security_source"] = "GoPlus unavailable; NOT VERIFIED"
+    finally:
+        time.sleep(ENRICHMENT_DELAY_SECONDS)
+    return item
+
+
 def load_state():
     if not STATE_FILE.exists():
         return set()
@@ -201,6 +320,10 @@ def send_telegram(item):
         f"Pool: {item['name']}\n"
         f"Pool classification: {item['pool_class']}\n"
         f"TOKEN AGE: {item['token_age']}\n"
+        f"Base token: {item['token_symbol']}\n"
+        f"Base-token contract: {item['token_address']}\n"
+        f"Identity evidence: {item['token_identity_status']}\n"
+        f"Older trading pools: {item['previous_pools']}\n"
         f"Activity score: {item['score']}/100 (NOT safety or success probability)\n"
         f"Pool age: {item['age_hours']:.1f} hours\n"
         f"Liquidity: ${item['liquidity']:,.0f}\n"
@@ -210,15 +333,20 @@ def send_telegram(item):
         f"Activity flags: {flags}\n"
         f"Security: {item['contract_security']}; holders: {item['holder_concentration']}; "
         f"liquidity lock: {item['liquidity_lock']}\n"
+        f"Provider security findings: {item['security_details']}\n"
+        f"Holder evidence: {item['holder_details']}\n"
+        f"Security data source: {item['security_source']}\n"
         f"Research strategy: {strategy(item)}\n"
         f"{horizon_notes()}\n"
         f"Success / 10x / 100x probabilities: {item['return_probabilities']}\n"
         f"Source: {item['source']}\n"
         f"Retrieved UTC: {item['observed_at']}\n"
         f"Pool link: {item['url']}\n\n"
-        "NOT A BUY SIGNAL. No token audit, liquidity-lock check, holder audit, "
-        "or price forecast has been performed."
+        "NOT A BUY SIGNAL. Provider flags are incomplete and not an audit. "
+        "Liquidity lock, sellability and price forecasts are NOT VERIFIED."
     )
+    if len(message) > 4096:
+        raise ValueError("Telegram message exceeds 4096 characters")
     data = urllib.parse.urlencode({"chat_id": chat_id, "text": message}).encode("utf-8")
     request = urllib.request.Request(
         f"https://api.telegram.org/bot{token}/sendMessage", data=data, method="POST"
@@ -299,6 +427,7 @@ def main():
     delivered_new = 0
     delivered_existing = 0
     for item in selected:
+        enrich(item)
         try:
             send_telegram(item)
         except (urllib.error.URLError, ValueError, RuntimeError, TimeoutError, OSError) as exc:
