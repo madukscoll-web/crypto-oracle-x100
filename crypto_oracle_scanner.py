@@ -1,7 +1,7 @@
-"""CRYPTO-ORACLE X100 v3: research-only new-pool discovery.
+"""CRYPTO-ORACLE Z: multichain, evidence-labelled crypto research alerts.
 
-Uses public GeckoTerminal market data. Activity scores are NOT contract audits,
-price predictions, or investment recommendations.
+No contract audit, token inception date, price forecast, or calibrated return
+probability is inferred from pool-level GeckoTerminal market data.
 """
 
 import datetime as dt
@@ -14,20 +14,28 @@ import urllib.parse
 import urllib.request
 
 API = "https://api.geckoterminal.com/api/v2"
-NETWORKS = ("solana", "base")
+# Override with comma-separated GeckoTerminal network IDs using ORACLE_NETWORKS.
+# Network IDs and API availability must be checked against GeckoTerminal.
+DEFAULT_NETWORKS = ("solana", "base", "eth", "bsc", "arbitrum", "polygon_pos", "avax", "optimism")
+NETWORKS = tuple(x.strip() for x in os.environ.get(
+    "ORACLE_NETWORKS", ",".join(DEFAULT_NETWORKS)).split(",") if x.strip())
+SCAN_MODES = ("new_pools", "trending_pools")
+DATA_SOURCE = "GeckoTerminal public API"
 HEADERS = {
     "Accept": "application/json;version=20230302",
-    "User-Agent": "CRYPTO-ORACLE-X100/3.0",
+    "User-Agent": "CRYPTO-ORACLE-Z/0.1",
 }
 MIN_LIQUIDITY_USD = 50_000
 MIN_24H_VOLUME_USD = 100_000
 MIN_1H_TRANSACTIONS = 40
-MAX_POOL_AGE_HOURS = 72
-PAGES_PER_NETWORK = 3
+MAX_NEW_POOL_AGE_HOURS = 72
+# Older pools can appear via trending_pools. These are NOT necessarily old tokens.
+MIN_TRENDING_POOL_AGE_HOURS = 72
+PAGES_PER_NETWORK = max(1, min(3, int(os.environ.get("ORACLE_PAGES", "1"))))
 REQUEST_DELAY_SECONDS = 5
 RATE_LIMIT_RETRIES = 2
 RATE_LIMIT_WAIT_SECONDS = (12, 24)
-MAX_ALERTS_PER_RUN = 10
+MAX_ALERTS_PER_RUN = max(1, min(20, int(os.environ.get("ORACLE_MAX_ALERTS", "10"))))
 STATE_FILE = pathlib.Path("reported_pools.json")
 
 
@@ -57,7 +65,8 @@ def fetch_json(url):
     raise RuntimeError("Unreachable rate-limit retry state")
 
 
-def inspect(pool, network):
+def inspect(pool, network, mode="new_pools"):
+    """Score observed pool activity; never infer contract or token safety."""
     attrs = pool.get("attributes") or {}
     created = attrs.get("pool_created_at")
     if not created:
@@ -69,7 +78,11 @@ def inspect(pool, network):
         age_hours = (dt.datetime.now(dt.timezone.utc) - timestamp).total_seconds() / 3600
     except (TypeError, ValueError, OverflowError):
         return None
-    if not 0 <= age_hours <= MAX_POOL_AGE_HOURS:
+    if age_hours < 0:
+        return None
+    if mode == "new_pools" and age_hours > MAX_NEW_POOL_AGE_HOURS:
+        return None
+    if mode == "trending_pools" and age_hours < MIN_TRENDING_POOL_AGE_HOURS:
         return None
 
     liquidity = number(attrs.get("reserve_in_usd"))
@@ -113,6 +126,15 @@ def inspect(pool, network):
         "address": address,
         "name": name,
         "age_hours": age_hours,
+        "pool_class": "NEW POOL" if age_hours <= 72 else "EXISTING POOL",
+        "token_age": "UNKNOWN — pool creation does not establish token launch date",
+        "discovery_mode": mode,
+        "source": DATA_SOURCE,
+        "observed_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+        "contract_security": "NOT VERIFIED",
+        "holder_concentration": "NOT VERIFIED",
+        "liquidity_lock": "NOT VERIFIED",
+        "return_probabilities": "UNAVAILABLE — no validated historical probability model",
         "liquidity": liquidity,
         "volume": volume,
         "buys": buys,
@@ -146,6 +168,26 @@ def save_state(seen):
     temp.replace(STATE_FILE)
 
 
+def strategy(item):
+    """Non-personalized research process, not a trading recommendation."""
+    if item["pool_class"] == "NEW POOL":
+        return ("WAIT / RESEARCH: verify token contract, ownership, sellability, "
+                "liquidity withdrawal risk and holder distribution before considering exposure")
+    return ("RESEARCH / WATCH: verify token inception date, fundamentals, "
+            "supply unlocks and longer price history before considering any entry")
+
+
+def horizon_notes():
+    return (
+        "3 months: monitor liquidity persistence, activity and severe downside risk; "
+        "probability unavailable.\n"
+        "12 months: investigate adoption, supply dilution and token survival; "
+        "probability unavailable.\n"
+        "3 years: investigate team execution, security history and long-term tokenomics; "
+        "probability unavailable."
+    )
+
+
 def send_telegram(item):
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
     chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
@@ -153,19 +195,28 @@ def send_telegram(item):
         raise RuntimeError("Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID")
     flags = "; ".join(item["flags"]) if item["flags"] else "No additional activity flags triggered"
     message = (
-        "🔎 CRYPTO-ORACLE X100 v3 — UNVERIFIED RESEARCH LEAD\n"
+        "🔎 CRYPTO-ORACLE Z — UNVERIFIED RESEARCH LEAD\n"
         f"Network: {item['network']}\n"
         f"Pool: {item['name']}\n"
-        f"Activity score: {item['score']}/100 (NOT a safety score)\n"
-        f"Age: {item['age_hours']:.1f} hours\n"
+        f"Pool classification: {item['pool_class']}\n"
+        f"TOKEN AGE: {item['token_age']}\n"
+        f"Activity score: {item['score']}/100 (NOT safety or success probability)\n"
+        f"Pool age: {item['age_hours']:.1f} hours\n"
         f"Liquidity: ${item['liquidity']:,.0f}\n"
         f"24h volume: ${item['volume']:,.0f}\n"
-        f"1h transactions: {item['trades']} ({item['buys']} buys / {item['sells']} sells)\n"
+        f"1h trades: {item['trades']} ({item['buys']} buys / {item['sells']} sells)\n"
         f"1h buy share: {item['buy_share']:.0%}\n"
         f"Activity flags: {flags}\n"
-        f"Pool: {item['url']}\n\n"
-        "NOT A BUY SIGNAL. Contract security, liquidity locks, holder concentration, "
-        "ownership and trading authenticity have NOT been verified."
+        f"Security: {item['contract_security']}; holders: {item['holder_concentration']}; "
+        f"liquidity lock: {item['liquidity_lock']}\n"
+        f"Research strategy: {strategy(item)}\n"
+        f"{horizon_notes()}\n"
+        f"Success / 10x / 100x probabilities: {item['return_probabilities']}\n"
+        f"Source: {item['source']}\n"
+        f"Retrieved UTC: {item['observed_at']}\n"
+        f"Pool link: {item['url']}\n\n"
+        "NOT A BUY SIGNAL. No token audit, liquidity-lock check, holder audit, "
+        "or price forecast has been performed."
     )
     data = urllib.parse.urlencode({"chat_id": chat_id, "text": message}).encode("utf-8")
     request = urllib.request.Request(
@@ -186,33 +237,34 @@ def main():
     total_checked = 0
     for network in NETWORKS:
         network_checked = 0
-        for page in range(1, PAGES_PER_NETWORK + 1):
-            try:
-                url = f"{API}/networks/{network}/new_pools?page={page}"
-                payload = fetch_json(url)
-                pools = payload.get("data") or []
-                network_checked += len(pools)
-                total_checked += len(pools)
-                for pool in pools:
-                    item = inspect(pool, network)
-                    if item and item["key"] not in keys_in_run:
-                        candidates.append(item)
-                        keys_in_run.add(item["key"])
-                if not pools:
+        for mode in SCAN_MODES:
+            for page in range(1, PAGES_PER_NETWORK + 1):
+                try:
+                    url = f"{API}/networks/{network}/{mode}?page={page}"
+                    payload = fetch_json(url)
+                    pools = payload.get("data") or []
+                    network_checked += len(pools)
+                    total_checked += len(pools)
+                    for pool in pools:
+                        item = inspect(pool, network, mode)
+                        if item and item["key"] not in keys_in_run:
+                            candidates.append(item)
+                            keys_in_run.add(item["key"])
+                    if not pools:
+                        break
+                except (urllib.error.URLError, ValueError, KeyError, TimeoutError, OSError) as exc:
+                    detail = f"{network} {mode} page {page}: {type(exc).__name__}: {exc}"
+                    if (isinstance(exc, urllib.error.HTTPError) and exc.code == 429
+                            and total_checked > 0):
+                        warnings.append(f"Incomplete scan after rate limiting: {detail}")
+                    else:
+                        errors.append(detail)
                     break
-            except (urllib.error.URLError, ValueError, KeyError, TimeoutError, OSError) as exc:
-                detail = f"{network} page {page}: {type(exc).__name__}: {exc}"
-                if (isinstance(exc, urllib.error.HTTPError) and exc.code == 429
-                        and total_checked > 0):
-                    warnings.append(f"Incomplete scan after rate limiting: {detail}")
-                else:
-                    errors.append(detail)
-                break
-            finally:
-                time.sleep(REQUEST_DELAY_SECONDS)
-        print(f"{network}: checked {network_checked} pools", flush=True)
+                finally:
+                    time.sleep(REQUEST_DELAY_SECONDS)
+        print(f"{network}: checked {network_checked} pool observations", flush=True)
 
-    # A market-activity ranking, not a safety assessment.
+    # A market-activity ranking, not a safety or investment assessment.
     candidates.sort(key=lambda item: (item["score"], item["liquidity"]), reverse=True)
     delivered = 0
     for item in candidates:
@@ -230,7 +282,7 @@ def main():
         delivered += 1
         time.sleep(1)
 
-    print(f"Total pools checked: {total_checked}", flush=True)
+    print(f"Total pool observations checked: {total_checked}", flush=True)
     print(f"Candidates found: {len(candidates)}; alerts delivered: {delivered}", flush=True)
     for warning in warnings:
         print(f"WARNING: {warning}", flush=True)
