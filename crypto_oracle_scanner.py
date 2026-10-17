@@ -1,7 +1,7 @@
-"""CRYPTO-ORACLE X100 v2.1: research-only new-pool discovery.
+"""CRYPTO-ORACLE X100 v3: research-only new-pool discovery.
 
-Market data: GeckoTerminal public API. This is not a contract-security audit,
-verification of trading legitimacy, or investment recommendation.
+Uses public GeckoTerminal market data. Activity scores are NOT contract audits,
+price predictions, or investment recommendations.
 """
 
 import datetime as dt
@@ -17,18 +17,25 @@ API = "https://api.geckoterminal.com/api/v2"
 NETWORKS = ("solana", "base")
 HEADERS = {
     "Accept": "application/json;version=20230302",
-    "User-Agent": "CRYPTO-ORACLE-X100/2.1",
+    "User-Agent": "CRYPTO-ORACLE-X100/3.0",
 }
 MIN_LIQUIDITY_USD = 50_000
 MIN_24H_VOLUME_USD = 100_000
 MIN_1H_TRANSACTIONS = 40
 MAX_POOL_AGE_HOURS = 72
-PAGES_PER_NETWORK = 3  # GeckoTerminal typically returns 20 pools per page.
+PAGES_PER_NETWORK = 3
 REQUEST_DELAY_SECONDS = 5
 RATE_LIMIT_RETRIES = 2
 RATE_LIMIT_WAIT_SECONDS = (12, 24)
 MAX_ALERTS_PER_RUN = 10
 STATE_FILE = pathlib.Path("reported_pools.json")
+
+
+def number(value):
+    try:
+        return float(value)
+    except (TypeError, ValueError, OverflowError):
+        return 0.0
 
 
 def fetch_json(url):
@@ -38,61 +45,83 @@ def fetch_json(url):
             with urllib.request.urlopen(request, timeout=25) as response:
                 return json.load(response)
         except urllib.error.HTTPError as exc:
-            if exc.code != 429 or attempt == RATE_LIMIT_RETRIES:
+            if exc.code != 429 or attempt >= RATE_LIMIT_RETRIES:
                 raise
             retry_after = exc.headers.get("Retry-After")
-            try:
-                wait = max(float(retry_after), RATE_LIMIT_WAIT_SECONDS[attempt]) if retry_after else RATE_LIMIT_WAIT_SECONDS[attempt]
-            except (ValueError, TypeError):
-                wait = RATE_LIMIT_WAIT_SECONDS[attempt]
-            wait = min(wait, 60)  # Bound runtime for GitHub Actions.
-            print(f"Rate limited (HTTP 429); retrying in {wait:g}s", flush=True)
-            time.sleep(wait)
-
-
-def number(value):
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return 0.0
+            delay = number(retry_after) if retry_after else 0
+            if delay <= 0:
+                delay = RATE_LIMIT_WAIT_SECONDS[attempt]
+            delay = min(max(delay, 1), 60)
+            print(f"Rate limited (HTTP 429); retrying in {delay:g}s", flush=True)
+            time.sleep(delay)
+    raise RuntimeError("Unreachable rate-limit retry state")
 
 
 def inspect(pool, network):
-    attributes = pool.get("attributes") or {}
-    created = attributes.get("pool_created_at")
+    attrs = pool.get("attributes") or {}
+    created = attrs.get("pool_created_at")
     if not created:
         return None
     try:
         timestamp = dt.datetime.fromisoformat(created.replace("Z", "+00:00"))
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=dt.timezone.utc)
         age_hours = (dt.datetime.now(dt.timezone.utc) - timestamp).total_seconds() / 3600
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return None
     if not 0 <= age_hours <= MAX_POOL_AGE_HOURS:
         return None
 
-    liquidity = number(attributes.get("reserve_in_usd"))
-    volume = number((attributes.get("volume_usd") or {}).get("h24"))
-    hour = (attributes.get("transactions") or {}).get("h1") or {}
-    buys = int(number(hour.get("buys")))
-    sells = int(number(hour.get("sells")))
-    if (liquidity < MIN_LIQUIDITY_USD
-            or volume < MIN_24H_VOLUME_USD
-            or buys + sells < MIN_1H_TRANSACTIONS):
+    liquidity = number(attrs.get("reserve_in_usd"))
+    volume = number((attrs.get("volume_usd") or {}).get("h24"))
+    h1 = (attrs.get("transactions") or {}).get("h1") or {}
+    buys = int(max(0, number(h1.get("buys"))))
+    sells = int(max(0, number(h1.get("sells"))))
+    trades = buys + sells
+    if (liquidity < MIN_LIQUIDITY_USD or volume < MIN_24H_VOLUME_USD
+            or trades < MIN_1H_TRANSACTIONS):
         return None
 
-    address = attributes.get("address") or (pool.get("id") or "").removeprefix(network + "_")
+    address = attrs.get("address") or (pool.get("id") or "").removeprefix(network + "_")
     if not address:
         return None
+    name = attrs.get("name") or "Unnamed pool"
+    buy_share = buys / trades if trades else 0
+    volume_liquidity = volume / liquidity if liquidity else 0
+
+    # Activity score (0-100). Deliberately excludes contract security.
+    score = 0
+    score += 25 if liquidity >= 250_000 else 15 if liquidity >= 100_000 else 8
+    score += 25 if volume >= 1_000_000 else 15 if volume >= 300_000 else 8
+    score += 20 if trades >= 200 else 12 if trades >= 100 else 6
+    score += 15 if 0.45 <= buy_share <= 0.70 else 8 if 0.35 <= buy_share <= 0.80 else 0
+    score += 15 if 0.5 <= volume_liquidity <= 10 else 7 if volume_liquidity <= 20 else 0
+    flags = []
+    if buy_share < 0.35:
+        flags.append("Sell-heavy trading in last hour")
+    if buy_share > 0.80:
+        flags.append("Buy-heavy trading; authenticity unverified")
+    if volume_liquidity > 20:
+        flags.append("Very high 24h volume relative to liquidity")
+    if age_hours < 1:
+        flags.append("Pool younger than one hour")
+
+    safe_address = urllib.parse.quote(address, safe="")
     return {
+        "key": f"{network}:{address}",
         "network": network,
         "address": address,
-        "name": attributes.get("name") or "Unnamed pool",
-        "age_hours": round(age_hours, 1),
-        "liquidity_usd": round(liquidity),
-        "volume_24h_usd": round(volume),
-        "buys_1h": buys,
-        "sells_1h": sells,
-        "url": f"https://www.geckoterminal.com/{network}/pools/{urllib.parse.quote(address, safe='')}",
+        "name": name,
+        "age_hours": age_hours,
+        "liquidity": liquidity,
+        "volume": volume,
+        "buys": buys,
+        "sells": sells,
+        "trades": trades,
+        "buy_share": buy_share,
+        "score": score,
+        "flags": flags,
+        "url": f"https://www.geckoterminal.com/{network}/pools/{safe_address}",
     }
 
 
@@ -101,50 +130,59 @@ def load_state():
         return set()
     try:
         data = json.loads(STATE_FILE.read_text(encoding="utf-8"))
-        return set(data) if isinstance(data, list) else set()
-    except (ValueError, OSError):
-        return set()
+        if isinstance(data, list):
+            return {str(item) for item in data}
+        if isinstance(data, dict):
+            # Backward compatible with earlier state file: {"base:address": ...}
+            return {str(key) for key in data}
+        raise ValueError("State file must contain a JSON object or array")
+    except (OSError, ValueError) as exc:
+        raise RuntimeError(f"Cannot safely load existing alert history: {exc}") from exc
 
 
 def save_state(seen):
-    STATE_FILE.write_text(json.dumps(sorted(seen), indent=2) + "\n", encoding="utf-8")
+    temp = STATE_FILE.with_suffix(".json.tmp")
+    temp.write_text(json.dumps(sorted(seen), indent=2) + "\n", encoding="utf-8")
+    temp.replace(STATE_FILE)
 
 
 def send_telegram(item):
-    token = os.environ.get("TELEGRAM_BOT_TOKEN")
-    chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
     if not token or not chat_id:
         raise RuntimeError("Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID")
+    flags = "; ".join(item["flags"]) if item["flags"] else "No additional activity flags triggered"
     message = (
-        "🔎 CRYPTO-ORACLE X100 — UNVERIFIED RESEARCH LEAD\n"
+        "🔎 CRYPTO-ORACLE X100 v3 — UNVERIFIED RESEARCH LEAD\n"
         f"Network: {item['network']}\n"
         f"Pool: {item['name']}\n"
-        f"Age: {item['age_hours']} hours\n"
-        f"Liquidity: ${item['liquidity_usd']:,}\n"
-        f"24h volume: ${item['volume_24h_usd']:,}\n"
-        f"1h transactions: {item['buys_1h'] + item['sells_1h']} "
-        f"({item['buys_1h']} buys / {item['sells_1h']} sells)\n"
+        f"Activity score: {item['score']}/100 (NOT a safety score)\n"
+        f"Age: {item['age_hours']:.1f} hours\n"
+        f"Liquidity: ${item['liquidity']:,.0f}\n"
+        f"24h volume: ${item['volume']:,.0f}\n"
+        f"1h transactions: {item['trades']} ({item['buys']} buys / {item['sells']} sells)\n"
+        f"1h buy share: {item['buy_share']:.0%}\n"
+        f"Activity flags: {flags}\n"
         f"Pool: {item['url']}\n\n"
-        "NOT A BUY SIGNAL. Contract safety, liquidity locks, ownership, "
-        "holder concentration and trading authenticity are NOT verified."
+        "NOT A BUY SIGNAL. Contract security, liquidity locks, holder concentration, "
+        "ownership and trading authenticity have NOT been verified."
     )
-    body = urllib.parse.urlencode({"chat_id": chat_id, "text": message}).encode()
+    data = urllib.parse.urlencode({"chat_id": chat_id, "text": message}).encode("utf-8")
     request = urllib.request.Request(
-        f"https://api.telegram.org/bot{token}/sendMessage",
-        data=body,
-        method="POST",
+        f"https://api.telegram.org/bot{token}/sendMessage", data=data, method="POST"
     )
     with urllib.request.urlopen(request, timeout=25) as response:
         result = json.load(response)
     if not result.get("ok"):
-        raise RuntimeError("Telegram rejected alert")
+        raise RuntimeError("Telegram API did not confirm delivery")
 
 
 def main():
     seen = load_state()
     candidates = []
-    errors = []
+    keys_in_run = set()
     warnings = []
+    errors = []
     total_checked = 0
     for network in NETWORKS:
         network_checked = 0
@@ -157,31 +195,37 @@ def main():
                 total_checked += len(pools)
                 for pool in pools:
                     item = inspect(pool, network)
-                    if item and f"{network}:{item['address']}" not in seen:
+                    if item and item["key"] not in keys_in_run:
                         candidates.append(item)
+                        keys_in_run.add(item["key"])
                 if not pools:
                     break
-            except (urllib.error.URLError, ValueError, KeyError, TimeoutError) as exc:
+            except (urllib.error.URLError, ValueError, KeyError, TimeoutError, OSError) as exc:
                 detail = f"{network} page {page}: {type(exc).__name__}: {exc}"
-                if isinstance(exc, urllib.error.HTTPError) and exc.code == 429 and total_checked > 0:
+                if (isinstance(exc, urllib.error.HTTPError) and exc.code == 429
+                        and total_checked > 0):
                     warnings.append(f"Incomplete scan after rate limiting: {detail}")
                 else:
                     errors.append(detail)
                 break
-            time.sleep(REQUEST_DELAY_SECONDS)  # Respect public API rate limits.
+            finally:
+                time.sleep(REQUEST_DELAY_SECONDS)
         print(f"{network}: checked {network_checked} pools", flush=True)
 
-    # Highest liquidity first; a discovery heuristic, not a safety score.
-    candidates.sort(key=lambda item: item["liquidity_usd"], reverse=True)
+    # A market-activity ranking, not a safety assessment.
+    candidates.sort(key=lambda item: (item["score"], item["liquidity"]), reverse=True)
     delivered = 0
-    for item in candidates[:MAX_ALERTS_PER_RUN]:
-        key = f"{item['network']}:{item['address']}"
+    for item in candidates:
+        if delivered >= MAX_ALERTS_PER_RUN:
+            break
+        if item["key"] in seen:
+            continue
         try:
             send_telegram(item)
-        except (urllib.error.URLError, ValueError, RuntimeError, TimeoutError) as exc:
-            errors.append(f"Telegram delivery failed for {key}: {type(exc).__name__}: {exc}")
+        except (urllib.error.URLError, ValueError, RuntimeError, TimeoutError, OSError) as exc:
+            errors.append(f"Telegram delivery failed for {item['key']}: {type(exc).__name__}: {exc}")
             continue
-        seen.add(key)
+        seen.add(item["key"])
         save_state(seen)
         delivered += 1
         time.sleep(1)
