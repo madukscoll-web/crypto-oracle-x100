@@ -23,7 +23,7 @@ SCAN_MODES = ("new_pools", "trending_pools")
 DATA_SOURCE = "GeckoTerminal public API"
 HEADERS = {
     "Accept": "application/json;version=20230302",
-    "User-Agent": "CRYPTO-ORACLE-Z/0.2",
+    "User-Agent": "CRYPTO-ORACLE-Z/0.3",
 }
 MIN_LIQUIDITY_USD = 50_000
 MIN_24H_VOLUME_USD = 100_000
@@ -173,12 +173,55 @@ def _risk_indicator(label, value, positive_is_risk=True):
     return f"{label}: {'FLAGGED' if risky else 'not flagged by provider'}"
 
 
+def risk_gate(info, holder_total=None, holder_count=0):
+    """Conservative, explainable triage; never a contract audit or buy signal.
+
+    Only explicit 0/1 provider values are interpreted. Missing values are unknown.
+    Top-holder percentages are descriptive only because LP/contract exclusions
+    and the completeness of the holder list are not established.
+    """
+    critical = {"is_honeypot": "Provider reports honeypot",
+                "owner_change_balance": "Owner can change balances",
+                "hidden_owner": "Hidden owner",
+                "is_blacklisted": "Blacklist functionality reported"}
+    concerning = {"is_open_source": ("0", "Source not reported open by provider"),
+                  "is_mintable": ("1", "Minting capability reported"),
+                  "trading_cooldown": ("1", "Trading cooldown reported")}
+    findings = []
+    severe = False
+    for field, description in critical.items():
+        if str(info.get(field)) == "1":
+            findings.append(f"{field}=1: {description}")
+            severe = True
+    for field, (bad, description) in concerning.items():
+        if str(info.get(field)) == bad:
+            findings.append(f"{field}={bad}: {description}")
+    if holder_total is not None and holder_count:
+        findings.append(f"holders[0:{holder_count}].percent sum={holder_total:.1%}; LP/exclusions unknown")
+    if severe:
+        return "AVOID / HIGH CONCERN", findings
+    if findings:
+        return "WAIT / VERIFY", findings
+    if not any(str(info.get(field)) in ("0", "1") for field in
+               ("is_honeypot", "owner_change_balance", "hidden_owner",
+                "is_blacklisted", "is_open_source", "is_mintable", "trading_cooldown")):
+        return "WAIT / VERIFY", ["No interpretable provider security flags returned"]
+    # Negative results are limited to returned fields; never imply an all-clear.
+    return "RESEARCH CANDIDATE — LIMITED CHECKS", ["No specified risk flags detected in returned fields; not proof of safety"]
+
+
+def risk_gate_unavailable(reason):
+    return "WAIT / VERIFY", [reason]
+
+
 def enrich(item):
     """Best-effort token identification; never suppress an alert on API failure."""
     item.update(token_address="UNVERIFIED", token_symbol="UNVERIFIED",
                 previous_pools="UNKNOWN", security_source="NOT CHECKED",
                 security_details="UNVERIFIED", holder_details="UNVERIFIED",
-                token_identity_status="UNVERIFIED")
+                token_identity_status="UNVERIFIED", risk_category="WAIT / VERIFY",
+                risk_reasons=["Token identity or security checks incomplete"],
+                security_fields="NOT AVAILABLE")
     network = item["network"]
     try:
         pool_url = f"{API}/networks/{urllib.parse.quote(network, safe='')}/pools/{urllib.parse.quote(item['address'], safe='')}?include=base_token,quote_token"
@@ -235,6 +278,11 @@ def enrich(item):
             item["security_source"] = "GoPlus: no matching token report returned"
             return item
         item["security_source"] = "GoPlus token_security API (provider data; not an audit)"
+        item["security_fields"] = "; ".join(
+            f"{field}={info.get(field)}" for field in
+            ("is_honeypot", "owner_change_balance", "hidden_owner",
+             "is_blacklisted", "is_open_source", "is_mintable", "trading_cooldown")
+            if str(info.get(field)) in ("0", "1")) or "No interpretable 0/1 fields"
         checks = [
             _risk_indicator("Honeypot", info.get("is_honeypot")),
             _risk_indicator("Trading cooldown", info.get("trading_cooldown")),
@@ -246,6 +294,8 @@ def enrich(item):
         ]
         checks = [check for check in checks if check]
         item["security_details"] = "; ".join(checks) if checks else "No interpretable provider flags"
+        holder_total = None
+        holder_count = 0
         holders = info.get("holders")
         if isinstance(holders, list) and holders:
             percentages = []
@@ -257,8 +307,11 @@ def enrich(item):
                 except (TypeError, ValueError):
                     pass
             if percentages:
+                holder_total = sum(percentages)
+                holder_count = len(percentages)
                 item["holder_details"] = (f"Provider's first {len(percentages)} listed holders: "
-                                          f"{sum(percentages):.1%} combined; exclusions/LP unknown")
+                                          f"{holder_total:.1%} combined; exclusions/LP unknown")
+        item["risk_category"], item["risk_reasons"] = risk_gate(info, holder_total, holder_count)
     except (urllib.error.URLError, ValueError, KeyError, TimeoutError, OSError) as exc:
         print(f"GoPlus security unavailable for {item['key']}: {type(exc).__name__}", flush=True)
         item["security_source"] = "GoPlus unavailable; NOT VERIFIED"
@@ -334,6 +387,9 @@ def send_telegram(item):
         f"Security: {item['contract_security']}; holders: {item['holder_concentration']}; "
         f"liquidity lock: {item['liquidity_lock']}\n"
         f"Provider security findings: {item['security_details']}\n"
+        f"RISK TRIAGE: {item['risk_category']}\n"
+        f"Risk evidence: {'; '.join(item['risk_reasons'])}\n"
+        f"Exact provider fields: {item['security_fields']}\n"
         f"Holder evidence: {item['holder_details']}\n"
         f"Security data source: {item['security_source']}\n"
         f"Research strategy: {strategy(item)}\n"
@@ -426,8 +482,10 @@ def main():
     delivered = 0
     delivered_new = 0
     delivered_existing = 0
+    risk_counts = {}
     for item in selected:
         enrich(item)
+        risk_counts[item["risk_category"]] = risk_counts.get(item["risk_category"], 0) + 1
         try:
             send_telegram(item)
         except (urllib.error.URLError, ValueError, RuntimeError, TimeoutError, OSError) as exc:
@@ -441,6 +499,7 @@ def main():
         else:
             delivered_existing += 1
         time.sleep(1)
+    print(f"Risk triage among selected: {risk_counts}", flush=True)
     print(f"Alerts delivered by category: NEW POOL={delivered_new}, "
           f"EXISTING POOL={delivered_existing}", flush=True)
 
