@@ -36,6 +36,7 @@ REQUEST_DELAY_SECONDS = 5
 RATE_LIMIT_RETRIES = 2
 RATE_LIMIT_WAIT_SECONDS = (12, 24)
 MAX_ALERTS_PER_RUN = max(1, min(20, int(os.environ.get("ORACLE_MAX_ALERTS", "10"))))
+NEW_POOL_TARGET_SHARE = 0.70  # Minimum priority allocation when enough new candidates qualify.
 STATE_FILE = pathlib.Path("reported_pools.json")
 
 
@@ -264,14 +265,40 @@ def main():
                     time.sleep(REQUEST_DELAY_SECONDS)
         print(f"{network}: checked {network_checked} pool observations", flush=True)
 
-    # A market-activity ranking, not a safety or investment assessment.
-    candidates.sort(key=lambda item: (item["score"], item["liquidity"]), reverse=True)
+    # Rank independently: older, high-liquidity pools cannot crowd out new pools.
+    # These are POOL classifications, not independently verified token ages.
+    new_candidates = sorted(
+        (item for item in candidates if item["pool_class"] == "NEW POOL"),
+        key=lambda item: (item["score"], item["liquidity"]), reverse=True,
+    )
+    existing_candidates = sorted(
+        (item for item in candidates if item["pool_class"] == "EXISTING POOL"),
+        key=lambda item: (item["score"], item["liquidity"]), reverse=True,
+    )
+    new_unseen = [item for item in new_candidates if item["key"] not in seen]
+    existing_unseen = [item for item in existing_candidates if item["key"] not in seen]
+    # ceil(70%) ensures at least seven new slots when the limit is ten.
+    new_reserved = (MAX_ALERTS_PER_RUN * 7 + 9) // 10
+    existing_reserved = MAX_ALERTS_PER_RUN - new_reserved
+    # Spare existing slots may go to new pools, but spare new slots do NOT go
+    # to existing pools: preserve the user's explicit new-pool priority.
+    selected_new = new_unseen[:new_reserved]
+    selected_existing = existing_unseen[:existing_reserved]
+    remaining = MAX_ALERTS_PER_RUN - len(selected_new) - len(selected_existing)
+    if remaining:
+        selected_new.extend(new_unseen[len(selected_new):len(selected_new) + remaining])
+    selected = selected_new + selected_existing
+    print(
+        f"Qualified candidates: NEW POOL={len(new_candidates)}, "
+        f"EXISTING POOL={len(existing_candidates)}; "
+        f"unreported: new={len(new_unseen)}, existing={len(existing_unseen)}; "
+        f"selected: new={len(selected_new)}, existing={len(selected_existing)}",
+        flush=True,
+    )
     delivered = 0
-    for item in candidates:
-        if delivered >= MAX_ALERTS_PER_RUN:
-            break
-        if item["key"] in seen:
-            continue
+    delivered_new = 0
+    delivered_existing = 0
+    for item in selected:
         try:
             send_telegram(item)
         except (urllib.error.URLError, ValueError, RuntimeError, TimeoutError, OSError) as exc:
@@ -280,7 +307,13 @@ def main():
         seen.add(item["key"])
         save_state(seen)
         delivered += 1
+        if item["pool_class"] == "NEW POOL":
+            delivered_new += 1
+        else:
+            delivered_existing += 1
         time.sleep(1)
+    print(f"Alerts delivered by category: NEW POOL={delivered_new}, "
+          f"EXISTING POOL={delivered_existing}", flush=True)
 
     print(f"Total pool observations checked: {total_checked}", flush=True)
     print(f"Candidates found: {len(candidates)}; alerts delivered: {delivered}", flush=True)
