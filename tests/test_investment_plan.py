@@ -1,5 +1,6 @@
 """Offline investment-plan guardrails for the authorized NGN 50,000 budget."""
 import unittest
+import datetime as dt
 from crypto_oracle_scanner import investment_plan
 
 
@@ -15,8 +16,14 @@ class InvestmentPlanTests(unittest.TestCase):
         self.assertIn("NGN 5,000", plan)
         self.assertIn("UNAVAILABLE", plan)
 
+    def test_stale_price_has_no_targets(self):
+        old = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=1)).isoformat()
+        plan = investment_plan({"base_token_price_usd": 2.0, "observed_at": old}, "BUY CANDIDATE — REVIEW ENTRY")
+        self.assertIn("UNAVAILABLE", plan)
+        self.assertNotIn("Take-profit 1:", plan)
+
     def test_price_targets(self):
-        plan = investment_plan({"base_token_price_usd": 2.0}, "BUY CANDIDATE — REVIEW ENTRY")
+        plan = investment_plan({"base_token_price_usd": 2.0, "observed_at": dt.datetime.now(dt.timezone.utc).isoformat()}, "BUY CANDIDATE — REVIEW ENTRY")
         self.assertIn("USD 2", plan)
         self.assertIn("USD 1.8", plan)
         self.assertIn("USD 2.4", plan)
