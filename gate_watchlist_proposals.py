@@ -12,6 +12,7 @@ import urllib.parse
 import urllib.request
 
 from gate_spot_research import research, finite_positive
+from gate_alert_state import read_state, eligible_alerts, mark_delivered, save_state
 from gate_entry_assessment import assess_entry, format_assessment
 
 MAX_POSITION_NGN = 50_000
@@ -126,9 +127,14 @@ def main():
             print(render_proposal(p))
         print("Telegram disabled by default; no orders possible.")
         return
-    for p in proposals[:3]:
+    state_path = os.environ.get("GATE_ALERT_STATE_PATH", "gate_alerts.json")
+    state = read_state(state_path)
+    chosen = eligible_alerts(proposals, state, max_alerts=3)
+    for p in chosen:
         send_telegram(render_proposal(p))
-    print("Research alerts delivered; no orders possible.")
+        mark_delivered(state, p["pair"])
+        save_state(state_path, state)
+    print(f"Research alerts delivered: {len(chosen)}; no orders possible.")
 
 
 if __name__ == "__main__":
