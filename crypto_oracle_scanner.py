@@ -123,6 +123,10 @@ def inspect(pool, network, mode="new_pools"):
         flags.append("Buy-heavy trading; authenticity unverified")
     if volume_liquidity > 20:
         flags.append("Very high 24h volume relative to liquidity")
+    if volume_liquidity > 10:
+        flags.append("Elevated volume/liquidity ratio: investigate wash trading")
+    if buys + sells > 0 and min(buys, sells) / (buys + sells) < 0.10:
+        flags.append("Strongly one-sided transaction flow: investigate manipulation")
     if age_hours < 1:
         flags.append("Pool younger than one hour")
 
@@ -419,6 +423,7 @@ def decision_summary(item):
             and item.get("slippage_verified") is True
             and validate_execution_evidence(item) is True
             and price_evidence(item)[0] is True
+            and not any("wash trading" in f or "manipulation" in f for f in item.get("flags", []))
             and item.get("score", 0) >= 70
             and item.get("liquidity", 0) >= 250_000
             and item.get("volume", 0) >= 300_000
@@ -445,6 +450,8 @@ def decision_summary(item):
             missing.append("fresh quote bound to exact network, token and pool")
         if not price_evidence(item)[0]:
             missing.append("fresh, valid pool price")
+        if any("wash trading" in f or "manipulation" in f for f in item.get("flags", [])):
+            missing.append("unresolved abnormal trading activity")
         if item.get("score", 0) < 70:
             missing.append("activity score below 70")
         if item.get("liquidity", 0) < 250_000:
