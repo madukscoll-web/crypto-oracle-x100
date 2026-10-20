@@ -183,7 +183,8 @@ def risk_gate(info, holder_total=None, holder_count=0):
     critical = {"is_honeypot": "Provider reports honeypot",
                 "owner_change_balance": "Owner can change balances",
                 "hidden_owner": "Hidden owner",
-                "is_blacklisted": "Blacklist functionality reported"}
+                "is_blacklisted": "Blacklist functionality reported",
+                "cannot_sell_all": "Provider reports token cannot be fully sold"}
     concerning = {"is_open_source": ("0", "Source not reported open by provider"),
                   "is_mintable": ("1", "Minting capability reported"),
                   "trading_cooldown": ("1", "Trading cooldown reported")}
@@ -205,8 +206,8 @@ def risk_gate(info, holder_total=None, holder_count=0):
     # Never promote a token based on only one negative provider flag.
     # All core checks must be explicitly present; unknown means WAIT.
     required = ("is_honeypot", "owner_change_balance", "hidden_owner",
-                "is_blacklisted", "is_open_source", "is_mintable",
-                "trading_cooldown")
+                "is_blacklisted", "cannot_sell_all", "is_open_source",
+                "is_mintable", "trading_cooldown")
     missing = [field for field in required
                if str(info.get(field)) not in ("0", "1")]
     if missing:
@@ -292,7 +293,8 @@ def enrich(item):
         item["security_fields"] = "; ".join(
             f"{field}={info.get(field)}" for field in
             ("is_honeypot", "owner_change_balance", "hidden_owner",
-             "is_blacklisted", "is_open_source", "is_mintable", "trading_cooldown")
+             "is_blacklisted", "cannot_sell_all", "is_open_source",
+             "is_mintable", "trading_cooldown")
             if str(info.get(field)) in ("0", "1")) or "No interpretable 0/1 fields"
         checks = [
             _risk_indicator("Honeypot", info.get("is_honeypot")),
@@ -301,6 +303,7 @@ def enrich(item):
             _risk_indicator("Hidden owner", info.get("hidden_owner")),
             _risk_indicator("Mintable", info.get("is_mintable")),
             _risk_indicator("Blacklist", info.get("is_blacklisted")),
+            _risk_indicator("Cannot sell all", info.get("cannot_sell_all")),
             _risk_indicator("Open source", info.get("is_open_source"), positive_is_risk=False),
         ]
         checks = [check for check in checks if check]
