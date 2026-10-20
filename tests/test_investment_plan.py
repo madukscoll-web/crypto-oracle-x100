@@ -9,7 +9,8 @@ class InvestmentPlanTests(unittest.TestCase):
 
     def test_missing_price(self):
         plan = investment_plan({}, "BUY CANDIDATE — REVIEW ENTRY")
-        self.assertIn("NGN 50,000", plan)
+        self.assertIn("Total speculative budget: NGN 200,000", plan)
+        self.assertIn("Maximum permitted candidate allocation: NGN 50,000", plan)
         self.assertIn("NGN 50,000", plan)
         self.assertIn("NGN 5,000", plan)
         self.assertIn("UNAVAILABLE", plan)
