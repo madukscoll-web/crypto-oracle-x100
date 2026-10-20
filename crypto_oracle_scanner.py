@@ -484,9 +484,21 @@ def validate_execution_evidence(item):
         return False
     if not evidence.get("provider") or not evidence.get("quote_id"):
         return False
+    # A caller-controlled 'verified' boolean is not independent evidence.
+    # Require traceable raw quote amounts, explicit quote direction, and
+    # an authenticated provider adapter before this can qualify for BUY.
     if evidence.get("verified") is not True:
         return False
+    if evidence.get("provider_authenticated") is not True:
+        return False
+    if evidence.get("direction") != "BUY":
+        return False
     import math
+    amount_in = number(evidence.get("amount_in"))
+    amount_out = number(evidence.get("amount_out"))
+    if (not math.isfinite(amount_in) or not math.isfinite(amount_out)
+            or amount_in <= 0 or amount_out <= 0):
+        return False
     slip = number(evidence.get("slippage_percent"))
     if not math.isfinite(slip) or slip < 0 or slip > 2:
         return False
