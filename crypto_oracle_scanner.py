@@ -369,12 +369,41 @@ def horizon_notes():
     )
 
 
+def decision_summary(item):
+    """Evidence-based action; never turn activity scores into buy advice."""
+    risk = item.get("risk_category", "WAIT / VERIFY")
+    reasons = item.get("risk_reasons") or []
+    if risk == "AVOID / HIGH CONCERN":
+        detail = reasons[0] if reasons else "Critical provider risk flag reported."
+        return "DISCARD", (
+            f"Critical security concern: {detail}. Do not treat high volume "
+            "or activity as a reason to override this warning."
+        )
+    if item.get("token_identity_status", "").startswith("UNVERIFIED"):
+        return "WAIT AND VERIFY", (
+            "Token identity could not be verified. Confirm the exact contract "
+            "and independently check sellability, holders, and liquidity lock."
+        )
+    if risk == "RESEARCH CANDIDATE — LIMITED CHECKS":
+        return "WAIT AND VERIFY", (
+            "No flagged issues in the available core provider fields, but "
+            "this is not a contract audit. Verify liquidity lock, holder "
+            "concentration, sellability, and tokenomics before considering entry."
+        )
+    detail = reasons[0] if reasons else "Security evidence is incomplete."
+    return "WAIT AND VERIFY", (
+        f"{detail}. Do not buy until independent contract, liquidity, "
+        "holder and sellability checks are satisfactory."
+    )
+
+
 def send_telegram(item):
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
     chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
     if not token or not chat_id:
         raise RuntimeError("Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID")
     flags = "; ".join(item["flags"]) if item["flags"] else "No additional activity flags triggered"
+    decision, summary = decision_summary(item)
     message = (
         "🔎 CRYPTO-ORACLE Z — UNVERIFIED RESEARCH LEAD\n"
         f"Network: {item['network']}\n"
@@ -407,7 +436,9 @@ def send_telegram(item):
         f"Retrieved UTC: {item['observed_at']}\n"
         f"Pool link: {item['url']}\n\n"
         "NOT A BUY SIGNAL. Provider flags are incomplete and not an audit. "
-        "Liquidity lock, sellability and price forecasts are NOT VERIFIED."
+        "Liquidity lock, sellability and price forecasts are NOT VERIFIED.\n\n"
+        f"FINAL DECISION: {decision}\n"
+        f"WHY: {summary}"
     )
     if len(message) > 4096:
         raise ValueError("Telegram message exceeds 4096 characters")
