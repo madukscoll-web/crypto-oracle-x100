@@ -30,6 +30,15 @@ class RiskGateTests(unittest.TestCase):
 
     def test_partial_negative_is_not_audit(self):
         label, reasons = risk_gate({"is_honeypot": "0"})
+        self.assertEqual(label, "WAIT / VERIFY")
+        self.assertIn("Missing or uninterpretable", reasons[0])
+
+    def test_complete_core_fields_can_be_limited_research(self):
+        info = {"is_honeypot": "0", "owner_change_balance": "0",
+                "hidden_owner": "0", "is_blacklisted": "0",
+                "is_open_source": "1", "is_mintable": "0",
+                "trading_cooldown": "0"}
+        label, reasons = risk_gate(info)
         self.assertEqual(label, "RESEARCH CANDIDATE — LIMITED CHECKS")
         self.assertIn("not proof of safety", reasons[0])
 
