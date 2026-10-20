@@ -143,6 +143,7 @@ def inspect(pool, network, mode="new_pools"):
         "liquidity_lock": "NOT VERIFIED",
         "return_probabilities": "UNAVAILABLE — no validated historical probability model",
         "liquidity": liquidity,
+        "base_token_price_usd": number(attrs.get("base_token_price_usd")),
         "volume": volume,
         "buys": buys,
         "sells": sells,
@@ -442,6 +443,36 @@ def decision_summary(item):
     )
 
 
+def investment_plan(item, decision):
+    """Illustrative plan only; no inferred live execution price or FX rate."""
+    if decision != "BUY CANDIDATE — REVIEW ENTRY":
+        return ""
+    budget = number(os.environ.get("ORACLE_PORTFOLIO_BUDGET_USD"))
+    price = number(item.get("base_token_price_usd"))
+    if budget <= 0:
+        allocation = ("Amount: NOT SET — configure ORACLE_PORTFOLIO_BUDGET_USD "
+                      "after deciding your total risk-capital budget.")
+    else:
+        # A conservative default cap, not personalized financial advice.
+        allocation = (f"Illustrative maximum position: ${budget * 0.01:,.2f} "
+                      f"(1% of configured ${budget:,.2f} USD risk-capital budget).")
+    if price <= 0:
+        levels = ("Entry/exit prices: UNAVAILABLE — no verified positive USD "
+                  "base-token price. Do not place an order from this alert.")
+    else:
+        levels = (
+            f"Observed pool base-token price: ${price:.10g} USD (indicative, not executable).\\n"
+            f"Illustrative entry ceiling: ${price:.10g} USD (recheck live quote/slippage).\\n"
+            f"Illustrative downside review: ${price * 0.90:.10g} USD (-10%).\\n"
+            f"Illustrative take-profit 1: ${price * 1.20:.10g} USD (+20%).\\n"
+            f"Illustrative take-profit 2: ${price * 1.50:.10g} USD (+50%)."
+        ).replace("\\\\n", "\\n")
+    return ("\\nINVESTMENT PLAN (ILLUSTRATIVE; NOT A TRADE ORDER)\\n"
+            + allocation + "\\n" + levels
+            + "\\nTargets are arithmetic scenarios, not predictions; "
+              "gaps, fees, taxes and slippage can cause larger losses.")
+
+
 def send_telegram(item):
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
     chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
@@ -484,6 +515,7 @@ def send_telegram(item):
         "no price forecast or guaranteed return is provided.\n\n"
         f"FINAL DECISION: {decision}\n"
         f"WHY: {summary}"
+        f"{investment_plan(item, decision)}"
     )
     if len(message) > 4096:
         raise ValueError("Telegram message exceeds 4096 characters")
