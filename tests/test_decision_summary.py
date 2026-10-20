@@ -76,6 +76,30 @@ class DecisionSummaryTests(unittest.TestCase):
             "token_address": "0xabc", "address": "0xpool",
             "execution_evidence": evidence}))
 
+    def test_manipulation_flag_blocks_buy(self):
+        from crypto_oracle_scanner import decision_summary
+        import datetime as dt
+        item = {
+            "risk_category": "RESEARCH CANDIDATE — LIMITED CHECKS",
+            "token_identity_status": "Base token from GeckoTerminal pool relationship",
+            "sellability_verified": True, "liquidity_lock_verified": True,
+            "holder_distribution_verified": True, "tokenomics_verified": True,
+            "entry_risk_reviewed": True, "executable_quote_verified": True,
+            "slippage_verified": True, "network": "base",
+            "token_address": "0xabc", "address": "0xpool",
+            "base_token_price_usd": 0.01,
+            "observed_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+            "execution_evidence": {"network": "base", "token_address": "0xabc",
+                "pool_address": "0xpool", "provider": "fixture", "quote_id": "test",
+                "verified": True, "provider_authenticated": True,
+                "direction": "BUY", "amount_in": 100, "amount_out": 1000,
+                "slippage_percent": 0.5,
+                "observed_at": dt.datetime.now(dt.timezone.utc).isoformat()},
+            "score": 90, "liquidity": 400000, "volume": 600000,
+            "buy_share": 0.55, "flags": ["Elevated volume/liquidity ratio: investigate wash trading"],
+        }
+        self.assertEqual(decision_summary(item)[0], "WAIT AND VERIFY")
+
     def test_high_activity_alone_is_not_buy(self):
         action, _ = decision_summary({
             "risk_category": "RESEARCH CANDIDATE — LIMITED CHECKS",
