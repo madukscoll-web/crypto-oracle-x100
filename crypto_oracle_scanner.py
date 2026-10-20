@@ -444,33 +444,34 @@ def decision_summary(item):
 
 
 def investment_plan(item, decision):
-    """Illustrative plan only; no inferred live execution price or FX rate."""
+    """Naira-denominated conservative plan; no assumed exchange rate."""
     if decision != "BUY CANDIDATE — REVIEW ENTRY":
         return ""
-    budget = number(os.environ.get("ORACLE_PORTFOLIO_BUDGET_USD"))
+    budget_ngn = 50_000  # User-authorized speculative strategy budget.
+    position_ngn = budget_ngn * 0.01  # Maximum 1% of the strategy budget.
+    max_planned_loss_ngn = position_ngn * 0.10
     price = number(item.get("base_token_price_usd"))
-    if budget <= 0:
-        allocation = ("Amount: NOT SET — configure ORACLE_PORTFOLIO_BUDGET_USD "
-                      "after deciding your total risk-capital budget.")
-    else:
-        # A conservative default cap, not personalized financial advice.
-        allocation = (f"Illustrative maximum position: ${budget * 0.01:,.2f} "
-                      f"(1% of configured ${budget:,.2f} USD risk-capital budget).")
+    lines = [
+        "",
+        "INVESTMENT PLAN (ILLUSTRATIVE; NOT A TRADE ORDER)",
+        f"Total speculative budget: NGN {budget_ngn:,.0f}",
+        f"Maximum suggested position: NGN {position_ngn:,.0f} (1% of budget)",
+        f"Planned 10% position loss: NGN {max_planned_loss_ngn:,.0f} before fees/slippage",
+        "USD order amount: UNAVAILABLE until a verified NGN/USD rate is supplied.",
+    ]
     if price <= 0:
-        levels = ("Entry/exit prices: UNAVAILABLE — no verified positive USD "
-                  "base-token price. Do not place an order from this alert.")
+        lines.append("Entry/exit prices: UNAVAILABLE — no positive observed USD token price.")
     else:
-        levels = (
-            f"Observed pool base-token price: ${price:.10g} USD (indicative, not executable).\\n"
-            f"Illustrative entry ceiling: ${price:.10g} USD (recheck live quote/slippage).\\n"
-            f"Illustrative downside review: ${price * 0.90:.10g} USD (-10%).\\n"
-            f"Illustrative take-profit 1: ${price * 1.20:.10g} USD (+20%).\\n"
-            f"Illustrative take-profit 2: ${price * 1.50:.10g} USD (+50%)."
-        ).replace("\\\\n", "\\n")
-    return ("\\nINVESTMENT PLAN (ILLUSTRATIVE; NOT A TRADE ORDER)\\n"
-            + allocation + "\\n" + levels
-            + "\\nTargets are arithmetic scenarios, not predictions; "
-              "gaps, fees, taxes and slippage can cause larger losses.")
+        lines.extend([
+            f"Observed pool token price: USD {price:.10g} (indicative only)",
+            f"Illustrative entry ceiling: USD {price:.10g} (verify live execution quote)",
+            f"Downside review: USD {price * 0.90:.10g} (-10%)",
+            f"Take-profit 1: USD {price * 1.20:.10g} (+20%)",
+            f"Take-profit 2: USD {price * 1.50:.10g} (+50%)",
+        ])
+    lines.append("Do not execute without verifying live price, fees, slippage and token risks. "
+                 "Stops may slip; actual loss can exceed the planned amount.")
+    return "\\n".join(lines)
 
 
 def send_telegram(item):
