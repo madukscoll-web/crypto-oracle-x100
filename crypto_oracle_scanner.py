@@ -229,7 +229,10 @@ def enrich(item):
                 security_details="UNVERIFIED", holder_details="UNVERIFIED",
                 token_identity_status="UNVERIFIED", risk_category="WAIT / VERIFY",
                 risk_reasons=["Token identity or security checks incomplete"],
-                security_fields="NOT AVAILABLE")
+                security_fields="NOT AVAILABLE",
+                sellability_verified=False, liquidity_lock_verified=False,
+                holder_distribution_verified=False, tokenomics_verified=False,
+                entry_risk_reviewed=False)
     network = item["network"]
     try:
         pool_url = f"{API}/networks/{urllib.parse.quote(network, safe='')}/pools/{urllib.parse.quote(item['address'], safe='')}?include=base_token,quote_token"
@@ -384,6 +387,26 @@ def decision_summary(item):
             "Token identity could not be verified. Confirm the exact contract "
             "and independently check sellability, holders, and liquidity lock."
         )
+    # A BUY CANDIDATE is permitted only after independent verification.
+    # These fields are not inferred from activity scores or missing API data.
+    if (risk == "RESEARCH CANDIDATE — LIMITED CHECKS"
+            and item.get("token_identity_status") ==
+                "Base token from GeckoTerminal pool relationship"
+            and item.get("sellability_verified") is True
+            and item.get("liquidity_lock_verified") is True
+            and item.get("holder_distribution_verified") is True
+            and item.get("tokenomics_verified") is True
+            and item.get("entry_risk_reviewed") is True
+            and item.get("score", 0) >= 70
+            and item.get("liquidity", 0) >= 250_000
+            and item.get("volume", 0) >= 300_000
+            and 0.45 <= item.get("buy_share", 0) <= 0.70):
+        return "BUY CANDIDATE — REVIEW ENTRY", (
+            "Market activity meets screening thresholds and independent "
+            "verification fields are explicitly confirmed. Review live price, "
+            "slippage, position sizing and exit plan before any order. "
+            "Not a guaranteed profit or automatic buy instruction."
+        )
     if risk == "RESEARCH CANDIDATE — LIMITED CHECKS":
         return "WAIT AND VERIFY", (
             "No flagged issues in the available core provider fields, but "
@@ -435,8 +458,8 @@ def send_telegram(item):
         f"Source: {item['source']}\n"
         f"Retrieved UTC: {item['observed_at']}\n"
         f"Pool link: {item['url']}\n\n"
-        "NOT A BUY SIGNAL. Provider flags are incomplete and not an audit. "
-        "Liquidity lock, sellability and price forecasts are NOT VERIFIED.\n\n"
+        "AUTOMATED SCREEN ONLY. Provider data are not an audit; "
+        "no price forecast or guaranteed return is provided.\n\n"
         f"FINAL DECISION: {decision}\n"
         f"WHY: {summary}"
     )
