@@ -202,12 +202,20 @@ def risk_gate(info, holder_total=None, holder_count=0):
         return "AVOID / HIGH CONCERN", findings
     if findings:
         return "WAIT / VERIFY", findings
-    if not any(str(info.get(field)) in ("0", "1") for field in
-               ("is_honeypot", "owner_change_balance", "hidden_owner",
-                "is_blacklisted", "is_open_source", "is_mintable", "trading_cooldown")):
-        return "WAIT / VERIFY", ["No interpretable provider security flags returned"]
-    # Negative results are limited to returned fields; never imply an all-clear.
-    return "RESEARCH CANDIDATE — LIMITED CHECKS", ["No specified risk flags detected in returned fields; not proof of safety"]
+    # Never promote a token based on only one negative provider flag.
+    # All core checks must be explicitly present; unknown means WAIT.
+    required = ("is_honeypot", "owner_change_balance", "hidden_owner",
+                "is_blacklisted", "is_open_source", "is_mintable",
+                "trading_cooldown")
+    missing = [field for field in required
+               if str(info.get(field)) not in ("0", "1")]
+    if missing:
+        return "WAIT / VERIFY", [
+            "Missing or uninterpretable provider security fields: "
+            + ", ".join(missing)]
+    # No flagged issues in the core provider fields is NOT proof of safety.
+    return "RESEARCH CANDIDATE — LIMITED CHECKS", [
+        "No specified risk flags detected in returned fields; not proof of safety"]
 
 
 def risk_gate_unavailable(reason):
