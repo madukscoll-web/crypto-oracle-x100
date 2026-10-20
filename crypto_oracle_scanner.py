@@ -235,7 +235,8 @@ def enrich(item):
                 security_fields="NOT AVAILABLE",
                 sellability_verified=False, liquidity_lock_verified=False,
                 holder_distribution_verified=False, tokenomics_verified=False,
-                entry_risk_reviewed=False)
+                entry_risk_reviewed=False, executable_quote_verified=False,
+                slippage_verified=False)
     network = item["network"]
     try:
         pool_url = f"{API}/networks/{urllib.parse.quote(network, safe='')}/pools/{urllib.parse.quote(item['address'], safe='')}?include=base_token,quote_token"
@@ -414,6 +415,9 @@ def decision_summary(item):
             and item.get("holder_distribution_verified") is True
             and item.get("tokenomics_verified") is True
             and item.get("entry_risk_reviewed") is True
+            and item.get("executable_quote_verified") is True
+            and item.get("slippage_verified") is True
+            and price_evidence(item)[0] is True
             and item.get("score", 0) >= 70
             and item.get("liquidity", 0) >= 250_000
             and item.get("volume", 0) >= 300_000
@@ -432,8 +436,12 @@ def decision_summary(item):
                 ("holder_distribution_verified", "holder distribution review"),
                 ("tokenomics_verified", "tokenomics and unlock review"),
                 ("entry_risk_reviewed", "entry price and downside plan"),
+                ("executable_quote_verified", "executable order quote"),
+                ("slippage_verified", "slippage verification"),
             ) if item.get(field) is not True
         ]
+        if not price_evidence(item)[0]:
+            missing.append("fresh, valid pool price")
         if item.get("score", 0) < 70:
             missing.append("activity score below 70")
         if item.get("liquidity", 0) < 250_000:
