@@ -447,18 +447,18 @@ def investment_plan(item, decision):
     """Naira-denominated conservative plan; no assumed exchange rate."""
     if decision != "BUY CANDIDATE — REVIEW ENTRY":
         return ""
-    budget_ngn = 50_000  # User-authorized speculative strategy budget.
-    position_ngn = budget_ngn  # User-requested upper limit; 100% concentration risk.
+    budget_ngn = 200_000  # User-confirmed total speculative strategy budget.
+    position_ngn = 50_000  # User-requested maximum per candidate (25% of total).
     max_planned_loss_ngn = position_ngn * 0.10
     price = number(item.get("base_token_price_usd"))
     lines = [
         "",
         "INVESTMENT PLAN (ILLUSTRATIVE; NOT A TRADE ORDER)",
         f"Total speculative budget: NGN {budget_ngn:,.0f}",
-        f"Maximum permitted candidate allocation: NGN {position_ngn:,.0f} (100% of budget; NOT a default recommendation)",
+        f"Maximum permitted candidate allocation: NGN {position_ngn:,.0f} (25% of budget; NOT a default recommendation)",
         f"Planned 10% position loss: NGN {max_planned_loss_ngn:,.0f} before fees/slippage",
         "USD order amount: UNAVAILABLE until a verified NGN/USD rate is supplied.",
-        "CONCENTRATION WARNING: allocating the full NGN 50,000 to one speculative token can lose the entire budget. Smaller allocations are safer.",
+        "CONCENTRATION WARNING: NGN 50,000 is 25% of the NGN 200,000 budget; a single token can lose its entire allocation. Smaller positions are safer.",
     ]
     if price <= 0:
         lines.append("Entry/exit prices: UNAVAILABLE — no positive observed USD token price.")
