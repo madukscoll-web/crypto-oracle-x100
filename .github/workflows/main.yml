@@ -15,7 +15,7 @@ concurrency:
 jobs:
   scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 12
     steps:
       - name: Download repository
         uses: actions/checkout@v4
@@ -39,6 +39,22 @@ jobs:
             git add reported_pools.json
             if ! git diff --cached --quiet; then
               git commit -m "Update reported pool IDs [skip ci]"
-              git push
+              # Another commit may arrive while the scanner runs.
+              # Rebase the state-only commit rather than force-pushing.
+              for attempt in 1 2 3; do
+                git fetch origin "$GITHUB_REF_NAME"
+                if ! git rebase "origin/$GITHUB_REF_NAME"; then
+                  git rebase --abort || true
+                  echo "State update conflicted; refusing to overwrite branch changes."
+                  exit 1
+                fi
+                if git push origin "HEAD:$GITHUB_REF_NAME"; then
+                  exit 0
+                fi
+                echo "Concurrent push detected; retrying ($attempt/3)."
+                sleep 2
+              done
+              echo "Could not save reported IDs after three attempts."
+              exit 1
             fi
           fi
