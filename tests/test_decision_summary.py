@@ -46,7 +46,8 @@ class DecisionSummaryTests(unittest.TestCase):
             "network": "base", "token_address": "0xabc", "address": "0xpool",
             "execution_evidence": {"network": "base", "token_address": "0xabc",
                 "pool_address": "0xpool", "provider": "fixture", "quote_id": "test",
-                "verified": True, "slippage_percent": 0.5,
+                "verified": True, "provider_authenticated": True, "direction": "BUY",
+                "amount_in": 100, "amount_out": 1000, "slippage_percent": 0.5,
                 "observed_at": dt.datetime.now(dt.timezone.utc).isoformat()},
             "score": 82, "liquidity": 300000, "volume": 500000,
             "buy_share": 0.58,
@@ -67,6 +68,8 @@ class DecisionSummaryTests(unittest.TestCase):
         evidence = {"network": "base", "token_address": "0xabc",
                     "pool_address": "0xother", "provider": "fixture",
                     "quote_id": "test", "verified": True,
+                    "provider_authenticated": True, "direction": "BUY",
+                    "amount_in": 100, "amount_out": 1000,
                     "slippage_percent": 0.5,
                     "observed_at": dt.datetime.now(dt.timezone.utc).isoformat()}
         self.assertFalse(validate_execution_evidence({"network": "base",
