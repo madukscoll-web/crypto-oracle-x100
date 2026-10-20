@@ -1,4 +1,4 @@
-"""Offline investment-plan guardrails for the authorized NGN 50,000 budget."""
+"""Offline investment-plan guardrails for NGN 200,000 budget and NGN 50,000 cap."""
 import unittest
 import datetime as dt
 from crypto_oracle_scanner import investment_plan
@@ -29,6 +29,7 @@ class InvestmentPlanTests(unittest.TestCase):
         self.assertIn("USD 2.4", plan)
         self.assertIn("USD 3", plan)
         self.assertIn("USD order amount: UNAVAILABLE", plan)
+        self.assertIn("Executable quote/slippage: NOT VERIFIED", plan)
 
 
 if __name__ == "__main__":
