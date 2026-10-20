@@ -444,6 +444,27 @@ def decision_summary(item):
     )
 
 
+def price_evidence(item):
+    """Require recent observation and a positive finite pool price."""
+    import math
+    price = number(item.get("base_token_price_usd"))
+    if not math.isfinite(price) or price <= 0:
+        return False, "Missing, invalid or nonpositive pool price"
+    observed = item.get("observed_at")
+    if not observed:
+        return False, "Missing price observation timestamp"
+    try:
+        stamp = dt.datetime.fromisoformat(str(observed).replace("Z", "+00:00"))
+        if stamp.tzinfo is None:
+            return False, "Price timestamp has no timezone"
+        age = (dt.datetime.now(dt.timezone.utc) - stamp).total_seconds()
+    except (TypeError, ValueError, OverflowError):
+        return False, "Invalid price observation timestamp"
+    if age < -60 or age > 300:
+        return False, "Pool price observation is stale or future-dated"
+    return True, "Recent GeckoTerminal pool observation (indicative, not executable)"
+
+
 def investment_plan(item, decision):
     """Naira-denominated conservative plan; no assumed exchange rate."""
     if decision != "BUY CANDIDATE — REVIEW ENTRY":
@@ -453,6 +474,7 @@ def investment_plan(item, decision):
     max_planned_loss_ngn = position_ngn * 0.10
     price = number(item.get("base_token_price_usd"))
     price_source = item.get("price_source", "UNVERIFIED")
+    price_ok, price_status = price_evidence(item)
     lines = [
         "",
         "INVESTMENT PLAN (ILLUSTRATIVE; NOT A TRADE ORDER)",
@@ -462,11 +484,11 @@ def investment_plan(item, decision):
         "USD order amount: UNAVAILABLE until a verified NGN/USD rate is supplied.",
         "CONCENTRATION WARNING: NGN 50,000 is 25% of the NGN 200,000 budget; a single token can lose its entire allocation. Smaller positions are safer.",
     ]
-    if price <= 0:
-        lines.append("Entry/exit prices: UNAVAILABLE — no positive observed USD token price.")
+    if not price_ok:
+        lines.append(f"Entry/exit prices: UNAVAILABLE — {price_status}. Refresh before trading.")
     else:
         lines.extend([
-            f"Price evidence: {price_source}",
+            f"Price evidence: {price_source}; {price_status}",
             f"Observed pool token price: USD {price:.10g} (indicative only)",
             f"Illustrative entry ceiling: USD {price:.10g} (verify live execution quote)",
             f"Downside review: USD {price * 0.90:.10g} (-10%)",
