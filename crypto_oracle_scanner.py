@@ -417,6 +417,7 @@ def decision_summary(item):
             and item.get("entry_risk_reviewed") is True
             and item.get("executable_quote_verified") is True
             and item.get("slippage_verified") is True
+            and validate_execution_evidence(item) is True
             and price_evidence(item)[0] is True
             and item.get("score", 0) >= 70
             and item.get("liquidity", 0) >= 250_000
@@ -440,6 +441,8 @@ def decision_summary(item):
                 ("slippage_verified", "slippage verification"),
             ) if item.get(field) is not True
         ]
+        if not validate_execution_evidence(item):
+            missing.append("fresh quote bound to exact network, token and pool")
         if not price_evidence(item)[0]:
             missing.append("fresh, valid pool price")
         if item.get("score", 0) < 70:
@@ -462,6 +465,39 @@ def decision_summary(item):
         f"{detail}. Do not buy until independent contract, liquidity, "
         "holder and sellability checks are satisfactory."
     )
+
+
+def validate_execution_evidence(item):
+    """Require bound, recent, documented execution evidence, not booleans alone.
+
+    A future provider integration must populate the fields independently.
+    Current scanner deliberately does not create them.
+    """
+    evidence = item.get("execution_evidence")
+    if not isinstance(evidence, dict):
+        return False
+    if evidence.get("network") != item.get("network"):
+        return False
+    if str(evidence.get("token_address", "")).lower() != str(item.get("token_address", "")).lower():
+        return False
+    if evidence.get("pool_address") != item.get("address"):
+        return False
+    if not evidence.get("provider") or not evidence.get("quote_id"):
+        return False
+    if evidence.get("verified") is not True:
+        return False
+    import math
+    slip = number(evidence.get("slippage_percent"))
+    if not math.isfinite(slip) or slip < 0 or slip > 2:
+        return False
+    try:
+        stamp = dt.datetime.fromisoformat(str(evidence["observed_at"]).replace("Z", "+00:00"))
+        if stamp.tzinfo is None:
+            return False
+        age = (dt.datetime.now(dt.timezone.utc) - stamp).total_seconds()
+    except (KeyError, TypeError, ValueError, OverflowError):
+        return False
+    return -60 <= age <= 120
 
 
 def price_evidence(item):
