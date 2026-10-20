@@ -16,6 +16,16 @@ class RiskGateTests(unittest.TestCase):
     def test_blacklist(self):
         self.assertEqual(risk_gate({"is_blacklisted": "1"})[0], "AVOID / HIGH CONCERN")
 
+    def test_cannot_sell_all_is_discard(self):
+        self.assertEqual(risk_gate({"cannot_sell_all": "1"})[0], "AVOID / HIGH CONCERN")
+
+    def test_unknown_sellability_blocks_research_label(self):
+        info = {"is_honeypot": "0", "owner_change_balance": "0",
+                "hidden_owner": "0", "is_blacklisted": "0",
+                "is_open_source": "1", "is_mintable": "0",
+                "trading_cooldown": "0"}
+        self.assertEqual(risk_gate(info)[0], "WAIT / VERIFY")
+
     def test_mintable(self):
         self.assertEqual(risk_gate({"is_mintable": "1"})[0], "WAIT / VERIFY")
 
@@ -36,6 +46,7 @@ class RiskGateTests(unittest.TestCase):
     def test_complete_core_fields_can_be_limited_research(self):
         info = {"is_honeypot": "0", "owner_change_balance": "0",
                 "hidden_owner": "0", "is_blacklisted": "0",
+                "cannot_sell_all": "0",
                 "is_open_source": "1", "is_mintable": "0",
                 "trading_cooldown": "0"}
         label, reasons = risk_gate(info)
