@@ -42,13 +42,13 @@ jobs:
               # Another commit may arrive while the scanner runs.
               # Rebase the state-only commit rather than force-pushing.
               for attempt in 1 2 3; do
-                git fetch origin crypto-oracle-z
-                if ! git rebase origin/crypto-oracle-z; then
+                git fetch origin "$GITHUB_REF_NAME"
+                if ! git rebase "origin/$GITHUB_REF_NAME"; then
                   git rebase --abort || true
                   echo "State update conflicted; refusing to overwrite branch changes."
                   exit 1
                 fi
-                if git push origin HEAD:crypto-oracle-z; then
+                if git push origin "HEAD:$GITHUB_REF_NAME"; then
                   exit 0
                 fi
                 echo "Concurrent push detected; retrying ($attempt/3)."
