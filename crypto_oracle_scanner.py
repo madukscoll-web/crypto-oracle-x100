@@ -144,6 +144,7 @@ def inspect(pool, network, mode="new_pools"):
         "return_probabilities": "UNAVAILABLE — no validated historical probability model",
         "liquidity": liquidity,
         "base_token_price_usd": number(attrs.get("base_token_price_usd")),
+        "price_source": "GeckoTerminal pool base_token_price_usd at discovery (not executable)",
         "volume": volume,
         "buys": buys,
         "sells": sells,
@@ -451,6 +452,7 @@ def investment_plan(item, decision):
     position_ngn = 50_000  # User-requested maximum per candidate (25% of total).
     max_planned_loss_ngn = position_ngn * 0.10
     price = number(item.get("base_token_price_usd"))
+    price_source = item.get("price_source", "UNVERIFIED")
     lines = [
         "",
         "INVESTMENT PLAN (ILLUSTRATIVE; NOT A TRADE ORDER)",
@@ -464,6 +466,7 @@ def investment_plan(item, decision):
         lines.append("Entry/exit prices: UNAVAILABLE — no positive observed USD token price.")
     else:
         lines.extend([
+            f"Price evidence: {price_source}",
             f"Observed pool token price: USD {price:.10g} (indicative only)",
             f"Illustrative entry ceiling: USD {price:.10g} (verify live execution quote)",
             f"Downside review: USD {price * 0.90:.10g} (-10%)",
