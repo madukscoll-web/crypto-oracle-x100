@@ -507,6 +507,7 @@ def investment_plan(item, decision):
             f"Take-profit 1: USD {price * 1.20:.10g} (+20%)",
             f"Take-profit 2: USD {price * 1.50:.10g} (+50%)",
         ])
+    lines.append("Executable quote/slippage: NOT VERIFIED. A pool quote is not a tradeable offer.")
     lines.append("Do not execute without verifying live price, fees, slippage and token risks. "
                  "Stops may slip; actual loss can exceed the planned amount.")
     return chr(10).join(lines)
