@@ -430,7 +430,7 @@ def decision_summary(item):
         if not 0.45 <= item.get("buy_share", 0) <= 0.70:
             missing.append("buy share outside 45–70% screening range")
         return "WAIT AND VERIFY", (
-            "Provider's core security flags have no detected concerns, "
+            "Provider's core security flags have no detected concerns; this is not a contract audit, "
             "but BUY CANDIDATE requirements remain unmet: "
             + ", ".join(missing[:5])
             + (f" (plus {len(missing)-5} more)" if len(missing) > 5 else "")
