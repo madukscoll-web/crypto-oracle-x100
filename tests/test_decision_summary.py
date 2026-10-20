@@ -43,6 +43,11 @@ class DecisionSummaryTests(unittest.TestCase):
             "slippage_verified": True,
             "base_token_price_usd": 0.01,
             "observed_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+            "network": "base", "token_address": "0xabc", "address": "0xpool",
+            "execution_evidence": {"network": "base", "token_address": "0xabc",
+                "pool_address": "0xpool", "provider": "fixture", "quote_id": "test",
+                "verified": True, "slippage_percent": 0.5,
+                "observed_at": dt.datetime.now(dt.timezone.utc).isoformat()},
             "score": 82, "liquidity": 300000, "volume": 500000,
             "buy_share": 0.58,
         }
@@ -51,10 +56,22 @@ class DecisionSummaryTests(unittest.TestCase):
         for key in ("sellability_verified", "liquidity_lock_verified",
                     "holder_distribution_verified", "tokenomics_verified",
                     "entry_risk_reviewed", "executable_quote_verified",
-                    "slippage_verified", "base_token_price_usd", "observed_at"):
+                    "slippage_verified", "base_token_price_usd", "observed_at",
+                    "execution_evidence"):
             missing = dict(item)
             missing.pop(key)
             self.assertEqual(decision_summary(missing)[0], "WAIT AND VERIFY")
+
+    def test_quote_for_wrong_pool_is_not_buy(self):
+        from crypto_oracle_scanner import validate_execution_evidence
+        evidence = {"network": "base", "token_address": "0xabc",
+                    "pool_address": "0xother", "provider": "fixture",
+                    "quote_id": "test", "verified": True,
+                    "slippage_percent": 0.5,
+                    "observed_at": dt.datetime.now(dt.timezone.utc).isoformat()}
+        self.assertFalse(validate_execution_evidence({"network": "base",
+            "token_address": "0xabc", "address": "0xpool",
+            "execution_evidence": evidence}))
 
     def test_high_activity_alone_is_not_buy(self):
         action, _ = decision_summary({
