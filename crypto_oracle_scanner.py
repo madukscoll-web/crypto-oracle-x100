@@ -471,7 +471,7 @@ def investment_plan(item, decision):
         ])
     lines.append("Do not execute without verifying live price, fees, slippage and token risks. "
                  "Stops may slip; actual loss can exceed the planned amount.")
-    return "\\n".join(lines)
+    return chr(10).join(lines)
 
 
 def send_telegram(item):
