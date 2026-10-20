@@ -411,10 +411,29 @@ def decision_summary(item):
             "Not a guaranteed profit or automatic buy instruction."
         )
     if risk == "RESEARCH CANDIDATE — LIMITED CHECKS":
+        missing = [
+            label for field, label in (
+                ("sellability_verified", "independent sellability test"),
+                ("liquidity_lock_verified", "liquidity-lock evidence"),
+                ("holder_distribution_verified", "holder distribution review"),
+                ("tokenomics_verified", "tokenomics and unlock review"),
+                ("entry_risk_reviewed", "entry price and downside plan"),
+            ) if item.get(field) is not True
+        ]
+        if item.get("score", 0) < 70:
+            missing.append("activity score below 70")
+        if item.get("liquidity", 0) < 250_000:
+            missing.append("liquidity below $250,000")
+        if item.get("volume", 0) < 300_000:
+            missing.append("24h volume below $300,000")
+        if not 0.45 <= item.get("buy_share", 0) <= 0.70:
+            missing.append("buy share outside 45–70% screening range")
         return "WAIT AND VERIFY", (
-            "No flagged issues in the available core provider fields, but "
-            "this is not a contract audit. Verify liquidity lock, holder "
-            "concentration, sellability, and tokenomics before considering entry."
+            "Provider's core security flags have no detected concerns, "
+            "but BUY CANDIDATE requirements remain unmet: "
+            + ", ".join(missing[:5])
+            + (f" (plus {len(missing)-5} more)" if len(missing) > 5 else "")
+            + ". These checks are not inferred from trading activity."
         )
     detail = reasons[0] if reasons else "Security evidence is incomplete."
     return "WAIT AND VERIFY", (
