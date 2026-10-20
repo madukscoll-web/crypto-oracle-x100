@@ -9,7 +9,7 @@
 ## Not yet implemented
 - Independent token contract/holder/tokenomics security verification for Gate assets.
 - Fresh authenticated executable order quote and fee-adjusted entry/exit risk model.
-- Durable watchlist state, Telegram delivery integration and alert deduplication.
+- Durable watchlist state, alert deduplication and live Telegram delivery testing. A read-only Telegram proposal renderer is implemented, but sending is opt-in and not scheduled.
 - Per-order Telegram approval bound to pair, side, amount, price ceiling and short expiry.
 - Secure Gate API credentials, signed private requests, paper-trading mode, order reconciliation and idempotency.
 - Daily loss cap, cumulative portfolio exposure tracking, emergency kill switch.
