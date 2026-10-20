@@ -240,6 +240,18 @@ def enrich(item):
     try:
         pool_url = f"{API}/networks/{urllib.parse.quote(network, safe='')}/pools/{urllib.parse.quote(item['address'], safe='')}?include=base_token,quote_token"
         payload = fetch_json(pool_url)
+        # Refresh the indicative pool price at enrichment time. An absent or
+        # malformed price must never inherit a potentially stale discovery quote.
+        refreshed_price = number(((payload.get("data") or {}).get("attributes") or {}).get("base_token_price_usd"))
+        import math
+        item["base_token_price_usd"] = (
+            refreshed_price if math.isfinite(refreshed_price) and refreshed_price > 0 else 0
+        )
+        item["observed_at"] = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
+        item["price_source"] = (
+            "GeckoTerminal pool base_token_price_usd refreshed during enrichment; indicative only"
+            if item["base_token_price_usd"] else "GeckoTerminal refresh did not return a valid price"
+        )
         address, symbol = _relationship_token(payload, "base_token")
         if not address:
             item["token_identity_status"] = "UNVERIFIED (base-token relationship unavailable)"
