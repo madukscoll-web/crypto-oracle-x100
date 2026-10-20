@@ -20,6 +20,6 @@ jobs:
         with:
           python-version: '3.11'
       - name: Compile scanner
-        run: python -m py_compile crypto_oracle_scanner.py gate_spot_research.py gate_watchlist_proposals.py
+        run: python -m py_compile crypto_oracle_scanner.py gate_spot_research.py gate_watchlist_proposals.py gate_entry_assessment.py
       - name: Run offline regression tests
         run: python -m unittest discover -s tests -v
