@@ -12,6 +12,7 @@ import urllib.parse
 import urllib.request
 
 from gate_spot_research import research, finite_positive
+from gate_entry_assessment import assess_entry, format_assessment
 
 MAX_POSITION_NGN = 50_000
 TOTAL_BUDGET_NGN = 200_000
@@ -93,7 +94,8 @@ def render_proposal(p):
         f"Snapshot expiry UTC: {p['expires_at']}\n"
         "FINAL DECISION: BUY WATCHLIST — RESEARCH ONLY\n"
         "No BUY CANDIDATE or executable order exists. Replying APPROVE does nothing.\n"
-        "No trade will be placed; further independent verification is required."
+        "No trade will be placed; further independent verification is required.\n"
+        + format_assessment(assess_entry(p, now=dt.datetime.fromisoformat(p["observed_at"])))
     )
 
 
