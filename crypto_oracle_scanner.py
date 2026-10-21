@@ -742,14 +742,29 @@ def main():
     if remaining:
         selected_new.extend(new_unseen[len(selected_new):len(selected_new) + remaining])
     selected = selected_new + selected_existing
-    # Recheck reported pools that still appear in discovery feeds.
-    # A separate watchlist endpoint is needed for complete monitoring.
-    revisits = sorted(
-        (item for item in candidates if item["key"] in seen and item["key"] in watchlist),
-        key=lambda item: (item["score"], item["liquidity"]), reverse=True
-    )[:12]
-    selected_keys = {item["key"] for item in selected}
-    selected.extend(item for item in revisits if item["key"] not in selected_keys)
+    # Fetch tracked pools directly, including those absent from discovery feeds.
+    # Bound requests to avoid exceeding the public API rate limit.
+    revisits = []
+    for key, record in list(watchlist.items())[:8]:
+        network = record.get("network")
+        address = record.get("pool_address")
+        if not network or not address or key in {x["key"] for x in selected}:
+            continue
+        try:
+            url = (f"{API}/networks/{urllib.parse.quote(network, safe='')}/pools/"
+                   f"{urllib.parse.quote(address, safe='')}")
+            payload = fetch_json(url)
+            pool = payload.get("data")
+            if not isinstance(pool, dict):
+                continue
+            item = inspect(pool, network, "tracked")
+            if item:
+                revisits.append(item)
+        except (urllib.error.URLError, ValueError, KeyError, TimeoutError, OSError) as exc:
+            warnings.append(f"Watchlist refresh failed for {key}: {type(exc).__name__}")
+        finally:
+            time.sleep(REQUEST_DELAY_SECONDS)
+    selected.extend(revisits)
     print(
         f"Qualified candidates: NEW POOL={len(new_candidates)}, "
         f"EXISTING POOL={len(existing_candidates)}; "
