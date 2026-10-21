@@ -29,6 +29,21 @@ class TrackerTests(unittest.TestCase):
         self.assertAlmostEqual(values[0]["change_percent"], 10)
         self.assertEqual(values[1]["status"], "PENDING")
 
+    def test_non_signal_not_recorded(self):
+        history = {}
+        lead = item("2026-10-01T12:00:00+00:00")
+        lead["entry_pattern"] = "WAIT"
+        self.assertFalse(tracker.record(history, lead))
+        self.assertEqual(history, {})
+
+    def test_token_identity_change_rejected(self):
+        history = {}
+        self.assertTrue(tracker.record(history, item("2026-10-01T12:00:00+00:00")))
+        changed = item("2026-10-02T12:00:00+00:00")
+        changed["token_address"] = "0xother"
+        self.assertFalse(tracker.record(history, changed))
+        self.assertEqual(len(history["base:pool"]), 1)
+
     def test_late_sample_not_mislabelled(self):
         history = {}
         tracker.record(history, item("2026-10-01T12:00:00+00:00", 0.1))
