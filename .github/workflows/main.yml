@@ -11,6 +11,16 @@ on:
         description: Include bounded live Ethereum, Base and BSC candidate assessment
         type: boolean
         default: false
+      scan_limit:
+        description: Maximum bounded candidate assessments
+        type: choice
+        options: ['3', '6', '12']
+        default: '3'
+      scan_pages:
+        description: Discovery pages per network and feed
+        type: choice
+        options: ['1', '2']
+        default: '1'
       send_telegram_test:
         description: Send one deployment diagnostic labelled NO BUY SIGNAL during validation
         type: boolean
@@ -28,7 +38,7 @@ concurrency:
 jobs:
   scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 35
     steps:
       - name: Download repository
         uses: actions/checkout@v4
@@ -67,7 +77,9 @@ jobs:
           ORACLE_TAKER_ADDRESS: ${{ vars.ORACLE_TAKER_ADDRESS }}
           ORACLE_FUNDING_TOKEN: ${{ vars.ORACLE_FUNDING_TOKEN }}
           ORACLE_ORDER_BASE_UNITS: ${{ vars.ORACLE_ORDER_BASE_UNITS }}
-        run: python live_candidate_scan.py --limit 3 --output live_candidate_scan.json
+          SCAN_LIMIT: ${{ inputs.scan_limit }}
+          SCAN_PAGES: ${{ inputs.scan_pages }}
+        run: python live_candidate_scan.py --limit "$SCAN_LIMIT" --pages "$SCAN_PAGES" --output live_candidate_scan.json
       - name: Run scanner
         if: github.event_name != 'workflow_dispatch' || !inputs.validation_only
         env:

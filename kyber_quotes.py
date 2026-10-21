@@ -10,6 +10,7 @@ import re
 import urllib.parse
 import urllib.request
 from onchain import address,ZERO
+from provider_session import CURRENT
 from execution_quotes import integer
 from gas_valuation import cost
 from verification import observation
@@ -18,6 +19,8 @@ CHAINS={'eth':'ethereum','base':'base','bsc':'bsc','arbitrum':'arbitrum','optimi
 
 
 def request(url,payload=None):
+    if CURRENT.get() is not None:
+        return CURRENT.get().json(url,payload,headers={'X-Client-Id':'crypto-oracle-x100'})
     data=json.dumps(payload).encode() if payload is not None else None
     req=urllib.request.Request(url,data=data,headers={'Accept':'application/json','Content-Type':'application/json',
         'User-Agent':'crypto-oracle-validation/1.0','X-Client-Id':'crypto-oracle-x100'})
@@ -55,6 +58,8 @@ def collect(item,env,transport=request,reference_order=None,native_price=None):
         amount=integer((reference_order or {}).get('amount_base_units') or env.get('ORACLE_ORDER_BASE_UNITS','0'))
         if funding==token or amount<=0:raise ValueError('Explicit distinct token pair and positive order required')
         taker=env.get('ORACLE_TAKER_ADDRESS','')
+        diagnostic_build=bool((reference_order or {}).get('build_calldata'))
+        if diagnostic_build:taker=address(reference_order['diagnostic_sender'])
         if taker and address(taker)==ZERO:raise ValueError('Zero address is not an executable taker')
         base='https://aggregator-api.kyberswap.com/'+chain+'/api/v1'
         for sell,buy in ((funding,token),(token,funding)):
@@ -69,16 +74,18 @@ def collect(item,env,transport=request,reference_order=None,native_price=None):
                 provider_timestamp=summary['timestamp'],expires_at=dt.datetime.fromtimestamp(integer(summary['timestamp'])+60,dt.timezone.utc).isoformat(),
                 reference_probe=reference_order is not None,exact_discovery_pool_used=item.get('address','').lower() in pools,
                 minimum_output_enforcement_verified=False,funded_execution_verified=False)
-            if taker and reference_order is None:
+            if taker and (reference_order is None or diagnostic_build):
                 payload=dict(routeSummary=summary,sender=address(taker),recipient=address(taker),slippageTolerance=100,
-                             deadline=integer(summary['timestamp'])+60,enableGasEstimation=True)
+                             deadline=integer(summary['timestamp'])+60,enableGasEstimation=not diagnostic_build)
                 built_raw=transport(base+'/route/build',payload);built=build(built_raw,summary)
                 minimum=integer(built['amountOut'])*99//100
                 if minimum<=0:raise ValueError('Built minimum output rounds to zero')
                 leg['metrics']['policy_minimum_output_base_units']=str(minimum)
                 leg['build_request']=payload;leg['build_response']=built_raw
                 leg['metrics']['encoded_transaction_available']=True
-                if native_price is not None:
+                leg['metrics']['rpc_gas_estimation_requested']=not diagnostic_build
+                leg['metrics']['sender_is_diagnostic_fixture']=diagnostic_build
+                if native_price is not None and item['network'] not in ('base','arbitrum','optimism'):
                     tx=dict(gas=built['gas'],gasPrice=summary['gasPrice'],value=built['transactionValue'])
                     leg['metrics']['gas']=cost(dict(transaction=tx),native_price,item['network'])
             elif native_price is not None and item['network'] not in ('base','arbitrum','optimism'):
@@ -87,6 +94,7 @@ def collect(item,env,transport=request,reference_order=None,native_price=None):
         if dt.datetime.now(dt.timezone.utc).timestamp()>integer(legs[0]['metrics']['provider_timestamp'])+60:
             raise ValueError('Two-way route expired during collection')
         return observation('kyber',base,legs,'LIMITED',
+            'Two-way diagnostic calldata built without gas simulation; no real taker/funding/execution claim' if diagnostic_build else
             'Two-way diagnostic route previews; no configured taker or funded execution proof' if reference_order is not None or not taker else
             'Two-way unsigned calldata built; balances, allowances, gas, min-output enforcement and sequential simulation remain mandatory')
     except (KeyError,ValueError,TypeError,AttributeError,OSError,OverflowError):

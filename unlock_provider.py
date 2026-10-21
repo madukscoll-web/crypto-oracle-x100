@@ -14,11 +14,14 @@ from decimal import Decimal
 from supply_evidence import nonnegative
 from token_unlocks import timestamp
 from verification import observation
+from provider_session import CURRENT
 
 BASE='https://api.tokenomist.ai'
 
 
 def request(url,key):
+    if CURRENT.get() is not None:
+        return CURRENT.get().json(url,headers={'x-api-key':key})
     req=urllib.request.Request(url,headers={'x-api-key':key,'User-Agent':'crypto-oracle-validation/1.0','Accept':'application/json'})
     with urllib.request.urlopen(req,timeout=20) as response:return json.load(response)
 

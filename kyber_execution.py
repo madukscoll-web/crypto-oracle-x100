@@ -14,7 +14,7 @@ from verification import observation
 
 def collect(item,quotes,taker,rpc=None,native_price=None):
     legs=quotes.get('raw')
-    if not taker or quotes.get('status')!='LIMITED' or not isinstance(legs,list) or len(legs)!=2 or any('build_response' not in x for x in legs):
+    if not taker or quotes.get('status')!='LIMITED' or not isinstance(legs,list) or len(legs)!=2 or any('build_response' not in x or x.get('metrics',{}).get('reference_probe') for x in legs):
         return observation('kyber_rpc','',None,'UNKNOWN','Configured public taker and two live encoded Kyber quotes required; route previews are not executable proof')
     try:
         taker=address(taker)

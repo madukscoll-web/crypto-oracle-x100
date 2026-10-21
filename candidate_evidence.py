@@ -6,6 +6,8 @@ import kyber_quotes
 import supply_evidence
 import unlock_provider
 import kyber_execution
+import quote_calldata
+import nft_custody
 import json
 import pathlib
 
@@ -18,8 +20,10 @@ def augment(item,report,fetch,env,native_price=None,reference_order=None):
     report['supply_comparison']=supply_evidence.collect(item,fetch)
     report['contract_source']=contract_sources.collect(item,fetch)
     report['escrow_discovery']=escrow_discovery.collect(item,info.get('lp_holders') or [],fetch)
+    report['nft_custody']=nft_custody.collect(item,info.get('lp_holders') or [])
     report['custody']=custody_verification.collect(item,info.get('holders') or [],fetch)
     report['kyber']=kyber_quotes.collect(item,env,reference_order=reference_order,native_price=native_price)
+    report['calldata_policy']=quote_calldata.collect(item,report['kyber'],fetch)
     report['kyber_execution']=kyber_execution.collect(item,report['kyber'],env.get('ORACLE_TAKER_ADDRESS',''),native_price=native_price)
     return report
 
@@ -36,12 +40,17 @@ def blockers(item):
         reasons.append('Exact source/bytecode verification unavailable: '+source.get('reason','Not checked')+suffix)
     reasons.append('Independent contract mint/upgrade/transfer authority audit is incomplete')
     lp=((report.get('onchain',{}).get('raw') or {}).get('results') or {}).get('lp',{})
-    metrics=lp.get('metrics') or {}
+    metrics=(report.get('pool_identity_followup',{}).get('metrics') if report.get('pool_identity_followup',{}).get('status')=='LIMITED' else None) or lp.get('metrics') or {}
     fraction=metrics.get('burned_lp_fraction')
     if fraction is None:
-        reasons.append('LP coverage unknown: '+lp.get('reason','No canonical supported-pool proof'))
+        if metrics.get('position_type')=='concentrated_nft':
+            reasons.append('Canonical concentrated-pool identity corroborated; complete position NFT custody and escrow coverage remain unverified')
+        else:
+            reasons.append('LP coverage unknown: '+lp.get('reason','No canonical supported-pool proof'))
     else:
         reasons.append(f'LP permanent-burn coverage observed {fraction:.6%}; complete corroborated escrow coverage/review unavailable')
+    if report.get('nft_custody',{}).get('status')=='CONFLICTING':
+        reasons.append('Position NFT provider/RPC owner evidence conflicts; complete custody remains unverified')
     reasons.append('Beneficial ownership and related-wallet concentration coverage are incomplete; signing addresses do not prove beneficial persons')
     if report.get('supply_comparison',{}).get('status')=='CONFLICTING':
         reasons.append('Supply evidence conflict: '+report['supply_comparison']['reason'])

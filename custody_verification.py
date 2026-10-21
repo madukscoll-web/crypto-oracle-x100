@@ -6,6 +6,10 @@ EOA keys, custodial clients, hidden agreements and related wallets remain unknow
 from onchain import Rpc,address,uint,word_address
 from verification import observation
 
+SERVICES={"eth":"https://safe-transaction-mainnet.safe.global",
+          "base":"https://safe-transaction-base.safe.global",
+          "bsc":"https://safe-transaction-bsc.safe.global"}
+
 
 def owners(value):
     if not isinstance(value,str) or not value.startswith('0x') or len(value)<130:
@@ -20,17 +24,29 @@ def owners(value):
 
 
 def collect(item,rows,fetch,rpc=None):
-    if item.get('network')!='eth':
+    if item.get('network') not in SERVICES:
         return observation('safe_custody','',None,'UNKNOWN','Reviewed Safe service mapping unavailable for this network')
     try:
-        rpc=rpc or Rpc('eth');block=rpc.snapshot();results=[];seen=set()
+        rpc=rpc or Rpc(item['network']);block=rpc.snapshot();results=[];seen=set()
+        token_authority=dict(status='UNKNOWN',reason='owner() interface unavailable; other roles/upgrade authority not inferred')
+        try:
+            owner=word_address(rpc.read(item['token_address'],'8da5cb5b'))
+            token_authority=dict(status='LIMITED',owner_address=owner,role='Ownable owner() at pinned block',
+                                 beneficial_identity_verified=False,complete_authority_audit=False)
+        except (KeyError,ValueError,TypeError,OSError):
+            pass
         for row in rows[:5]:
             owner=address(row['address'])
             if owner in seen:continue
             seen.add(owner)
             code=rpc.call('eth_getCode',[owner,block['number']])
             if code in ('0x','0x0'):continue
-            url='https://safe-transaction-mainnet.safe.global/api/v1/safes/'+owner+'/'
+            try:
+                query_address=rpc.checksum(owner)
+            except (KeyError,ValueError,TypeError,OSError):
+                results.append(dict(address=owner,status='UNKNOWN',reason='EIP-55 query checksum unavailable; Safe API not probed with invalid address'))
+                continue
+            url=SERVICES[item['network']]+'/api/v1/safes/'+query_address+'/'
             record=dict(address=owner,status='UNKNOWN')
             try:
                 raw=fetch(url)
@@ -45,7 +61,7 @@ def collect(item,rows,fetch,rpc=None):
                 record['reason']='Contract custody identity/authority unresolved'
             results.append(record)
         rpc.unchanged()
-        return observation('safe_custody',rpc.url,dict(block=block,records=results,calls=rpc.calls),'LIMITED',
+        return observation('safe_custody',rpc.url,dict(block=block,records=results,token_authority=token_authority,calls=rpc.calls),'LIMITED',
                            'Bounded signing-authority checks; beneficial ownership and complete related-wallet coverage remain unverified')
     except (KeyError,ValueError,TypeError,AttributeError,OSError,OverflowError):
         return observation('safe_custody','',None,'UNKNOWN','Custody corroboration unavailable; do not infer independent ownership')

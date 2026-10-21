@@ -12,6 +12,7 @@ import pathlib
 import execution_quotes
 import execution_checks
 import candidate_evidence
+from provider_session import Session
 import gas_valuation
 import onchain
 import telegram_validation
@@ -45,7 +46,9 @@ def main():
     parser.add_argument('--output',default='validation_runtime.json')
     parser.add_argument('--send-telegram-test',action='store_true')
     args=parser.parse_args()
-    report=validate(args.send_telegram_test)
+    with Session(max_requests=400,max_seconds=300) as session:
+        report=validate(args.send_telegram_test)
+        report["provider_session"]=session.summary()
     pathlib.Path(args.output).write_text(json.dumps(report,indent=2)+'\n')
     for key,value in report['evidence'].items():
         print(key,value['status'],value.get('reason',''))

@@ -2,12 +2,15 @@
 
 RPC API: https://ethereum.org/en/developers/docs/apis/json-rpc/
 Pair ABI: https://docs.uniswap.org/contracts/v2/reference/smart-contracts/pair
-Only canonical Ethereum Uniswap V2 is recognized initially. V3/V4 positions and
-unknown lockers cannot be treated as fungible locked LP tokens.
+Reviewed Ethereum/Base/BSC V2 deployments support fungible LP observations.
+Reviewed Base V3 identity is separate from NFT custody. V4 and unknown lockers
+cannot be treated as fungible locked LP tokens.
 """
 import datetime as dt
 import json
 import re
+import pathlib
+from provider_session import CURRENT
 import urllib.request
 from verification import observation
 
@@ -45,12 +48,14 @@ class Rpc:
         self.calls = []
 
     def _http(self, payload):
+        if CURRENT.get() is not None:
+            return CURRENT.get().json(self.url, payload)
         req = urllib.request.Request(self.url, data=json.dumps(payload).encode(), headers={'Content-Type': 'application/json', 'User-Agent': 'crypto-oracle-validation/1.0', 'Accept': 'application/json'})
         with urllib.request.urlopen(req, timeout=20) as response:
             return json.load(response)
 
     def call(self, method, params):
-        if method not in ('eth_chainId', 'eth_getBlockByNumber', 'eth_getCode', 'eth_call', 'eth_gasPrice', 'eth_getBalance', 'eth_simulateV1'):
+        if method not in ('eth_chainId', 'eth_getBlockByNumber', 'eth_getCode', 'eth_call', 'eth_gasPrice', 'eth_getBalance', 'eth_simulateV1', 'web3_sha3'):
             raise ValueError('RPC method is not read-only allowlisted')
         payload = dict(jsonrpc='2.0', id=len(self.calls) + 1, method=method, params=params)
         raw = self.transport(payload)
@@ -79,6 +84,13 @@ class Rpc:
     def balance(self, token, owner):
         return uint(self.read(token, '70a08231', address(owner)[2:].zfill(64)))
 
+    def checksum(self,value):
+        value=address(value)[2:]
+        digest=self.call('web3_sha3',['0x'+value.encode('ascii').hex()])
+        if not isinstance(digest,str) or not re.fullmatch('0x[0-9a-fA-F]{64}',digest):raise ValueError('Invalid checksum hash response')
+        hashed=digest[2:]
+        return '0x'+''.join(c.upper() if c in 'abcdef' and int(hashed[i],16)>=8 else c for i,c in enumerate(value))
+
     def unchanged(self):
         block = self.call('eth_getBlockByNumber', [self.block['number'], False])
         if block['hash'] != self.block['hash']:
@@ -87,8 +99,6 @@ class Rpc:
 
 def verify_pair(rpc, pair, token):
     pair, token = address(pair), address(token)
-    if rpc.chain != 1:
-        raise ValueError('No reviewed factory for this network')
     code = rpc.call('eth_getCode', [pair, rpc.block['number']])
     if code in ('0x', '0x0', None):
         raise ValueError('Pair has no contract code')
@@ -97,9 +107,11 @@ def verify_pair(rpc, pair, token):
     if token not in (token0, token1) or token0 == token1:
         raise ValueError('Pair token mismatch')
     factory = word_address(rpc.read(pair, 'c45a0155'))
-    if factory != FACTORY:
+    registry = json.loads(pathlib.Path(__file__).with_name('chain_factories.json').read_text())
+    family = registry['v2'].get(str(rpc.chain), {}).get(factory)
+    if family is None:
         raise ValueError('Unreviewed factory / unsupported position type')
-    canonical = word_address(rpc.read(FACTORY, 'e6a43905', token0[2:].zfill(64) + token1[2:].zfill(64)))
+    canonical = word_address(rpc.read(factory, 'e6a43905', token0[2:].zfill(64) + token1[2:].zfill(64)))
     if canonical != pair:
         raise ValueError('Factory does not recognize exact pair')
     supply = uint(rpc.read(pair, '18160ddd'))
@@ -114,12 +126,37 @@ def verify_pair(rpc, pair, token):
     reserves = [int(reserves[i:i+64], 16) for i in (2, 66)]
     if min(reserves) <= 0:
         raise ValueError('Empty reserves')
-    return dict(pair=pair, factory=factory, token0=token0, token1=token1,
+    return dict(pair=pair, factory=factory, token0=token0, token1=token1, protocol=family, position_type='fungible_v2_lp',
                 total_lp_base_units=str(supply), burned_lp_balances={k: str(v) for k, v in burned.items()},
                 burned_lp_fraction=sum(burned.values()) / supply,
                 reserves_base_units=[str(v) for v in reserves],
                 lock_coverage_complete=False,
                 limitation='Burn-address holdings observed; timelock custody, expiry and V3/V4 positions not verified')
+
+
+def verify_v3_pool(rpc,pair,token):
+    pair,token=address(pair),address(token)
+    registry=json.loads(pathlib.Path(__file__).with_name('chain_factories.json').read_text())
+    factory=word_address(rpc.read(pair,'c45a0155'))
+    family=registry['v3'].get(str(rpc.chain),{}).get(factory)
+    if family is None:raise ValueError('Unreviewed concentrated-liquidity factory')
+    token0=word_address(rpc.read(pair,'0dfe1681'));token1=word_address(rpc.read(pair,'d21220a7'))
+    if token not in (token0,token1) or token0==token1:raise ValueError('Pool token mismatch')
+    fee=uint(rpc.read(pair,'ddca3f43'))
+    if not 0<=fee<1000000:raise ValueError('Invalid fee tier')
+    spacing=None;pool_key=fee;selector='1698ee82'
+    if family=='AerodromeSlipstream':
+        spacing=uint(rpc.read(pair,'d0c93a7c'))
+        if not 0<spacing<2**23:raise ValueError('Invalid tick spacing')
+        pool_key=spacing;selector='28af8d0b'
+    args=token0[2:].zfill(64)+token1[2:].zfill(64)+format(pool_key,'064x')
+    if word_address(rpc.read(factory,selector,args))!=pair:raise ValueError('Factory getPool does not recognize exact pool')
+    liquidity=uint(rpc.read(pair,'1a686502'))
+    if liquidity<=0:raise ValueError('No active liquidity')
+    return dict(pair=pair,factory=factory,token0=token0,token1=token1,protocol=family,
+                fee_tier_pips=fee,tick_spacing=spacing,active_liquidity=str(liquidity),position_type='concentrated_nft',
+                lock_coverage_complete=False,
+                limitation='Exact V3 pool identity/active liquidity corroborated; position NFT owners, ranges and escrow restrictions unverified')
 
 
 def holder_concentration(rpc, token, provider_rows, pair=None):
@@ -163,7 +200,11 @@ def collect(item, provider_rows=(), rpc=None, lock_descriptors=()):
             lp['escrow_analysis'] = analyze(rpc, lp, list(lock_descriptors))
             results['lp'] = dict(status='LIMITED', reason=lp['limitation'], metrics=lp)
         except (KeyError, ValueError, TypeError, OSError):
-            results['lp'] = dict(status='UNKNOWN', reason='Unsupported pair/factory or unavailable LP proof')
+            try:
+                lp=verify_v3_pool(rpc,item['address'],item['token_address'])
+                results['lp']=dict(status='LIMITED',reason=lp['limitation'],metrics=lp)
+            except (KeyError,ValueError,TypeError,OSError):
+                results['lp'] = dict(status='UNKNOWN', reason='Unsupported pair/factory or unavailable LP proof')
         concentration = holder_concentration(rpc, item['token_address'], provider_rows)
         results['holders'] = dict(status='LIMITED', reason=concentration['limitation'], metrics=concentration)
         rpc.unchanged()

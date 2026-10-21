@@ -11,6 +11,7 @@ import urllib.parse
 import urllib.request
 from verification import observation
 from gas_valuation import cost
+from provider_session import CURRENT
 
 def integer(value):
     if isinstance(value, bool) or not re.fullmatch(r"0|[1-9][0-9]*", str(value)):
@@ -24,6 +25,8 @@ CHAINS = {'eth': 1, 'base': 8453, 'bsc': 56, 'arbitrum': 42161,
 
 
 def fetch(url, key):
+    if CURRENT.get() is not None:
+        return CURRENT.get().json(url,headers={'0x-api-key':key,'0x-version':'v2'})
     request = urllib.request.Request(url, headers={'0x-api-key': key, '0x-version': 'v2', 'Accept': 'application/json'})
     with urllib.request.urlopen(request, timeout=25) as response:
         return json.load(response)

@@ -23,6 +23,7 @@ import gas_valuation
 import token_unlocks
 import execution_checks
 import candidate_evidence
+from provider_session import CURRENT, Session
 
 API = "https://api.geckoterminal.com/api/v2"
 # Override with comma-separated GeckoTerminal network IDs using ORACLE_NETWORKS.
@@ -66,6 +67,8 @@ def number(value):
 
 
 def fetch_json(url):
+    if CURRENT.get() is not None:
+        return CURRENT.get().get(url)
     request = urllib.request.Request(url, headers=HEADERS)
     for attempt in range(RATE_LIMIT_RETRIES + 1):
         try:
@@ -246,8 +249,10 @@ def risk_gate_unavailable(reason):
     return "WAIT / VERIFY", [reason]
 
 
-def enrich(item):
+def enrich(item, fetch=None, delay=None):
     """Best-effort token identification; never suppress an alert on API failure."""
+    fetch = fetch or fetch_json
+    delay = ENRICHMENT_DELAY_SECONDS if delay is None else delay
     item.update(token_address="UNVERIFIED", token_symbol="UNVERIFIED",
                 previous_pools="UNKNOWN", security_source="NOT CHECKED",
                 security_details="UNVERIFIED", holder_details="UNVERIFIED",
@@ -261,7 +266,7 @@ def enrich(item):
     network = item["network"]
     try:
         pool_url = f"{API}/networks/{urllib.parse.quote(network, safe='')}/pools/{urllib.parse.quote(item['address'], safe='')}?include=base_token,quote_token"
-        payload = fetch_json(pool_url)
+        payload = fetch(pool_url)
         # Refresh the indicative pool price at enrichment time. An absent or
         # malformed price must never inherit a potentially stale discovery quote.
         refreshed_price = number(((payload.get("data") or {}).get("attributes") or {}).get("base_token_price_usd"))
@@ -285,13 +290,13 @@ def enrich(item):
         print(f"Enrichment identity unavailable for {item['key']}: {type(exc).__name__}", flush=True)
         return item
     finally:
-        time.sleep(ENRICHMENT_DELAY_SECONDS)
+        time.sleep(delay)
 
     # A first-page check can prove older pools exist, but cannot prove none exist.
     try:
         url = (f"{API}/networks/{urllib.parse.quote(network, safe='')}/tokens/"
                f"{urllib.parse.quote(address, safe='')}/pools?page=1")
-        response = fetch_json(url)
+        response = fetch(url)
         older = 0
         for pool in response.get("data") or []:
             created = (pool.get("attributes") or {}).get("pool_created_at")
@@ -310,7 +315,7 @@ def enrich(item):
     except (urllib.error.URLError, ValueError, KeyError, TimeoutError, OSError) as exc:
         print(f"Previous-pool check unavailable for {item['key']}: {type(exc).__name__}", flush=True)
     finally:
-        time.sleep(ENRICHMENT_DELAY_SECONDS)
+        time.sleep(delay)
 
     chain_id = SECURITY_CHAIN_IDS.get(network)
     if not chain_id or not address.lower().startswith("0x"):
@@ -319,7 +324,7 @@ def enrich(item):
     try:
         params = urllib.parse.urlencode({"contract_addresses": address})
         url = f"https://api.gopluslabs.io/api/v1/token_security/{chain_id}?{params}"
-        payload = fetch_json(url)
+        payload = fetch(url)
         result = payload.get("result") or {}
         info = result.get(address.lower()) or result.get(address) or {}
         if not isinstance(info, dict) or not info:
@@ -366,7 +371,7 @@ def enrich(item):
         print(f"GoPlus security unavailable for {item['key']}: {type(exc).__name__}", flush=True)
         item["security_source"] = "GoPlus unavailable; NOT VERIFIED"
     finally:
-        time.sleep(ENRICHMENT_DELAY_SECONDS)
+        time.sleep(delay)
     return item
 
 
@@ -429,6 +434,8 @@ def decision_summary(item):
             outcome, detail = verification.honeypot(raw, item["token_address"], chain, item["address"])
             if outcome == "FAIL" and detail == "Independent provider reports honeypot":
                 return "DISCARD", "Exact-chain/token/pool independent provider reports honeypot; other provider clearance cannot override this adverse evidence."
+    if item.get('discovery_eligible') is False:
+        return "WAIT AND VERIFY", "Original market discovery filters failed; verification-only observations cannot qualify for BUY."
     if item.get("token_identity_status", "").startswith("UNVERIFIED"):
         return "WAIT AND VERIFY", (
             "Token identity could not be verified. Confirm the exact contract "
@@ -937,4 +944,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    with Session(max_requests=2000,max_seconds=660):
+        main()

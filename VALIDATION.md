@@ -1,3 +1,17 @@
+# Current validation — expanded coverage
+
+All original tests remain passing; **133 tests pass locally**. Compilation, actionlint and whitespace checks pass. Automated trading remains disabled; no verified BUY signal was issued.
+
+The larger bounded scan discovered **180 observations / 179 unique pools**, assessed **12**, rejected **one**, and left **11 assessed unverified**. Fifteen additional discovery-qualified pools were not assessed. There are **178 unverified discovered pools** overall. Discovery-filter exclusions are not security rejections.
+
+Public evidence corroborated **six pool identities**, **eight unique NFT position owners**, **eight two-way diagnostic calldata builds** and **six source-bound encoded parameter pairs**. Complete LP escrow restrictions, beneficial ownership, unlock coverage and funded sequential execution remain unverified. No safety gate was relaxed.
+
+See [the consolidated candidate-by-candidate report](validation/larger-scan-2026-10-21.md) and [raw observations](validation/larger-scan-2026-10-21.json.gz), including exact accounting, provider failures, timestamps and account-state/credential boundaries. The earlier partial attempt is retained separately. Saved quotes are historical, expired observations.
+
+Telegram delivery remains personally confirmed by the user. Latest-commit GitHub Actions results will be linked on existing draft PR #4 after this code/report commit is pushed.
+
+## Earlier validation history (superseded scan and test counts)
+
 # Consolidated operational report — 21 October 2026
 
 Existing draft PR #4: `improve-independent-verification`. Automated trading, signing, approvals and broadcasting remain disabled. **No verified BUY signal was issued.** Mandatory gates have been preserved or strengthened.
