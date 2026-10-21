@@ -56,6 +56,14 @@ class ScannerTests(unittest.TestCase):
         item = sample(change_h1=None, change_h24=None, trades=180)
         self.assertEqual(oracle.entry_setup(item)[0], "INSUFFICIENT DATA")
 
+    def test_configurable_risk_plan(self):
+        with patch.dict(oracle.os.environ, {"ORACLE_BUDGET_NGN": "100000",
+                                           "ORACLE_RISK_FRACTION": "0.01",
+                                           "ORACLE_MAX_ALLOCATION_FRACTION": "0.05"}):
+            result = oracle.investment_plan(sample(), "BUY CANDIDATE — REVIEW ENTRY")
+        self.assertIn("NGN 5,000", result)
+        self.assertIn("NGN 1,000", result)
+
     def test_transition_only_when_priority_improves(self):
         state = {}
         item = sample(score=62)
