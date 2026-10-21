@@ -2,6 +2,15 @@ name: CRYPTO-ORACLE X100 Scanner
 
 on:
   workflow_dispatch:
+    inputs:
+      validation_only:
+        description: Run reference integration validation without discovery or state writes
+        type: boolean
+        default: false
+      send_telegram_test:
+        description: Send one deployment diagnostic labelled NO BUY SIGNAL during validation
+        type: boolean
+        default: false
   schedule:
     - cron: '7 * * * *'
 
@@ -27,9 +36,26 @@ jobs:
           python-version: '3.11'
       - name: Validate scanner and signal rules
         run: |
-          python -m compileall -q crypto_oracle_scanner.py signal_tracker.py evidence_audit.py market_corroboration.py valuation_scenarios.py verification.py execution_quotes.py tests
+          python -m compileall -q *.py tests
           python -m unittest discover -s tests -v
+      - name: Validate reference integrations
+        if: github.event_name == 'workflow_dispatch' && inputs.validation_only
+        env:
+          ZEROX_API_KEY: ${{ secrets.ZEROX_API_KEY }}
+          ORACLE_TAKER_ADDRESS: ${{ vars.ORACLE_TAKER_ADDRESS }}
+          ORACLE_FUNDING_TOKEN: ${{ vars.ORACLE_FUNDING_TOKEN }}
+          ORACLE_ORDER_BASE_UNITS: ${{ vars.ORACLE_ORDER_BASE_UNITS }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SEND_TELEGRAM_TEST: ${{ inputs.send_telegram_test }}
+        run: |
+          if [ "$SEND_TELEGRAM_TEST" = "true" ]; then
+            python integration_validation.py --send-telegram-test
+          else
+            python integration_validation.py
+          fi
       - name: Run scanner
+        if: github.event_name != 'workflow_dispatch' || !inputs.validation_only
         env:
           ZEROX_API_KEY: ${{ secrets.ZEROX_API_KEY }}
           ORACLE_TAKER_ADDRESS: ${{ vars.ORACLE_TAKER_ADDRESS }}
@@ -43,10 +69,12 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: verification-evidence
-          path: verification_report.json
+          path: |
+            verification_report.json
+            validation_runtime.json
           if-no-files-found: warn
       - name: Save scanner state
-        if: always()
+        if: always() && (github.event_name != 'workflow_dispatch' || !inputs.validation_only)
         run: |
           if [ -f reported_pools.json ] || [ -f watchlist_state.json ] || [ -f signal_history.json ]; then
             git config user.name "github-actions[bot]"

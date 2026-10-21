@@ -69,3 +69,11 @@ class VerificationTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+class PoolBindingTests(unittest.TestCase):
+    def test_independent_simulation_rejects_other_pool_or_chain(self):
+        raw=dict(token=dict(address=TOKEN),chain=dict(id='1'),pairAddress='0xpool',simulationSuccess=True,
+                 honeypotResult=dict(isHoneypot=False),simulationResult=dict(buyTax=0,sellTax=0,transferTax=0))
+        self.assertEqual(honeypot(raw,TOKEN,1,'0xpool')[0],'LIMITED')
+        self.assertEqual(honeypot(raw,TOKEN,56,'0xpool')[0],'UNKNOWN')
+        self.assertEqual(honeypot(raw,TOKEN,1,'0xother')[0],'UNKNOWN')

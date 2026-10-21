@@ -18,6 +18,10 @@ import evidence_audit
 import market_corroboration
 import verification
 import execution_quotes
+import onchain
+import gas_valuation
+import token_unlocks
+import execution_checks
 
 API = "https://api.geckoterminal.com/api/v2"
 # Override with comma-separated GeckoTerminal network IDs using ORACLE_NETWORKS.
@@ -743,6 +747,10 @@ def main():
     seen = load_state()
     watchlist = load_watchlist()
     history = signal_tracker.load()
+    registry = json.loads(pathlib.Path(__file__).with_name("evidence_registry.json").read_text())
+    if registry.get("version") != 1 or not isinstance(registry.get("tokens"), dict) or not isinstance(registry.get("lp_locks"), dict):
+        raise ValueError("Unsupported evidence registry schema")
+    native_prices = {}
     candidates = []
     keys_in_run = set()
     warnings = []
@@ -843,7 +851,20 @@ def main():
     for item in selected:
         enrich(item)
         item["verification"] = verification.collect(item, fetch_json)
-        item["verification"]["execution"] = execution_quotes.collect(item, os.environ)
+        report = item["verification"]
+        info = ((report.get("contract_security", {}).get("raw") or {}).get("result") or {}).get(item["token_address"].lower(), {})
+        lock_key = item["network"] + ":" + item["address"].lower()
+        report["onchain"] = onchain.collect(item, info.get("holders") or [], lock_descriptors=registry["lp_locks"].get(lock_key, []))
+        report["unlocks"] = token_unlocks.collect(item, registry)
+        if item["network"] not in native_prices:
+            native_prices[item["network"]] = gas_valuation.collect(item["network"], fetch_json)
+        report["gas_valuation"] = native_prices[item["network"]]
+        # Reuse only fresh native prices; never carry a stale run-level cache.
+        if (dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(report["gas_valuation"]["observed_at"])).total_seconds() > 120:
+            report["gas_valuation"] = gas_valuation.collect(item["network"], fetch_json)
+        native_price = report["gas_valuation"].get("metrics", {}).get("native_usd")
+        report["execution"] = execution_quotes.collect(item, os.environ, native_price=native_price)
+        report["execution_checks"] = execution_checks.collect(item, report["execution"], os.environ.get("ORACLE_TAKER_ADDRESS", ""))
         item["market_corroboration"] = market_corroboration.check(item, fetch_json)
         verification_reports[item["key"]] = item["verification"]
         risk_counts[item["risk_category"]] = risk_counts.get(item["risk_category"], 0) + 1

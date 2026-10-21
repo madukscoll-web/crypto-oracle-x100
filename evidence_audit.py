@@ -50,7 +50,7 @@ def audit(item):
         "unknown": unknown,
         "research_status": "REJECT" if failures else "INVESTIGATE",
         "trade_ready": False,
-        "reason": "Independent sellability, liquidity, holder, tokenomics and executable quotes not integrated",
+        "reason": "Mandatory independent evidence is incomplete; limited observations and disclosures cannot authorize a verified BUY",
     }
 
 

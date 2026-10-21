@@ -79,11 +79,16 @@ def tokenomics(info):
     return 'UNKNOWN', f'Total supply {supply:g}; circulating supply, vesting and future unlocks unverified'
 
 
-def honeypot(raw, token):
+def honeypot(raw, token, chain=None, pair=None):
     # Verify returned identity, successful simulation, explicit result and taxes.
     try:
         if raw['token']['address'].lower() != token.lower():
             return 'UNKNOWN', 'Simulation token identity mismatch'
+        if chain is not None and str(raw.get('chain', {}).get('id')) != str(chain):
+            return 'UNKNOWN', 'Independent simulation chain identity mismatch'
+        returned_pair = raw.get('pairAddress') or raw.get('pair', {}).get('pair', {}).get('address')
+        if pair is not None and str(returned_pair).lower() != pair.lower():
+            return 'UNKNOWN', 'Independent simulation used a different or unverified pool'
         if raw['honeypotResult']['isHoneypot'] is True:
             return 'FAIL', 'Independent provider reports honeypot'
         if raw['simulationSuccess'] is not True or raw['honeypotResult']['isHoneypot'] is not False:
@@ -92,7 +97,7 @@ def honeypot(raw, token):
         taxes = [finite(sim[k]) for k in ('buyTax', 'sellTax', 'transferTax')]
         if any(x < 0 or x > 5 for x in taxes):
             return 'FAIL', 'Tax exceeds 5% policy limit or is invalid'
-        if raw.get('flags'):
+        if raw.get('flags') or raw.get('summary', {}).get('flags'):
             return 'UNKNOWN', 'Provider flags require review'
         return 'LIMITED', 'Independent buy/sell simulation succeeded; size-specific quotes still required'
     except (KeyError, TypeError, ValueError, AttributeError):
@@ -148,7 +153,7 @@ def collect(item, fetch):
         return {'integration': observation('policy', '', None, 'UNKNOWN', 'Independent simulator unsupported on network')}
     endpoints = {
         'goplus': f'https://api.gopluslabs.io/api/v1/token_security/{chain}?contract_addresses={token}',
-        'honeypot': 'https://api.honeypot.is/v2/IsHoneypot?' + urllib.parse.urlencode({'address': token, 'chainID': chain}),
+        'honeypot': 'https://api.honeypot.is/v2/IsHoneypot?' + urllib.parse.urlencode({'address': token, 'chainID': chain, 'pair': item['address']}),
         'ohlcv': 'https://api.geckoterminal.com/api/v2/networks/' + urllib.parse.quote(network, safe='') + '/pools/' + urllib.parse.quote(item['address'], safe='') + '/ohlcv/minute?aggregate=5&limit=30&currency=usd&token=base',
     }
     for source, url in endpoints.items():
@@ -164,7 +169,7 @@ def collect(item, fetch):
                     status, reason = analyze(info)
                     report[key] = observation(source, url, raw, status, reason)
             elif source == 'honeypot':
-                report['sellability'] = observation(source, url, raw, *honeypot(raw, token))
+                report['sellability'] = observation(source, url, raw, *honeypot(raw, token, chain, item['address']))
             else:
                 analysis = historical_entry(raw)
                 report['entry'] = observation(source, url, raw, analysis['status'], analysis['reason'])
