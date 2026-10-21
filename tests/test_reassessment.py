@@ -24,6 +24,14 @@ class ReassessmentTests(unittest.TestCase):
         self.assertEqual(item['unresolved_prior_adverse_evidence'][0]['evidence']['observed_at'],'2026-10-21T00:00:00+00:00')
         self.assertIn('Unresolved prior sellability',item['mandatory_blockers'][0])
 
+    def test_position_count_is_distinct_from_owner_address_count(self):
+        from live_candidate_scan import coverage
+        rows=[{'status':'LIMITED','metrics':{'position_manager':'manager','token_id':str(i),'owner':'same-owner'}} for i in (1,2)]
+        item={'network':'base','verification':{'nft_custody':{'raw':{'records':rows}}}}
+        result=coverage([item,item])
+        self.assertEqual(result['unique_nft_positions_with_owner_corroboration'],2)
+        self.assertEqual(result['unique_nft_owner_addresses_corroborated'],1)
+
     def test_current_rejection_is_preserved_with_prior_conflict(self):
         item={'decision':'DISCARD','decision_reason':'Current honeypot','mandatory_blockers':[],'verification':{}}
         previous={'decision':'WAIT AND VERIFY','verification':{'supply_comparison':{'status':'CONFLICTING'}}}

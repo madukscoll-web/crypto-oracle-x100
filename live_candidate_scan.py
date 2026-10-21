@@ -91,7 +91,7 @@ def coverage(candidates):
                 holder_balance_observations=0,ownable_owner_returned=0,source_runtime_matches=0,
                 independent_sellability_results=0,two_way_calldata_built=0,encoded_parameter_pairs_matched=0,
                 funded_sequential_execution_verified=0)
-    safe=set();nfts=set();nft_conflicts=0
+    safe=set();nfts=set();nft_owners=set();nft_conflicts=0
     for item in candidates:
         r=item['verification'];chain=(r.get('onchain',{}).get('raw') or {}).get('results') or {}
         lp=(r.get('pool_identity_followup',{}).get('metrics') if r.get('pool_identity_followup',{}).get('status')=='LIMITED' else None) or (chain.get('lp') or {}).get('metrics') or {}
@@ -106,7 +106,9 @@ def coverage(candidates):
         if r.get('contract_source',{}).get('metrics',{}).get('runtime_source_match'):result['source_runtime_matches']+=1
         if r.get('sellability',{}).get('status') in ('LIMITED','FAIL'):result['independent_sellability_results']+=1
         for record in (r.get('nft_custody',{}).get('raw') or {}).get('records') or []:
-            if record.get('status')=='LIMITED':nfts.add((item['network'],record['metrics']['position_manager'],record['metrics']['token_id']))
+            if record.get('status')=='LIMITED':
+                nfts.add((item['network'],record['metrics']['position_manager'],record['metrics']['token_id']))
+                nft_owners.add((item['network'],record['metrics']['owner']))
             if record.get('status')=='CONFLICTING':nft_conflicts+=1
         quotes=r.get('kyber',{});legs=quotes.get('raw') or []
         if quotes.get('status')=='LIMITED' and len(legs)==2 and all(x.get('build_response') for x in legs):result['two_way_calldata_built']+=1
@@ -116,7 +118,10 @@ def coverage(candidates):
             if ((r.get(name,{}).get('raw') or {}).get('sequential') or {}).get('sequential_simulation_succeeded'):
                 result['funded_sequential_execution_verified']+=1;break
     result['unique_safe_signer_sets_corroborated']=len(safe)
+    # Historical key counts position-owner relationships, not distinct addresses.
     result['unique_nft_position_owners_corroborated']=len(nfts)
+    result['unique_nft_positions_with_owner_corroboration']=len(nfts)
+    result['unique_nft_owner_addresses_corroborated']=len(nft_owners)
     result['nft_position_owner_disagreements']=nft_conflicts
     return result
 

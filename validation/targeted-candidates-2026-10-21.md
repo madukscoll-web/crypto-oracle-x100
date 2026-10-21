@@ -25,10 +25,11 @@ On the original saved universe of 179 unique pools (180 observations), this comp
 | encoded parameter pairs matched | 23 |
 | funded sequential execution verified | 0 |
 | unique safe signer sets corroborated | 9 |
-| unique nft position owners corroborated | 17 |
+| distinct NFT positions with corroborated ownerOf | 17 |
+| distinct chain/owner addresses for those positions | 7 |
 | nft position owner disagreements | 0 |
 
-Six additional Aerodrome V2 pool identities were corroborated using the documented factory, stable/volatile boolean key, and exact minimal-proxy implementation binding. They remain subject to adverse simulator reports; identity does not clear sellability. Nine distinct Safe signer sets and seventeen NFT position owners are scoped signing/custody facts, not beneficial identity or complete position inventories.
+Six additional Aerodrome V2 pool identities were corroborated using the documented factory, stable/volatile boolean key, and exact minimal-proxy implementation binding. They remain subject to adverse simulator reports; identity does not clear sellability. Nine distinct Safe signer sets and seventeen NFT custody records across seven distinct owner addresses are scoped signing/custody facts, not beneficial identity or complete position inventories.
 
 Public Coinbase issuer data and independent pinned RPC agree on AAPLc current supply (7570.95493938 tokens, 8 decimals) and MSTRc current supply (10333.02900487 tokens, 8 decimals). Both observed share multipliers were 1. These are timestamped supply observations, not live prices, unlock guarantees or reserve attestations.
 
@@ -706,7 +707,7 @@ Access: 1769 attempted requests in the main targeted session, with HTTP-error co
 
 ## Validation and reproduction
 
-All original tests preserved; **146 tests pass locally**. Compilation, actionlint and diff checks pass. Added regressions preserve the saved backlog despite changing filters, retain unresolved adverse observations, bind Aerodrome bool-key/clone identity, validate issuer pagination/missing supply and reject supply rounding conflicts.
+All original tests preserved; **147 tests pass locally**. Compilation, actionlint and diff checks pass. Added regressions preserve the saved backlog despite changing filters, retain unresolved adverse observations, bind Aerodrome bool-key/clone identity, validate issuer pagination/missing supply and reject supply rounding conflicts.
 
 ```sh
 python -m unittest discover -s tests -v
