@@ -38,3 +38,11 @@ python live_candidate_scan.py --networks eth,base,bsc --pages 2 --limit 12 --out
 ```
 
 Discovery and verification-only cohorts are reported separately; verification-only candidates cannot issue BUY. Public diagnostic builds use a reserved reference sender and do not establish funded execution. Reviewed factory mappings, bounded NFT custody, source-bound calldata decoding and provider circuit breakers extend coverage without passing incomplete escrow, beneficial ownership or supply evidence. See [current results](VALIDATION.md).
+
+Review the saved qualified backlog before adding discovery:
+
+```sh
+python reassess_candidates.py --input validation/larger-scan-2026-10-21.json.gz --output work/reassessment.json.gz
+```
+
+This read-only review retains prior adverse evidence and inaccessible-host exclusions, assesses the saved qualified backlog first, and does not send notifications or write scanner state. [Latest candidate decisions](validation/targeted-candidates-2026-10-21.md) distinguish public observations, incomplete independent reconstruction, credentials and account-state prerequisites.

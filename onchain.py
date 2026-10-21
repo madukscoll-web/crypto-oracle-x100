@@ -111,7 +111,20 @@ def verify_pair(rpc, pair, token):
     family = registry['v2'].get(str(rpc.chain), {}).get(factory)
     if family is None:
         raise ValueError('Unreviewed factory / unsupported position type')
-    canonical = word_address(rpc.read(factory, 'e6a43905', token0[2:].zfill(64) + token1[2:].zfill(64)))
+    stable = None
+    arguments = token0[2:].zfill(64) + token1[2:].zfill(64)
+    if family == 'AerodromeV2':
+        stable_value = uint(rpc.read(pair, '22be3de1'))
+        if stable_value not in (0, 1):
+            raise ValueError('Invalid stable-pool flag')
+        stable = bool(stable_value)
+        implementation = word_address(rpc.read(factory, '5c60da1b'))
+        expected_clone = '0x363d3d373d3d3d363d73' + implementation[2:] + '5af43d82803e903d91602b57fd5bf3'
+        if code.lower() != expected_clone:
+            raise ValueError('Aerodrome pool clone does not match factory implementation')
+        canonical = word_address(rpc.read(factory, '79bc57d5', arguments + format(stable_value, '064x')))
+    else:
+        canonical = word_address(rpc.read(factory, 'e6a43905', arguments))
     if canonical != pair:
         raise ValueError('Factory does not recognize exact pair')
     supply = uint(rpc.read(pair, '18160ddd'))
@@ -127,7 +140,7 @@ def verify_pair(rpc, pair, token):
     if min(reserves) <= 0:
         raise ValueError('Empty reserves')
     return dict(pair=pair, factory=factory, token0=token0, token1=token1, protocol=family, position_type='fungible_v2_lp',
-                total_lp_base_units=str(supply), burned_lp_balances={k: str(v) for k, v in burned.items()},
+                stable_pool=stable, total_lp_base_units=str(supply), burned_lp_balances={k: str(v) for k, v in burned.items()},
                 burned_lp_fraction=sum(burned.values()) / supply,
                 reserves_base_units=[str(v) for v in reserves],
                 lock_coverage_complete=False,

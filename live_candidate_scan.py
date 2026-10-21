@@ -131,6 +131,50 @@ def write_report(path,result):
     temporary.replace(target)
 
 
+def assess_candidate(item,fetch,registry,native=None):
+    """Collect mandatory evidence for one known pool without new discovery."""
+    native={} if native is None else native
+    scanner.enrich(item,fetch=fetch,delay=0)
+    hint=item.get('discovery_token_hint','')
+    if item.get('token_address')=='UNVERIFIED':
+        try:
+            item['token_address']=onchain.address(hint)
+            item['token_identity_status']='UNVERIFIED (discovery hint only; fresh pool binding unavailable)'
+        except ValueError:
+            pass
+    report=verification.collect(item,fetch)
+    info=((report.get('contract_security',{}).get('raw') or {}).get('result') or {}).get(item['token_address'].lower(),{})
+    if info:
+        item['risk_category'],item['risk_reasons']=scanner.risk_gate(info)
+    report['onchain']=onchain.collect(item,info.get('holders') or [],lock_descriptors=registry['lp_locks'].get(item['network']+':'+item['address'].lower(),[]))
+    report['unlocks']=token_unlocks.collect(item,registry)
+    if item['network'] in native and (dt.datetime.now(dt.timezone.utc)-dt.datetime.fromisoformat(native[item['network']]['observed_at'])).total_seconds()>120:
+        del native[item['network']]
+    if item['network'] not in native:native[item['network']]=gas_valuation.collect(item['network'],fetch)
+    report['gas_valuation']=native[item['network']]
+    price=native[item['network']].get('metrics',{}).get('native_usd')
+    report['execution']=execution_quotes.collect(item,os.environ,native_price=price)
+    report['execution_checks']=execution_checks.collect(item,report['execution'],os.environ.get('ORACLE_TAKER_ADDRESS',''))
+    references={
+        'eth':('0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48','100000000'),
+        'base':('0x833589fcd6edb6e08f4c7c32d4f71b54bda02913','100000000'),
+        'bsc':('0x55d398326f99059ff775485246999027b3197955','100000000000000000000')}
+    reference=None
+    if item['network'] in references:
+        funding,amount=references[item['network']]
+        reference=dict(funding_token=funding,amount_base_units=amount,build_calldata=True,
+                       diagnostic_sender='0x0000000000000000000000000000000000000001',
+                       purpose='Explicit diagnostic base-unit input and reserved sender fixture; no wallet ownership, balance or user order asserted')
+    candidate_evidence.augment(item,report,fetch,os.environ,native_price=price,reference_order=reference)
+    item['verification']=report
+    item['market_corroboration']=market_corroboration.check(item,fetch)
+    item['mandatory_blockers']=candidate_evidence.blockers(item)
+    if item.get('discovery_eligible') is False:item['mandatory_blockers'].insert(0,'Verification-only cohort: original market discovery filters failed; ineligible for BUY')
+    item['decision'],item['decision_reason']=scanner.decision_summary(item)
+    item['audit']=evidence_audit.audit(item)
+    return item
+
+
 def run(networks,limit=3,delay=3,fetch=None,pages=1,session=None,checkpoint=None):
     if not 1<=limit<=20:raise ValueError('limit must be 1–20')
     if not 1<=pages<=3:raise ValueError('pages must be 1–3')
@@ -187,44 +231,7 @@ def run(networks,limit=3,delay=3,fetch=None,pages=1,session=None,checkpoint=None
     result['not_enriched_pool_keys']=[x['key'] for x in ordered if x not in selected]
     native={}
     for item in selected:
-        scanner.enrich(item,fetch=fetch,delay=0)
-        hint=item.get('discovery_token_hint','')
-        if item.get('token_address')=='UNVERIFIED':
-            try:
-                item['token_address']=onchain.address(hint)
-                item['token_identity_status']='UNVERIFIED (discovery hint only; fresh pool binding unavailable)'
-            except ValueError:
-                pass
-        report=verification.collect(item,fetch)
-        info=((report.get('contract_security',{}).get('raw') or {}).get('result') or {}).get(item['token_address'].lower(),{})
-        if info:
-            item['risk_category'],item['risk_reasons']=scanner.risk_gate(info)
-        report['onchain']=onchain.collect(item,info.get('holders') or [],lock_descriptors=registry['lp_locks'].get(item['network']+':'+item['address'].lower(),[]))
-        report['unlocks']=token_unlocks.collect(item,registry)
-        if item['network'] in native and (dt.datetime.now(dt.timezone.utc)-dt.datetime.fromisoformat(native[item['network']]['observed_at'])).total_seconds()>120:
-            del native[item['network']]
-        if item['network'] not in native:native[item['network']]=gas_valuation.collect(item['network'],fetch)
-        report['gas_valuation']=native[item['network']]
-        price=native[item['network']].get('metrics',{}).get('native_usd')
-        report['execution']=execution_quotes.collect(item,os.environ,native_price=price)
-        report['execution_checks']=execution_checks.collect(item,report['execution'],os.environ.get('ORACLE_TAKER_ADDRESS',''))
-        references={
-            'eth':('0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48','100000000'),
-            'base':('0x833589fcd6edb6e08f4c7c32d4f71b54bda02913','100000000'),
-            'bsc':('0x55d398326f99059ff775485246999027b3197955','100000000000000000000')}
-        reference=None
-        if item['network'] in references:
-            funding,amount=references[item['network']]
-            reference=dict(funding_token=funding,amount_base_units=amount,build_calldata=True,
-                           diagnostic_sender='0x0000000000000000000000000000000000000001',
-                           purpose='Explicit diagnostic base-unit input and reserved sender fixture; no wallet ownership, balance or user order asserted')
-        candidate_evidence.augment(item,report,fetch,os.environ,native_price=price,reference_order=reference)
-        item['verification']=report
-        item['market_corroboration']=market_corroboration.check(item,fetch)
-        item['mandatory_blockers']=candidate_evidence.blockers(item)
-        if item.get('discovery_eligible') is False:item['mandatory_blockers'].insert(0,'Verification-only cohort: original market discovery filters failed; ineligible for BUY')
-        item['decision'],item['decision_reason']=scanner.decision_summary(item)
-        item['audit']=evidence_audit.audit(item)
+        assess_candidate(item,fetch,registry,native)
         result['candidates'].append(item)
         update_counts(result,discovered,qualified)
         if checkpoint:checkpoint(result)

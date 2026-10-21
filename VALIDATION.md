@@ -1,3 +1,15 @@
+# Current targeted requirements review
+
+**146 tests pass locally**, preserving all prior tests. Compilation, actionlint and diff checks pass. No merge, trading, signing, approvals or broadcasts. **No verified BUY.**
+
+All 15 previously unassessed discovery-qualified pools and all 11 previously unverified candidates were reviewed using fresh public evidence: **26 assessments, seven rejected, 19 still unverified**. All eleven original unverified candidates remain excluded. Including the separately retained prior rejection, all 22 historically discovery-qualified pools have now been assessed; cumulative coverage is 27 of the original 179 unique pools, with eight rejected and 19 assessed unverified. Another 152 filter-excluded pools remain unassessed. No new discovery was performed.
+
+Scoped evidence: 20 pool identities (including six additional Aerodrome V2 identities), 17 NFT position owners, nine Safe signer sets, five token source/runtime matches, 23 two-way diagnostic calldata builds with parameter matches, and two issuer/RPC stock-supply agreements. Complete LP escrow/beneficial ownership, supply/unlocks, authority audit and funded execution/risk remain unverified. Diagnostic builds and issuer NAV are never executable BUY evidence.
+
+See [the consolidated per-candidate report](validation/targeted-candidates-2026-10-21.md), [raw observations](validation/targeted-candidates-2026-10-21.json.gz) and [public disclosure/access findings](validation/targeted-public-disclosure-review-2026-10-21.json). Provider simulator-error reasons are reported exactly; adverse flags are not assertions that a token was independently proved malicious. Latest-commit Actions links are maintained on existing draft PR #4 after push. Telegram remains operational with personally confirmed receipt; trading stays disabled.
+
+## Earlier reports (historical counts)
+
 # Current validation — expanded coverage
 
 All original tests remain passing; **133 tests pass locally**. Compilation, actionlint and whitespace checks pass. Automated trading remains disabled; no verified BUY signal was issued.

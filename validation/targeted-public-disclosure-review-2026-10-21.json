@@ -1,0 +1,113 @@
+{
+  "official_access": {
+    "observed_at": "2026-10-21T21:48:42.245047+00:00",
+    "results": [
+      {
+        "url": "https://docs.lighter.xyz/about-lighter/lit-utility.md",
+        "http_status": 200,
+        "sha256": "0714dfe321787f5433c05db2c8d89c4ba02c1d1163ad8f651958336019e6d228",
+        "bytes": 2958
+      },
+      {
+        "url": "https://raw.githubusercontent.com/aerodrome-finance/contracts/main/contracts/factories/PoolFactory.sol",
+        "http_status": 200,
+        "sha256": "9d0f6dd4ceb216e826d1e8ac263bd31fa2fbb53ffd546cc2ec21a8dc916f8b58",
+        "bytes": 5318
+      }
+    ]
+  },
+  "initial_access": {
+    "observed_at": "2026-10-21T21:44:10.154895+00:00",
+    "results": [
+      {
+        "url": "https://docs.lighter.xyz/llms.txt",
+        "http_status": 200,
+        "sha256": "ab825ab82f5f1ceba3eb9df8f32c3d8da546778a0ae3800307cd648d54d5b042",
+        "bytes": 19669
+      },
+      {
+        "url": "https://docs.base.org/llms.txt",
+        "http_status": 200,
+        "sha256": "87f938a09329ebb4257eaf4ecf240b18aef3acfd0413b7f5e6d2eac464c4d08d",
+        "bytes": 48327
+      },
+      {
+        "url": "https://raw.githubusercontent.com/aerodrome-finance/contracts/main/contracts/PoolFactory.sol",
+        "http_status": 404,
+        "error_type": "HTTPError"
+      },
+      {
+        "url": "https://raw.githubusercontent.com/base/bridge/main/README.md",
+        "http_status": 200,
+        "sha256": "5dde687c6d97091fc509626b41925a6223d791b9cca75286fb8c9aa31bf5a29b",
+        "bytes": 2490
+      }
+    ]
+  },
+  "candidate_disclosure_review": {
+    "0x232ce3bd40fcd6f80f3d55a522d03f25df784ee2": {
+      "sources": [
+        "https://docs.lighter.xyz/about-lighter/lit-utility.md",
+        "https://x.com/Lighter_xyz/status/2005862682608472263"
+      ],
+      "finding": "Official utility page retrieved HTTP 200, but it does not supply a complete exact-contract allocation/vesting inventory. Direct issuer announcement returned HTTP 403 in web access; not retried. Third-party schedule dates disagree; no machine-verified binding or vesting contracts admitted."
+    },
+    "0x940181a94a35a4569e4529a3cdfb74e38fd98631": {
+      "sources": [
+        "https://aerodrome.finance/docs",
+        "https://aerodrome.finance/security"
+      ],
+      "finding": "Official documentation describes ongoing emissions, not fixed zero dilution. Exact runtime-bound Aero source exposes mint/setMinter; fresh minter() equals the officially listed Minter 0xeb018363f0a9af8f91f06fee6613a751b2a33fe5. Complete current veNFT release inventory, future governance decisions and authority dependency audit remain incomplete."
+    },
+    "0x28d4e499c4cde621e1cea7c9cbf9d43bf75a9525": {
+      "sources": [
+        "https://helix.org/",
+        "https://docs.helix.org/whitepaper",
+        "https://docs.helix.org/whitepaper/helix-token/tokenomics"
+      ],
+      "finding": "Helix AI website and Helix lending documentation describe different protocol/chain contexts. Ticker and a shared supply headline cannot bind the lending allocation to this Ethereum contract. No complete contract-bound vesting inventory admitted."
+    },
+    "0x311935cd80b76769bf2ecc9d8ab7635b2139cf82": {
+      "sources": [
+        "https://docs.base.org/specifications/base-protocol/bridging/base-solana-bridge",
+        "https://github.com/base/sol2base/blob/main/README.md"
+      ],
+      "finding": "Official deployment documentation binds this Base wrapped SOL address. Bridge mint/burn mechanics mean local ERC20 supply is not global SOL circulation. Reserve reconciliation, in-flight transfers, validator/upgrade powers and cross-chain dilution evidence remain incomplete."
+    },
+    "0xd34a99bc0f67ae1bbd63c660e6d0b0dd03e263b7": {
+      "sources": [
+        "https://imd.fun/token/",
+        "https://imdusd.com/docs/reference/contracts-and-addresses/"
+      ],
+      "finding": "Issuer token page binds the exact address and describes FP/VIBE/IMD renaming and cross-chain supply. This resolves the naming lead, but the issuer supply/burn claim is not independently reconciled across Ethereum, Base and Robinhood, bridge peers, hooks and authorities."
+    },
+    "0xb2000000000000000000004884b426556b92883d": {
+      "sources": [
+        "https://docs.base.org/build-on-base/integrate-defi/list-tokenized-stocks",
+        "https://docs.base.org/sdks/tokenized-stocks/overview"
+      ],
+      "finding": "Public exact-contract issuer record and pinned RPC agree on current supply, with share multiplier retained. B20 precompiles do not have ordinary contract bytecode. Current supply/NAV do not establish legal beneficiary registers, reserves, issuer roles, future mint/burn/corporate actions or execution. Omitted pause fields are not interpreted as a safety clearance."
+    },
+    "0xb9e8f30729a6b5e84cc6a86fe2fbdcbd48d8115a": {
+      "sources": [],
+      "finding": "Bounded exact-contract public web search found no usable issuer allocation/vesting disclosure. This is a retrieval limitation, not proof that no disclosure exists. RPC/provider findings below are retained; no symbol-only or zero-unlock inference is used."
+    },
+    "0xc7d3871be1e5ad7b38846468430228f6c4e97777": {
+      "sources": [],
+      "finding": "Bounded exact-contract public web search found no usable issuer allocation/vesting disclosure. This is a retrieval limitation, not proof that no disclosure exists. RPC/provider findings below are retained; no symbol-only or zero-unlock inference is used."
+    },
+    "0x739d1108949a0a4e0683a4037802f9630045b6ea": {
+      "sources": [],
+      "finding": "Bounded exact-contract public web search found no usable issuer allocation/vesting disclosure. This is a retrieval limitation, not proof that no disclosure exists. RPC/provider findings below are retained; no symbol-only or zero-unlock inference is used."
+    },
+    "0xea67a73c3eb902cb8a26fa123a3b8dea52a856ea": {
+      "sources": [],
+      "finding": "Bounded exact-contract public web search found no usable issuer allocation/vesting disclosure. This is a retrieval limitation, not proof that no disclosure exists. RPC/provider findings below are retained; no symbol-only or zero-unlock inference is used."
+    },
+    "0x69f345f15b1cba542a47a3af15fde6052e2dffff": {
+      "sources": [],
+      "finding": "Bounded exact-contract public web search found no usable issuer allocation/vesting disclosure. This is a retrieval limitation, not proof that no disclosure exists. RPC/provider findings below are retained; no symbol-only or zero-unlock inference is used."
+    }
+  },
+  "limitations": "Documentation leads are scoped research findings, not mandatory-gate approval. No paid/denied provider was retried for admission."
+}

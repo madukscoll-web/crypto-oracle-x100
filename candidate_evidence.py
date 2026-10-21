@@ -8,6 +8,7 @@ import unlock_provider
 import kyber_execution
 import quote_calldata
 import nft_custody
+import tokenized_stock_evidence
 import json
 import pathlib
 
@@ -18,6 +19,7 @@ def augment(item,report,fetch,env,native_price=None,reference_order=None):
     registry=json.loads(pathlib.Path(__file__).with_name('evidence_registry.json').read_text())
     report['unlock_provider']=unlock_provider.collect(item,registry,env)
     report['supply_comparison']=supply_evidence.collect(item,fetch)
+    report['tokenized_stock_reference']=tokenized_stock_evidence.collect(item,fetch)
     report['contract_source']=contract_sources.collect(item,fetch)
     report['escrow_discovery']=escrow_discovery.collect(item,info.get('lp_holders') or [],fetch)
     report['nft_custody']=nft_custody.collect(item,info.get('lp_holders') or [])
@@ -54,6 +56,8 @@ def blockers(item):
     reasons.append('Beneficial ownership and related-wallet concentration coverage are incomplete; signing addresses do not prove beneficial persons')
     if report.get('supply_comparison',{}).get('status')=='CONFLICTING':
         reasons.append('Supply evidence conflict: '+report['supply_comparison']['reason'])
+    if report.get('tokenized_stock_reference',{}).get('status')=='CONFLICTING':
+        reasons.append('Issuer/RPC stock supply conflict: '+report['tokenized_stock_reference']['reason'])
     reasons.append('Complete circulating supply, vesting/unlocks and mint authority are unverified: '+report.get('unlocks',{}).get('reason','No disclosure'))
     sim=report.get('sellability') or report.get('honeypot') or {}
     if sim.get('status')!='LIMITED':reasons.append('Exact-pool independent sellability: '+sim.get('reason','Unavailable'))
