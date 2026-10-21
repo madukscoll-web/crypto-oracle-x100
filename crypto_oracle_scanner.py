@@ -421,6 +421,10 @@ def decision_summary(item):
         )
     if item.get("market_corroboration", {}).get("status") == "CONFLICTING":
         return "WAIT AND VERIFY", "Independent market-data conflict: verify exact pool, token and current price."
+    # An independent, source-bound audit is mandatory; never accept caller-set
+    # booleans or a synthetic quote as sufficient evidence.
+    if evidence_audit.audit(item)["trade_ready"] is not True:
+        return "WAIT AND VERIFY", "Independent security, sellability, tokenomics and execution evidence is incomplete."
     # A BUY CANDIDATE is permitted only after independent verification.
     # These fields are not inferred from activity scores or missing API data.
     if (risk == "RESEARCH CANDIDATE — LIMITED CHECKS"
@@ -582,10 +586,7 @@ def investment_plan(item, decision):
         lines.extend([
             f"Price evidence: {price_source}; {price_status}",
             f"Observed pool token price: USD {price:.10g} (indicative only)",
-            f"Illustrative entry ceiling: USD {price:.10g} (verify live execution quote)",
-            f"Downside review: USD {price * 0.90:.10g} (-10%)",
-            f"Take-profit 1: USD {price * 1.20:.10g} (+20%)",
-            f"Take-profit 2: USD {price * 1.50:.10g} (+50%)",
+            "Entry/stop/targets: UNAVAILABLE — historical structure and executable quote required.",
         ])
     lines.append("Executable quote/slippage: NOT VERIFIED. A pool quote is not a tradeable offer.")
     lines.append("Do not execute without verifying live price, fees, slippage and token risks. "
