@@ -1,0 +1,839 @@
+{
+  "contract_security": {
+    "source": "goplus",
+    "url": "https://api.gopluslabs.io/api/v1/token_security/1?contract_addresses=0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+    "observed_at": "2026-10-21T19:51:35.079658+00:00",
+    "status": "FAIL",
+    "reason": "Contract capability or sellability concern reported",
+    "raw": {
+      "code": 1,
+      "message": "OK",
+      "result": {
+        "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": {
+          "buy_tax": "0",
+          "creator_address": "0x95ba4cf87d6723ad9c0db21737d862be80e93911",
+          "creator_balance": "2505.454092",
+          "creator_percent": "0.000000",
+          "holder_count": "9321187",
+          "holders": [
+            {
+              "address": "0x37305b1cd40574e4c5ce33f8e8306be057fd7341",
+              "tag": "",
+              "is_contract": 0,
+              "balance": "4151729212.438375",
+              "percent": "0.086167816383877395",
+              "is_locked": 0
+            },
+            {
+              "address": "0xe1940f578743367f38d3f25c2d2d32d6636929b6",
+              "tag": "",
+              "is_contract": 1,
+              "balance": "1699999999.039577",
+              "percent": "0.035282958081893047",
+              "is_locked": 0
+            },
+            {
+              "address": "0xffa69c0080582098af595156240214b742735a5e",
+              "tag": "",
+              "is_contract": 1,
+              "balance": "1582999999.8601",
+              "percent": "0.032854660394267635",
+              "is_locked": 0
+            },
+            {
+              "address": "0xad354cfbaa4a8572dd6df021514a3931a8329ef5",
+              "tag": "",
+              "is_contract": 1,
+              "balance": "1400000000.5201",
+              "percent": "0.029056553741710303",
+              "is_locked": 0
+            },
+            {
+              "address": "0x40ec5b33f54e0e8a33a975908c5ba1c14e5bbbdf",
+              "tag": "",
+              "is_contract": 1,
+              "balance": "1013567483.226271",
+              "percent": "0.021036270025909454",
+              "is_locked": 0
+            },
+            {
+              "address": "0xee7ae85f2fe2239e27d9c1e23fffe168d63b4055",
+              "tag": "",
+              "is_contract": 1,
+              "balance": "904867813.41811",
+              "percent": "0.018780243028542571",
+              "is_locked": 0
+            },
+            {
+              "address": "0x3b4d794a66304f130a4db8f2551b0070dfcf5ca7",
+              "tag": "",
+              "is_contract": 1,
+              "balance": "591695015.716176",
+              "percent": "0.012280441440337237",
+              "is_locked": 0
+            },
+            {
+              "address": "0x36db199f0a1cd131ad0b5cf4fe94286faab9fda5",
+              "tag": "",
+              "is_contract": 1,
+              "balance": "534330437.974522",
+              "percent": "0.011089857915050333",
+              "is_locked": 0
+            },
+            {
+              "address": "0x08f619716db7c6245401b543e59acac1d25cb483",
+              "tag": "",
+              "is_contract": 1,
+              "balance": "502795448.176638",
+              "percent": "0.010435359254003121",
+              "is_locked": 0
+            },
+            {
+              "address": "0xe20d20b0cc4e44cd23d5b0488d5250a9ac426875",
+              "tag": "",
+              "is_contract": 0,
+              "balance": "500000000.391277",
+              "percent": "0.010377340626305041",
+              "is_locked": 0
+            }
+          ],
+          "honeypot_with_same_creator": "0",
+          "is_honeypot": "0",
+          "is_in_cex": {
+            "listed": "1",
+            "cex_list": [
+              "Binance",
+              "Coinbase"
+            ]
+          },
+          "is_in_dex": "1",
+          "is_open_source": "1",
+          "is_proxy": "1",
+          "sell_tax": "0",
+          "token_name": "USD Coin",
+          "token_symbol": "USDC",
+          "total_supply": "48181901162.986796",
+          "transfer_tax": "",
+          "cannot_buy": "0",
+          "trust_list": "1"
+        }
+      }
+    }
+  },
+  "holders": {
+    "source": "goplus",
+    "url": "https://api.gopluslabs.io/api/v1/token_security/1?contract_addresses=0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+    "observed_at": "2026-10-21T19:51:35.079702+00:00",
+    "status": "UNKNOWN",
+    "reason": "Listed share 26.7%; coverage, LP exclusions and related-wallet ownership unverified",
+    "raw": {
+      "code": 1,
+      "message": "OK",
+      "result": {
+        "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": {
+          "buy_tax": "0",
+          "creator_address": "0x95ba4cf87d6723ad9c0db21737d862be80e93911",
+          "creator_balance": "2505.454092",
+          "creator_percent": "0.000000",
+          "holder_count": "9321187",
+          "holders": [
+            {
+              "address": "0x37305b1cd40574e4c5ce33f8e8306be057fd7341",
+              "tag": "",
+              "is_contract": 0,
+              "balance": "4151729212.438375",
+              "percent": "0.086167816383877395",
+              "is_locked": 0
+            },
+            {
+              "address": "0xe1940f578743367f38d3f25c2d2d32d6636929b6",
+              "tag": "",
+              "is_contract": 1,
+              "balance": "1699999999.039577",
+              "percent": "0.035282958081893047",
+              "is_locked": 0
+            },
+            {
+              "address": "0xffa69c0080582098af595156240214b742735a5e",
+              "tag": "",
+              "is_contract": 1,
+              "balance": "1582999999.8601",
+              "percent": "0.032854660394267635",
+              "is_locked": 0
+            },
+            {
+              "address": "0xad354cfbaa4a8572dd6df021514a3931a8329ef5",
+              "tag": "",
+              "is_contract": 1,
+              "balance": "1400000000.5201",
+              "percent": "0.029056553741710303",
+              "is_locked": 0
+            },
+            {
+              "address": "0x40ec5b33f54e0e8a33a975908c5ba1c14e5bbbdf",
+              "tag": "",
+              "is_contract": 1,
+              "balance": "1013567483.226271",
+              "percent": "0.021036270025909454",
+              "is_locked": 0
+            },
+            {
+              "address": "0xee7ae85f2fe2239e27d9c1e23fffe168d63b4055",
+              "tag": "",
+              "is_contract": 1,
+              "balance": "904867813.41811",
+              "percent": "0.018780243028542571",
+              "is_locked": 0
+            },
+            {
+              "address": "0x3b4d794a66304f130a4db8f2551b0070dfcf5ca7",
+              "tag": "",
+              "is_contract": 1,
+              "balance": "591695015.716176",
+              "percent": "0.012280441440337237",
+              "is_locked": 0
+            },
+            {
+              "address": "0x36db199f0a1cd131ad0b5cf4fe94286faab9fda5",
+              "tag": "",
+              "is_contract": 1,
+              "balance": "534330437.974522",
+              "percent": "0.011089857915050333",
+              "is_locked": 0
+            },
+            {
+              "address": "0x08f619716db7c6245401b543e59acac1d25cb483",
+              "tag": "",
+              "is_contract": 1,
+              "balance": "502795448.176638",
+              "percent": "0.010435359254003121",
+              "is_locked": 0
+            },
+            {
+              "address": "0xe20d20b0cc4e44cd23d5b0488d5250a9ac426875",
+              "tag": "",
+              "is_contract": 0,
+              "balance": "500000000.391277",
+              "percent": "0.010377340626305041",
+              "is_locked": 0
+            }
+          ],
+          "honeypot_with_same_creator": "0",
+          "is_honeypot": "0",
+          "is_in_cex": {
+            "listed": "1",
+            "cex_list": [
+              "Binance",
+              "Coinbase"
+            ]
+          },
+          "is_in_dex": "1",
+          "is_open_source": "1",
+          "is_proxy": "1",
+          "sell_tax": "0",
+          "token_name": "USD Coin",
+          "token_symbol": "USDC",
+          "total_supply": "48181901162.986796",
+          "transfer_tax": "",
+          "cannot_buy": "0",
+          "trust_list": "1"
+        }
+      }
+    }
+  },
+  "liquidity": {
+    "source": "goplus",
+    "url": "https://api.gopluslabs.io/api/v1/token_security/1?contract_addresses=0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+    "observed_at": "2026-10-21T19:51:35.079706+00:00",
+    "status": "UNKNOWN",
+    "reason": "No liquidity records",
+    "raw": {
+      "code": 1,
+      "message": "OK",
+      "result": {
+        "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": {
+          "buy_tax": "0",
+          "creator_address": "0x95ba4cf87d6723ad9c0db21737d862be80e93911",
+          "creator_balance": "2505.454092",
+          "creator_percent": "0.000000",
+          "holder_count": "9321187",
+          "holders": [
+            {
+              "address": "0x37305b1cd40574e4c5ce33f8e8306be057fd7341",
+              "tag": "",
+              "is_contract": 0,
+              "balance": "4151729212.438375",
+              "percent": "0.086167816383877395",
+              "is_locked": 0
+            },
+            {
+              "address": "0xe1940f578743367f38d3f25c2d2d32d6636929b6",
+              "tag": "",
+              "is_contract": 1,
+              "balance": "1699999999.039577",
+              "percent": "0.035282958081893047",
+              "is_locked": 0
+            },
+            {
+              "address": "0xffa69c0080582098af595156240214b742735a5e",
+              "tag": "",
+              "is_contract": 1,
+              "balance": "1582999999.8601",
+              "percent": "0.032854660394267635",
+              "is_locked": 0
+            },
+            {
+              "address": "0xad354cfbaa4a8572dd6df021514a3931a8329ef5",
+              "tag": "",
+              "is_contract": 1,
+              "balance": "1400000000.5201",
+              "percent": "0.029056553741710303",
+              "is_locked": 0
+            },
+            {
+              "address": "0x40ec5b33f54e0e8a33a975908c5ba1c14e5bbbdf",
+              "tag": "",
+              "is_contract": 1,
+              "balance": "1013567483.226271",
+              "percent": "0.021036270025909454",
+              "is_locked": 0
+            },
+            {
+              "address": "0xee7ae85f2fe2239e27d9c1e23fffe168d63b4055",
+              "tag": "",
+              "is_contract": 1,
+              "balance": "904867813.41811",
+              "percent": "0.018780243028542571",
+              "is_locked": 0
+            },
+            {
+              "address": "0x3b4d794a66304f130a4db8f2551b0070dfcf5ca7",
+              "tag": "",
+              "is_contract": 1,
+              "balance": "591695015.716176",
+              "percent": "0.012280441440337237",
+              "is_locked": 0
+            },
+            {
+              "address": "0x36db199f0a1cd131ad0b5cf4fe94286faab9fda5",
+              "tag": "",
+              "is_contract": 1,
+              "balance": "534330437.974522",
+              "percent": "0.011089857915050333",
+              "is_locked": 0
+            },
+            {
+              "address": "0x08f619716db7c6245401b543e59acac1d25cb483",
+              "tag": "",
+              "is_contract": 1,
+              "balance": "502795448.176638",
+              "percent": "0.010435359254003121",
+              "is_locked": 0
+            },
+            {
+              "address": "0xe20d20b0cc4e44cd23d5b0488d5250a9ac426875",
+              "tag": "",
+              "is_contract": 0,
+              "balance": "500000000.391277",
+              "percent": "0.010377340626305041",
+              "is_locked": 0
+            }
+          ],
+          "honeypot_with_same_creator": "0",
+          "is_honeypot": "0",
+          "is_in_cex": {
+            "listed": "1",
+            "cex_list": [
+              "Binance",
+              "Coinbase"
+            ]
+          },
+          "is_in_dex": "1",
+          "is_open_source": "1",
+          "is_proxy": "1",
+          "sell_tax": "0",
+          "token_name": "USD Coin",
+          "token_symbol": "USDC",
+          "total_supply": "48181901162.986796",
+          "transfer_tax": "",
+          "cannot_buy": "0",
+          "trust_list": "1"
+        }
+      }
+    }
+  },
+  "tokenomics": {
+    "source": "goplus",
+    "url": "https://api.gopluslabs.io/api/v1/token_security/1?contract_addresses=0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+    "observed_at": "2026-10-21T19:51:35.079712+00:00",
+    "status": "UNKNOWN",
+    "reason": "Total supply 4.81819e+10; circulating supply, vesting and future unlocks unverified",
+    "raw": {
+      "code": 1,
+      "message": "OK",
+      "result": {
+        "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": {
+          "buy_tax": "0",
+          "creator_address": "0x95ba4cf87d6723ad9c0db21737d862be80e93911",
+          "creator_balance": "2505.454092",
+          "creator_percent": "0.000000",
+          "holder_count": "9321187",
+          "holders": [
+            {
+              "address": "0x37305b1cd40574e4c5ce33f8e8306be057fd7341",
+              "tag": "",
+              "is_contract": 0,
+              "balance": "4151729212.438375",
+              "percent": "0.086167816383877395",
+              "is_locked": 0
+            },
+            {
+              "address": "0xe1940f578743367f38d3f25c2d2d32d6636929b6",
+              "tag": "",
+              "is_contract": 1,
+              "balance": "1699999999.039577",
+              "percent": "0.035282958081893047",
+              "is_locked": 0
+            },
+            {
+              "address": "0xffa69c0080582098af595156240214b742735a5e",
+              "tag": "",
+              "is_contract": 1,
+              "balance": "1582999999.8601",
+              "percent": "0.032854660394267635",
+              "is_locked": 0
+            },
+            {
+              "address": "0xad354cfbaa4a8572dd6df021514a3931a8329ef5",
+              "tag": "",
+              "is_contract": 1,
+              "balance": "1400000000.5201",
+              "percent": "0.029056553741710303",
+              "is_locked": 0
+            },
+            {
+              "address": "0x40ec5b33f54e0e8a33a975908c5ba1c14e5bbbdf",
+              "tag": "",
+              "is_contract": 1,
+              "balance": "1013567483.226271",
+              "percent": "0.021036270025909454",
+              "is_locked": 0
+            },
+            {
+              "address": "0xee7ae85f2fe2239e27d9c1e23fffe168d63b4055",
+              "tag": "",
+              "is_contract": 1,
+              "balance": "904867813.41811",
+              "percent": "0.018780243028542571",
+              "is_locked": 0
+            },
+            {
+              "address": "0x3b4d794a66304f130a4db8f2551b0070dfcf5ca7",
+              "tag": "",
+              "is_contract": 1,
+              "balance": "591695015.716176",
+              "percent": "0.012280441440337237",
+              "is_locked": 0
+            },
+            {
+              "address": "0x36db199f0a1cd131ad0b5cf4fe94286faab9fda5",
+              "tag": "",
+              "is_contract": 1,
+              "balance": "534330437.974522",
+              "percent": "0.011089857915050333",
+              "is_locked": 0
+            },
+            {
+              "address": "0x08f619716db7c6245401b543e59acac1d25cb483",
+              "tag": "",
+              "is_contract": 1,
+              "balance": "502795448.176638",
+              "percent": "0.010435359254003121",
+              "is_locked": 0
+            },
+            {
+              "address": "0xe20d20b0cc4e44cd23d5b0488d5250a9ac426875",
+              "tag": "",
+              "is_contract": 0,
+              "balance": "500000000.391277",
+              "percent": "0.010377340626305041",
+              "is_locked": 0
+            }
+          ],
+          "honeypot_with_same_creator": "0",
+          "is_honeypot": "0",
+          "is_in_cex": {
+            "listed": "1",
+            "cex_list": [
+              "Binance",
+              "Coinbase"
+            ]
+          },
+          "is_in_dex": "1",
+          "is_open_source": "1",
+          "is_proxy": "1",
+          "sell_tax": "0",
+          "token_name": "USD Coin",
+          "token_symbol": "USDC",
+          "total_supply": "48181901162.986796",
+          "transfer_tax": "",
+          "cannot_buy": "0",
+          "trust_list": "1"
+        }
+      }
+    }
+  },
+  "sellability": {
+    "source": "honeypot",
+    "url": "https://api.honeypot.is/v2/IsHoneypot?address=0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48&chainID=1",
+    "observed_at": "2026-10-21T19:51:35.162784+00:00",
+    "status": "LIMITED",
+    "reason": "Independent buy/sell simulation succeeded; size-specific quotes still required",
+    "raw": {
+      "token": {
+        "name": "USD Coin",
+        "symbol": "USDC",
+        "decimals": 6,
+        "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        "totalHolders": 9099497
+      },
+      "withToken": {
+        "name": "Wrapped Ether",
+        "symbol": "WETH",
+        "decimals": 18,
+        "address": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+        "totalHolders": 3335703
+      },
+      "summary": {
+        "risk": "low",
+        "riskLevel": 1,
+        "flags": []
+      },
+      "simulationSuccess": true,
+      "honeypotResult": {
+        "isHoneypot": false
+      },
+      "simulationResult": {
+        "buyTax": 0,
+        "sellTax": 0,
+        "transferTax": 0,
+        "buyGas": "180657",
+        "sellGas": "139684"
+      },
+      "flags": [],
+      "contractCode": {
+        "openSource": true,
+        "rootOpenSource": true,
+        "isProxy": true,
+        "hasProxyCalls": true
+      },
+      "chain": {
+        "id": "1",
+        "name": "Ethereum",
+        "shortName": "eth",
+        "currency": "ETH"
+      },
+      "router": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
+      "pair": {
+        "pair": {
+          "name": "Uniswap V3: USDC-WETH",
+          "address": "0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640",
+          "token0": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+          "token1": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+          "type": "UniswapV3"
+        },
+        "chainId": "1",
+        "reserves0": "61939250128297",
+        "reserves1": "8292802181452294853365",
+        "liquidity": 82602109.72941901,
+        "router": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
+        "createdAtTimestamp": "1620250931",
+        "creationTxHash": "0x125e0b641d4a4b08806bf52c0c6757648c9963bcda8681e4f996f09e00d4c2cc"
+      },
+      "pairAddress": "0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640"
+    }
+  },
+  "entry": {
+    "source": "ohlcv",
+    "url": "https://api.geckoterminal.com/api/v2/networks/eth/pools/0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640/ohlcv/minute?aggregate=5&limit=30&currency=usd&token=base",
+    "observed_at": "2026-10-21T19:51:35.672228+00:00",
+    "status": "WAIT",
+    "reason": "No confirmed volume-supported breakout",
+    "raw": {
+      "data": {
+        "id": "65ece78c-cb1f-48df-95b5-f8e9bf6841c1",
+        "type": "ohlcv_request_response",
+        "attributes": {
+          "ohlcv_list": [
+            [
+              1792611900,
+              2495.87,
+              2495.87,
+              2493.57,
+              2493.57,
+              3845.58521989665
+            ],
+            [
+              1792611600,
+              2496.52,
+              2496.88,
+              2495.87,
+              2495.87,
+              63651.621164972275
+            ],
+            [
+              1792611300,
+              2496.91,
+              2497.78,
+              2495.28,
+              2496.52,
+              103487.2739423759
+            ],
+            [
+              1792611000,
+              2496.1,
+              2497.08,
+              2496.1,
+              2496.91,
+              273033.67984493094
+            ],
+            [
+              1792610700,
+              2494.45,
+              2496.1,
+              2493.48,
+              2496.1,
+              68950.84695861027
+            ],
+            [
+              1792610400,
+              2494.98,
+              2496.11,
+              2493.47,
+              2494.45,
+              178844.55124277118
+            ],
+            [
+              1792610100,
+              2487.44,
+              2495.31,
+              2486.77,
+              2494.98,
+              212279.75800548235
+            ],
+            [
+              1792609800,
+              2488.73,
+              2488.73,
+              2484.35,
+              2487.44,
+              164283.25642215868
+            ],
+            [
+              1792609500,
+              2488.13,
+              2489.43,
+              2487.1,
+              2488.73,
+              217912.00940792268
+            ],
+            [
+              1792609200,
+              2500.13,
+              2500.13,
+              2487.85,
+              2488.13,
+              403182.9539668864
+            ],
+            [
+              1792608900,
+              2504.62,
+              2504.62,
+              2500.13,
+              2500.13,
+              242456.85387886903
+            ],
+            [
+              1792608600,
+              2510.83,
+              2510.93,
+              2504.62,
+              2504.62,
+              168160.36477258572
+            ],
+            [
+              1792608300,
+              2515.29,
+              2515.29,
+              2510.83,
+              2510.83,
+              344726.0829652965
+            ],
+            [
+              1792608000,
+              2514.67,
+              2515.74,
+              2514.67,
+              2515.29,
+              16823.797722785013
+            ],
+            [
+              1792607700,
+              2514.9,
+              2514.9,
+              2514.0,
+              2514.67,
+              63880.388630786314
+            ],
+            [
+              1792607400,
+              2516.28,
+              2516.63,
+              2514.9,
+              2514.9,
+              33672.217185299014
+            ],
+            [
+              1792607100,
+              2517.47,
+              2518.86,
+              2516.28,
+              2516.28,
+              116082.52454609371
+            ],
+            [
+              1792606800,
+              2516.41,
+              2517.47,
+              2514.8,
+              2517.47,
+              63529.45600210158
+            ],
+            [
+              1792606500,
+              2513.73,
+              2517.35,
+              2513.73,
+              2516.41,
+              161972.41203409346
+            ],
+            [
+              1792606200,
+              2514.48,
+              2514.48,
+              2513.69,
+              2513.73,
+              29168.15155572098
+            ],
+            [
+              1792605900,
+              2514.9,
+              2515.58,
+              2514.22,
+              2514.48,
+              15661.008375527843
+            ],
+            [
+              1792605600,
+              2514.79,
+              2514.97,
+              2512.38,
+              2514.9,
+              88115.46021726781
+            ],
+            [
+              1792605300,
+              2515.43,
+              2515.93,
+              2514.68,
+              2514.79,
+              34579.465954958374
+            ],
+            [
+              1792605000,
+              2513.46,
+              2515.43,
+              2513.46,
+              2515.43,
+              83702.09497228281
+            ],
+            [
+              1792604700,
+              2515.63,
+              2515.63,
+              2513.46,
+              2513.46,
+              47025.850928485794
+            ],
+            [
+              1792604400,
+              2516.15,
+              2517.01,
+              2514.96,
+              2515.63,
+              110919.04526406365
+            ],
+            [
+              1792604100,
+              2513.31,
+              2516.15,
+              2513.31,
+              2516.15,
+              102563.20841467619
+            ],
+            [
+              1792603800,
+              2511.47,
+              2513.31,
+              2511.25,
+              2513.31,
+              864779.2149082694
+            ],
+            [
+              1792603500,
+              2509.13,
+              2511.47,
+              2509.13,
+              2511.47,
+              28550.62696898936
+            ],
+            [
+              1792603200,
+              2507.99,
+              2510.01,
+              2507.99,
+              2509.13,
+              83504.1151177313
+            ]
+          ]
+        }
+      },
+      "meta": {
+        "base": {
+          "name": "Wrapped Ether",
+          "symbol": "WETH",
+          "coingecko_coin_id": "weth",
+          "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+        },
+        "quote": {
+          "name": "USD Coin",
+          "symbol": "USDC",
+          "coingecko_coin_id": "usd-coin",
+          "address": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+        }
+      }
+    },
+    "analysis": {
+      "status": "WAIT",
+      "reason": "No confirmed volume-supported breakout"
+    }
+  },
+  "execution": {
+    "source": "0x",
+    "url": "https://0x.org/docs/api#tag/Swap",
+    "observed_at": "2026-10-21T19:51:35.672242+00:00",
+    "status": "UNKNOWN",
+    "reason": "Executable two-way size-specific quote, taker address, API credential, gas and allowance simulation not configured",
+    "raw": null
+  }
+}

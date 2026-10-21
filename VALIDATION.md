@@ -23,9 +23,11 @@ Local final validation: 70 unittest tests passed; compileall passed; git diff --
 
 Network-enabled execution was required; initial sandbox-only attempts failed. GitHub authentication and remote access succeeded on retry. Real responses were collected for Ethereum USDC (`0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48`) and the reference pool `0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640` at approximately 19:52 UTC. This token was a reference integration check, not a BUY candidate.
 
-GoPlus returned a matching token result with `is_proxy=1`, which fails the strict capability policy. Its holder list accounted for approximately 26.7% of supply; classification/coverage remained UNKNOWN. Total supply was returned, but circulating supply and future unlocks were not verified. Honeypot.is returned simulationSuccess=true and isHoneypot=false; this was labelled LIMITED. GeckoTerminal returned candle data; the entry rule returned WAIT. The engine did not produce a BUY. Raw responses are included in the accompanying validation artifact, not interpreted as enduring current market facts.
+GoPlus returned a matching token result with `is_proxy=1`, which fails the strict capability policy. Its holder list accounted for approximately 26.7% of supply; classification/coverage remained UNKNOWN. Total supply was returned, but circulating supply and future unlocks were not verified. Honeypot.is returned simulationSuccess=true and isHoneypot=false; this was labelled LIMITED. GeckoTerminal returned candle data; the entry rule returned WAIT. The engine did not produce a BUY. Raw responses are committed in `validation/reference-live-evidence-2026-10-21.json`, not interpreted as enduring current market facts.
 
 GeckoTerminal API guide was accessible. The referenced GoPlus, Honeypot and 0x documentation URLs returned HTTP errors from this runtime; documentation content could not be independently reviewed in this session. Consequently the new adapters must not be described as fully validated against live documentation. The 0x executable quote API was not called: configuration is absent.
+
+GitHub Actions independently passed all 70 tests for commit `c27c713`: https://github.com/madukscoll-web/crypto-oracle-x100/actions/runs/39665542204 (push) and https://github.com/madukscoll-web/crypto-oracle-x100/actions/runs/39665552557 (pull request). These are CI results, not production deployment evidence.
 
 ## Genuine remaining integration blocks
 
