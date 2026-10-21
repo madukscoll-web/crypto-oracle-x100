@@ -609,6 +609,32 @@ def watchlist_transition(item, watchlist):
     return None
 
 
+def entry_setup(item):
+    """Classify observed market structure, not independently verified buy eligibility."""
+    ok, reason = price_evidence(item)
+    if not ok:
+        return "NO SETUP", reason
+    if item.get("risk_category") == "AVOID / HIGH CONCERN":
+        return "NO SETUP", "Critical security concern"
+    h1 = item.get("change_h1")
+    h24 = item.get("change_h24")
+    if h1 is None or h24 is None:
+        return "INSUFFICIENT DATA", "Price-change fields missing"
+    if h1 > 35 or h24 > 120:
+        return "OVEREXTENDED", "Sharp acceleration: do not chase"
+    liquidity = item.get("liquidity", 0)
+    volume = item.get("volume", 0)
+    share = item.get("buy_share", 0)
+    trades = item.get("trades", 0)
+    if liquidity < 250000 or volume < 300000 or trades < 100:
+        return "WAIT", "Insufficient liquidity, volume or trades"
+    if 2 <= h1 <= 12 and 5 <= h24 <= 35 and 0.52 <= share <= 0.70:
+        return "MOMENTUM WATCH", "Constructive momentum; breakout and retest unverified"
+    if -5 <= h1 <= 3 and 0 <= h24 <= 25 and 0.48 <= share <= 0.65:
+        return "PULLBACK WATCH", "Potential consolidation; support and reversal unverified"
+    return "WAIT", "No qualifying preliminary momentum or pullback pattern"
+
+
 def setup_assessment(item):
     """Market-only setup classification, never an authorization to trade."""
     score = item.get("score", 0)
@@ -673,6 +699,7 @@ def send_telegram(item):
         "AUTOMATED SCREEN ONLY. Provider data are not an audit; "
         "no price forecast or guaranteed return is provided.\n\n"
         f"MARKET SETUP: {setup} — {setup_reason}\n"
+        f"ENTRY PATTERN: {entry_setup(item)[0]} — {entry_setup(item)[1]}\n"
         f"SETUP CHANGE: {item.get('setup_transition', 'INITIAL DISCOVERY')}\n"
         f"FINAL DECISION: {decision}\n"
         f"WHY: {summary}"
@@ -787,11 +814,14 @@ def main():
     delivered_existing = 0
     risk_counts = {}
     setup_counts = {}
+    entry_counts = {}
     for item in selected:
         enrich(item)
         risk_counts[item["risk_category"]] = risk_counts.get(item["risk_category"], 0) + 1
         setup = setup_assessment(item)[0]
         setup_counts[setup] = setup_counts.get(setup, 0) + 1
+        entry = entry_setup(item)[0]
+        entry_counts[entry] = entry_counts.get(entry, 0) + 1
         transition = watchlist_transition(item, watchlist)
         if item["key"] in seen and not transition:
             save_watchlist(watchlist)
@@ -813,6 +843,7 @@ def main():
         time.sleep(1)
     print(f"Risk triage among selected: {risk_counts}", flush=True)
     print(f"Market setups among selected: {setup_counts}", flush=True)
+    print(f"Entry patterns among selected: {entry_counts}", flush=True)
     print(f"Alerts delivered by category: NEW POOL={delivered_new}, "
           f"EXISTING POOL={delivered_existing}", flush=True)
 
