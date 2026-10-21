@@ -89,7 +89,7 @@ def run(networks,limit=3,delay=3,fetch=None):
         print(json.dumps(dict(candidate=item['key'],contract=item['token_address'],mandatory_blockers=item['mandatory_blockers'])),flush=True)
     result['finished_at']=dt.datetime.now(dt.timezone.utc).isoformat()
     result['assessed_candidate_count']=len(result['candidates'])
-    result['conclusion']=('NO VERIFIED BUY: every assessed candidate has unresolved mandatory evidence; unexamined pools and failed feeds remain unassessed' if result['candidates'] else 'NO VERIFIED BUY: no candidates independently assessed; filters and provider failures do not establish market-wide absence')
+    result['conclusion']=('NO VERIFIED BUY: all assessed candidates have failed or unverified mandatory evidence; unexamined pools and failed feeds remain unassessed' if result['candidates'] else 'NO VERIFIED BUY: no candidates independently assessed; filters and provider failures do not establish market-wide absence')
     return result
 
 

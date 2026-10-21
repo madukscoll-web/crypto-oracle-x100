@@ -41,7 +41,7 @@ def audit(item):
     # Adapter diagnostics can veto a candidate, but LIMITED never becomes PASS.
     for key, record in item.get("verification", {}).items():
         if isinstance(record, dict):
-            checks["independent_" + key] = record.get("status", "UNKNOWN") if record.get("status") in ("FAIL", "LIMITED", "UNKNOWN", "WAIT") else "UNKNOWN"
+            checks["independent_" + key] = ("FAIL" if record.get("status") == "CONFLICTING" else record.get("status", "UNKNOWN") if record.get("status") in ("FAIL", "LIMITED", "UNKNOWN", "WAIT") else "UNKNOWN")
     failures = [k for k, v in checks.items() if v == "FAIL"]
     unknown = [k for k, v in checks.items() if v == "UNKNOWN"]
     return {

@@ -421,6 +421,14 @@ def decision_summary(item):
             f"Critical security concern: {detail}. Do not treat high volume "
             "or activity as a reason to override this warning."
         )
+    independent = item.get("verification", {}).get("sellability", {})
+    if independent.get("source") == "honeypot" and independent.get("status") == "FAIL":
+        raw = independent.get("raw") or {}
+        chain = SECURITY_CHAIN_IDS.get(item.get("network"))
+        if chain and item.get("token_address") and item.get("address"):
+            outcome, detail = verification.honeypot(raw, item["token_address"], chain, item["address"])
+            if outcome == "FAIL" and detail == "Independent provider reports honeypot":
+                return "DISCARD", "Exact-chain/token/pool independent provider reports honeypot; other provider clearance cannot override this adverse evidence."
     if item.get("token_identity_status", "").startswith("UNVERIFIED"):
         return "WAIT AND VERIFY", (
             "Token identity could not be verified. Confirm the exact contract "

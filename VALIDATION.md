@@ -1,62 +1,66 @@
-# Consolidated validation — 21 October 2026
+# Consolidated operational report — 21 October 2026
 
-Work continues on the existing draft PR #4, branch `improve-independent-verification`. This is a read-only research and evidence engine. **It is not production-ready for independently verified BUY issuance.** Missing mandatory evidence blocks all BUY signals; automated trading, signing, approvals and broadcasting remain absent.
+Existing draft PR #4: `improve-independent-verification`. Automated trading, signing, approvals and broadcasting remain disabled. **No verified BUY signal was issued.** Mandatory gates have been preserved or strengthened.
 
-## Validation evidence
+The user personally confirmed receipt of the Telegram diagnostic. GitHub delivery was already confirmed in run [39670221290](https://github.com/madukscoll-web/crypto-oracle-x100/actions/runs/39670221290); Telegram is operational in that runtime. No additional message is needed to establish receipt.
 
-The original six failures were reproduced and resolved in the earlier PR commits. The previous 70-test suite passes unchanged apart from the reverse-quote expectation: a sell quote now uses the minimum guaranteed buy output, not the optimistic expected output. The expanded suite has **98 passing offline tests**. Compilation, `git diff --check`, and actionlint 1.7.12 pass. Offline fixtures test algorithms and failure handling; they do not prove live execution or delivery.
+## Engineering and validation
 
-Live reference: Ethereum SHIB `0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce`, Uniswap V2 pair `0x811beed0119b4afce20d2583eb608c6f7af1954f`. This reference is an integration test, not a trade recommendation.
+All original **98 tests remain passing**. The suite now has **116 passing tests** locally. Python compilation, `git diff --check` and actionlint 1.7.12 pass. Regressions cover source substitution/runtime/chain mismatch, custody-owner decoding, supply conflicts, stale/keyless quotes, calldata builds, combined gas funding, provider binding/pagination/empty unlock calendars, exact-pool honeypot rejection and partial discovery. Fixtures are not presented as live execution evidence.
 
-* `validation/reference-expanded-2026-10-21.json`: actual security, exact-pool honeypot, closed candles, native prices and pinned-block RPC responses, including request parameters and block hash.
-* `validation/capabilities-2026-10-21.json`: actual Geth sequential-RPC capability probe and unauthenticated 0x HTTP 401. The RPC probe simulated an empty block; it is not a funded swap test.
-* `validation/documentation-2026-10-21.json`: documentation/source access evidence. Ethereum RPC docs, Honeypot docs, Uniswap pair source and OpenZeppelin TokenTimelock source were accessible. The current 0x quote reference was subsequently retrieved at `https://docs.0x.org/api-reference/evm-ap-is/swap/allowanceholder-getquote.md` and checked for amounts, allowance targets, sampled block, gas fields and total network fee semantics.
-
-Initial default-user-agent requests sometimes returned HTTP 403. Explicit application identification fixed the public RPC/documentation requests. DefiLlama emissions at `https://api.llama.fi/emissions/arbitrum` returned **HTTP 402 Payment Required**, a real remaining access limitation.
-
-## Operational components and exact limits
-
-| Component | Implemented and tested | Live result / mandatory gap |
+| Area | Implemented and live-tested scope | Mandatory evidence still absent |
 |---|---|---|
-| Contract safety | GoPlus capability/mint/proxy/transfer screening; independent Honeypot checks | SHIB returned limited clear screening. This is not verified source/authority review or a full contract audit. |
-| Independent sellability | Explicit simulation success, taxes, exact returned token, chain and pool matching | Exact reference pool simulation succeeded. The initial provider-selected pool was different; the adapter now requests the exact pool and rejects mismatches. Size-specific funded execution is still separate. |
-| LP evidence | Fresh chain identity, pinned block/hash, canonical factory `getPair`, token identities, supply, burn balances, reserves and reorg check | Reference pair confirmed canonical Ethereum Uniswap V2. Only 1000 of 154257676295007149196230 LP base units were held at zero; dead-address balance was zero. This does not establish meaningful LP lock coverage. |
-| Timelock escrows | Exact runtime SHA256 fingerprint, reviewed-source reference, LP token/beneficiary binding, current escrow balance, release more than 30 days away, duplicate/coverage checks | Inspector tested with fixtures. No real reviewed escrow descriptors were supplied or invented. Complete lock inventory, independent code/build review and V3/V4/other-factory support remain unverified. |
-| Holder concentration | Independent balances and supply at the same block; explicit burn balances; observed coverage and conservative common-control bound | Listed non-burn wallets accounted for approximately 62.5% of non-burn supply; largest unclassified wallet approximately 41.0%. No exchange/LP/burn label is guessed. Beneficial ownership is unresolved; possible common control remains 100%. |
-| Unlock/dilution | Exact-token sourced disclosure registry; integer cliff/linear vesting; 7/30/90/365-day dilution; stale, duplicate, allocation and identity validation | No complete reference disclosure/vesting inventory exists in the registry. The paid emissions endpoint is unavailable. Missing schedules stay UNKNOWN; zero unlocks and complete circulation are not inferred. |
-| Buy/sell quotes | 0x v2 pair/amount/minimum-output validation; 1% slippage policy; 60-second local expiry; reverse leg uses minimum buy output; partial failure preserves diagnostics | Local configuration lacks the 0x inputs; the GitHub run also confirmed the quote configuration is incomplete. Secret metadata cannot identify which remote inputs are missing. Unauthenticated API returned 401. No executable quote or live order price was fabricated. |
-| Independent execution | RPC funding, native gas, actual allowance spender and current-state eth_call checks; quote block freshness | Implemented and fixture-tested. Cannot run without funded taker/quotes. No approvals are sent. |
-| Sequential sellability | Geth eth_simulateV1 with validation enabled, no funding/state overrides or synthesized approvals; evolving token balance probes cross-checked against transfer events and minimum outputs | RPC method available in an empty-block capability check. Real buy/sell sequence remains untested because quotes/funding/allowances are unavailable. A successful method probe is not a verified sell. |
-| Gas valuation | Independent native/USD sources, exact wrapped-native identity, timestamp/confidence/conflict checks; Decimal cost calculation; L2 data-fee requirement | Native sources agreed in the saved response. Gas-limit budget is distinguished from provider expected total fee, which can be lower. GeckoTerminal supplies retrieval time but no provider price timestamp; real order/approval costs and full maximum-loss bounds remain unverified. |
-| Entry/risk | Closed-candle continuity/freshness/geometry/breakout analysis; explicit USD equity/invalidation/fees/slippage/depth sizing utility | Reference candle evidence was insufficiently fresh. No entry, invalidation or target was invented. Sizing utility is not a funded risk plan without valid inputs. |
-| History | Existing indicative paper tracking and horizon tests retained | No realized trade performance, execution backtest, or promised returns claimed. |
-| Telegram | Sanitized getMe/getChat preflight, exact destination confirmation, opt-in NO BUY SIGNAL diagnostic and delivery receipt check | Local environment has no credentials, but the GitHub runtime successfully authenticated the bot, checked the destination and confirmed delivery of the authorized diagnostic. Repository secret/variable metadata access returned 403; the successful runtime check establishes working delivery without exposing those secrets. |
+| Independent source/escrow | Sourcify v2 exact source/runtime claims cross-checked against fresh pinned RPC bytecode. Every source/dependency hash of the canonical OpenZeppelin v4.9.6 simple timelock is pinned. Provider-nominated LP holders must have actual selected-pool balances and code before escrow inspection. | Complete escrow inventory; local compiler/build reproduction; reviewed complex lockers and V3/V4 position custody; independent authority audit. A provider lock label cannot pass this gate. |
+| Beneficial ownership | RPC balances/supply and Safe service owner/threshold corroboration. Safe service API was reachable. | Signing authority does not establish beneficial persons, custodial customers, hidden modules, related-wallet control or full ownership coverage. No verified beneficial ownership is claimed. |
+| Supply/unlocks | Independent Blockscout current token supply/decimals and CoinGecko exact-contract current supply comparison. Tokenomist v5 authenticated list/allocation/emission adapter with explicit contract binding, query freshness, bounded pagination, TBD/untracked allocation checks. | Tokenomist credential and sourced bindings are absent. Unauthenticated request returned HTTP 401. DefiLlama emissions returned HTTP 402 in the earlier check. Complete circulation, vesting and mint-authority evidence remains unavailable. Current supply and an empty calendar cannot prove zero future dilution. |
+| Live quotes | Documented keyless KyberSwap V1 returned actual two-way route previews. Configured takers can request unsigned calldata builds with 1% policy slippage and a 60-second deadline. Original API responses are retained. | No configured funded public taker/order/allowances was available for live executable buy/sell validation. Diagnostic route inputs are not user orders. Calldata availability alone cannot prove execution or minimum-output enforcement. |
+| Gas/slippage/execution | Native/USD source agreement, Decimal gas accounting, expected network fee versus gas-limit budget distinction, L2 data-fee safeguards. Keyless execution checks include actual router code, allowances, combined native gas budget and non-overridden sequential balance/transfer checks. | Real funded order gas, complete fees, sequential post-buy sell, exact route/pool scope and full risk sizing remain unverified. No synthetic funding or approvals are introduced. |
+| Adverse/conflicting evidence | Exact-chain/token/pool honeypot reports now produce DISCARD despite another provider's limited clearance. Supply conflicts become failed evidence gates. | Unknown or conflicting evidence is never promoted to PASS or BUY. |
 
-## Runtime and deployment validation
+## Actual reference responses
 
-`main.yml` now supports a validation-only workflow dispatch on the PR branch. It runs the complete suite, checks live reference integrations, optionally sends one clearly labelled deployment diagnostic, uploads evidence even on failure, and skips discovery/state writes. Scheduled scanner behavior remains separate. The test workflow runs on all pushes and pull requests.
+* `validation/public-source-reference-2026-10-21.json`: independent source/RPC match, escrow/custody search and real two-way keyless route responses for the Ethereum SHIB reference. These are integration checks, not a recommendation.
+* `validation/reference-supply-2026-10-21.json`: Blockscout agreed with pinned RPC total supply. CoinGecko's total materially differed from gross on-chain supply. Burn/circulation definitions remain unresolved; the engine retains CONFLICTING status rather than inventing an adjustment.
+* `validation/public-source-access-2026-10-21.json`, `validation/tokenomist-access-2026-10-21.json`, `validation/safe-service-2026-10-21.json`: actual API/documentation access results. The Tokenomist v5 authentication/list/allocation/emission schemas and Kyber V1 route/build schemas were read. New authenticated Tokenomist and funded calldata/execution paths have regression tests but no live success claim.
 
-Local reproducible command:
+Provider documentation:
+
+* https://docs.sourcify.dev/docs/api/
+* https://docs.safe.global/core-api/transaction-service-reference
+* https://docs.blockscout.com/api-reference/get-token-info
+* https://docs.coingecko.com/reference/coins-contract-address
+* https://docs.tokenomist.ai/api-documents/authentication
+* https://docs.tokenomist.ai/api-documents/daily-emission/v5
+* https://docs.kyberswap.com/developer-guide/aggregator-api/aggregator-api-specification/evm-swaps
+
+## Live candidate scan: exact no-BUY findings
+
+The final local scan fetched **120 pool observations from all six first-page new/trending feeds on Ethereum, Base and BSC**. **32 unique pools met discovery filters; four were independently assessed; 28 were not enriched.** Feed retrieval completed after bounded retries. Some enrichment requests remained rate-limited or unavailable. This is a bounded snapshot, not exhaustive market clearance.
+
+Collection ran **21:44–21:48 Africa/Lagos** on 21 October 2026. `validation/live-candidates-2026-10-21.json` contains raw discovery, provider/RPC responses, request parameters, observation times, coverage gaps, per-candidate blockers and audit results. Existing observations were subsequently re-evaluated under strengthened adverse-evidence gates; no prices or responses were refreshed or fabricated during that re-evaluation. Saved quotes are historical and must not be executed after their expiry.
+
+| Network / exact token contract | Decision | Distinguishing observed blockers |
+|---|---|---|
+| Ethereum `0x232ce3bd40fcd6f80f3d55a522d03f25df784ee2` | WAIT AND VERIFY | Discovery used a 32-byte pool identifier unsupported by canonical V2 escrow/simulator checks; exact source/runtime unavailable; candle evidence invalid. A diagnostic keyless route exists, but funded execution is unverified. |
+| Base `0x311935cd80b76769bf2ecc9d8ab7635b2139cf82` | WAIT AND VERIFY | CoinGecko total conflicts with gross RPC supply; no corroborated supported LP lock/source proof; exact-pool simulation unavailable; no confirmed volume-supported breakout. |
+| BSC `0x2c3a8ee94ddd97244a93bc48298f97d2c412f7db` | DISCARD | Independent provider reported a honeypot for the exact chain, token and pool. Other provider clearance cannot override it. |
+| BSC `0x4b3d30992f003c8167699735f5ab2831b2a087d3` | WAIT AND VERIFY | 32-byte pool identifier; incomplete contract security/source/escrow evidence; exact pool/base-token market corroboration absent; no confirmed breakout. |
+
+**All four also lack complete beneficial ownership, circulation/unlock/mint coverage and funded buy/sell gas/slippage/risk evidence.** No candidate satisfies every mandatory condition. Unassessed pools are not qualified or rejected by this result. Full reason lists are in the saved report.
+
+## Operational commands and GitHub validation
 
 ```sh
 python -m unittest discover -s tests -v
 python -m compileall -q *.py tests
 python integration_validation.py --output validation_runtime.json
+python live_candidate_scan.py --networks eth,base,bsc --limit 4 --output live_candidate_scan.json
 ```
 
-For an explicitly authorized diagnostic delivery add `--send-telegram-test`. Without it, the Telegram preflight only calls getMe/getChat. No credentials, private chat metadata, bot URLs or raw Telegram errors are logged or saved.
+The candidate command sends no Telegram messages and writes no scanner state. Its Ethereum diagnostic quote uses an explicit **100,000,000 USDC base units**, not an allocation recommendation or an assumed market price. Real builds require explicit `ORACLE_TAKER_ADDRESS`, `ORACLE_FUNDING_TOKEN`, `ORACLE_ORDER_BASE_UNITS`, balances and existing allowances. The keyless provider removes the API-key requirement for route collection; 0x remains optional and needs its own key. No private key is accepted.
 
-GitHub validation-only run [39670221290](https://github.com/madukscoll-web/crypto-oracle-x100/actions/runs/39670221290) completed **successfully** at code commit `735e449`. It independently ran all 98 tests, fetched live reference evidence and logged `telegram DELIVERY_CONFIRMED` at 20:26:06 UTC (21:26:06 Africa/Lagos). `Run scanner` and `Save scanner state` were confirmed skipped. Artifact upload succeeded. Blob artifact download returned HTTP 403 in this environment, so the remote result was verified from job logs and metadata, not a downloaded artifact. Sanitized evidence is committed in `validation/github-runtime-2026-10-21.json`.
+The existing GitHub workflow supports `validation_only=true`, `candidate_scan=true`, `send_telegram_test=false`. It runs tests, live reference and bounded candidate checks, uploads raw evidence, and skips discovery notifications/state commits. A successful diagnostic job means the checks ran; it does not mean its candidates passed mandatory evidence gates.
 
-Push CI [39670197637](https://github.com/madukscoll-web/crypto-oracle-x100/actions/runs/39670197637) and PR CI [39670206737](https://github.com/madukscoll-web/crypto-oracle-x100/actions/runs/39670206737) also passed for `735e449`. These are actual CI/runtime results. They do not establish that a full scheduled production scan or every mandatory BUY integration is operational.
+Code commit `33805ce` passed push CI [39673615048](https://github.com/madukscoll-web/crypto-oracle-x100/actions/runs/39673615048) and PR CI [39673624145](https://github.com/madukscoll-web/crypto-oracle-x100/actions/runs/39673624145) with 114 tests. The two additional regressions strengthen rejection of the live honeypot and conflicting supply evidence. GitHub live validation/candidate run [39673647450](https://github.com/madukscoll-web/crypto-oracle-x100/actions/runs/39673647450) is in progress as this report is prepared; its actual result will be recorded after completion.
 
-## Inputs genuinely required to close the remaining gates
-
-* Repository secret `ZEROX_API_KEY`; public variables `ORACLE_TAKER_ADDRESS`, `ORACLE_FUNDING_TOKEN`, `ORACLE_ORDER_BASE_UNITS`. The selected taker needs actual balances and existing allowances for non-overridden execution validation. A public address is sufficient; never supply a private key.
-* Verified escrow inventory/source/build evidence, beneficial ownership/custody evidence and complete token-specific circulation, vesting and mint-authority evidence. Registry schema and deliberately limited trust model are documented in `EVIDENCE_REGISTRY.md`.
-* Telegram is now validated in GitHub using its existing deployment secrets. Those secrets are absent locally; no new secret values were requested or copied. Keep the working GitHub bindings for scheduled delivery.
-* Production publication/merge and a successful scheduled full scan remain unperformed. The PR is draft because the mandatory evidence is incomplete. No hardcoded UNKNOWN or unverified assertion has been promoted to verified BUY.
-
-## Earlier validation history
-
-The original suite had 57 tests: 51 passed, six failed. Diagnostics were repaired and unsafe obsolete expectations were corrected rather than restoring caller-controlled verification, arbitrary price targets or a larger default allocation. The earlier 70-test revision passed GitHub Actions runs `39665542204`, `39665552557`, `39665746673` and `39665753160`. The earlier USDC reference responses remain in `validation/reference-live-evidence-2026-10-21.json` for historical inspection, not current pricing.
+Registry schemas and their limited trust model are in `EVIDENCE_REGISTRY.md`. The PR remains draft. No production merge, full scheduled production deployment or verified BUY capability is claimed while mandatory evidence is incomplete.

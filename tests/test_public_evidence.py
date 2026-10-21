@@ -112,3 +112,18 @@ class ScanTests(unittest.TestCase):
         reasons=blockers(dict(verification=dict(supply_comparison=dict(status='CONFLICTING',reason='Totals differ'))))
         self.assertTrue(any('Supply evidence conflict: Totals differ' in x for x in reasons))
         self.assertTrue(any('Beneficial ownership' in x for x in reasons))
+
+class AdverseLiveEvidenceTests(unittest.TestCase):
+    def test_exact_pool_honeypot_overrides_other_provider_clearance(self):
+        from crypto_oracle_scanner import decision_summary
+        raw=dict(token=dict(address=A),chain=dict(id='56'),pairAddress=B,honeypotResult=dict(isHoneypot=True))
+        item=dict(network='bsc',token_address=A,address=B,risk_category='RESEARCH CANDIDATE — LIMITED CHECKS',
+                  verification=dict(sellability=dict(source='honeypot',status='FAIL',raw=raw)))
+        self.assertEqual(decision_summary(item)[0],'DISCARD')
+        raw['pairAddress']=T
+        self.assertEqual(decision_summary(item)[0],'WAIT AND VERIFY')
+    def test_conflicting_supply_is_a_failed_gate(self):
+        import evidence_audit
+        report=evidence_audit.audit(dict(verification=dict(supply_comparison=dict(status='CONFLICTING'))))
+        self.assertIn('independent_supply_comparison',report['failures'])
+        self.assertFalse(report['trade_ready'])
