@@ -20,6 +20,15 @@ def sample(**updates):
 
 
 class ScannerTests(unittest.TestCase):
+    def test_holder_metadata_is_not_security_failure(self):
+        safe = {field: "0" for field in ("is_honeypot", "owner_change_balance",
+                "hidden_owner", "is_blacklisted", "cannot_sell_all",
+                "is_mintable", "trading_cooldown")}
+        safe["is_open_source"] = "1"
+        result, reasons = oracle.risk_gate(safe, holder_total=0.65, holder_count=10)
+        self.assertEqual(result, "RESEARCH CANDIDATE — LIMITED CHECKS")
+        self.assertFalse(any("holders" in reason for reason in reasons))
+
     def test_market_setup_priority_is_not_buy(self):
         item = sample()
         self.assertEqual(oracle.setup_assessment(item)[0], "PRIORITY VERIFY")
