@@ -1,0 +1,73 @@
+{
+  "run_url": "https://github.com/madukscoll-web/crypto-oracle-x100/actions/runs/39670221290",
+  "head_sha": "735e449e00656fb09f4d4d99c576bbf18a074140",
+  "conclusion": "success",
+  "steps": [
+    {
+      "name": "Set up job",
+      "conclusion": "success"
+    },
+    {
+      "name": "Download repository",
+      "conclusion": "success"
+    },
+    {
+      "name": "Set up Python",
+      "conclusion": "success"
+    },
+    {
+      "name": "Validate scanner and signal rules",
+      "conclusion": "success"
+    },
+    {
+      "name": "Validate reference integrations",
+      "conclusion": "success"
+    },
+    {
+      "name": "Run scanner",
+      "conclusion": "skipped"
+    },
+    {
+      "name": "Upload verification evidence",
+      "conclusion": "success"
+    },
+    {
+      "name": "Save scanner state",
+      "conclusion": "skipped"
+    },
+    {
+      "name": "Post Set up Python",
+      "conclusion": "success"
+    },
+    {
+      "name": "Post Download repository",
+      "conclusion": "success"
+    },
+    {
+      "name": "Complete job",
+      "conclusion": "success"
+    }
+  ],
+  "observed_log_lines": [
+    "scan\tValidate scanner and signal rules\t2026-10-21T20:25:57.3881262Z Ran 98 tests in 0.017s",
+    "scan\tValidate reference integrations\t2026-10-21T20:26:06.0309321Z sellability LIMITED Independent buy/sell simulation succeeded; size-specific quotes still required",
+    "scan\tValidate reference integrations\t2026-10-21T20:26:06.0311855Z execution UNKNOWN Missing 0x API credential, public taker or funding token; no private key is needed",
+    "scan\tValidate reference integrations\t2026-10-21T20:26:06.0313363Z onchain LIMITED Pinned-block independent observations; beneficial ownership and timelock coverage not established",
+    "scan\tValidate reference integrations\t2026-10-21T20:26:06.0314913Z unlocks UNKNOWN No exact-contract sourced unlock disclosure; missing data does not mean zero dilution",
+    "scan\tValidate reference integrations\t2026-10-21T20:26:06.0316746Z gas_valuation LIMITED Native prices agree; GeckoTerminal source timestamp and executable gas estimate remain unverified",
+    "scan\tValidate reference integrations\t2026-10-21T20:26:06.0319779Z telegram DELIVERY_CONFIRMED Telegram confirmed diagnostic message delivery; this is not a trade signal"
+  ],
+  "artifacts": [
+    {
+      "digest": "sha256:8a33df30386ef39db95be5e1cce89faef57920919a54c05b32091baead199a28",
+      "expired": false,
+      "id": 12379261649,
+      "name": "verification-evidence",
+      "size_in_bytes": 43292
+    }
+  ],
+  "artifact_download_verified": false,
+  "artifact_download_limitation": "Artifact uploaded successfully; this environment received HTTP 403 from blob download. Sanitized validation results were verified from GitHub job logs.",
+  "automatic_trading_enabled": false,
+  "verified_buy_issued": false
+}
