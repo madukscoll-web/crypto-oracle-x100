@@ -14,6 +14,7 @@ import urllib.parse
 import urllib.request
 
 import signal_tracker
+import evidence_audit
 
 API = "https://api.geckoterminal.com/api/v2"
 # Override with comma-separated GeckoTerminal network IDs using ORACLE_NETWORKS.
@@ -648,7 +649,8 @@ def setup_assessment(item):
         return "REJECT", "Critical provider risk flag"
     if item.get("change_h1") is None or item.get("change_h24") is None:
         return "WAIT", "Missing price-change observations"
-    if item.get("change_h1") is not None and item["change_h1"] > 35 or item.get("change_h24") is not None and item["change_h24"] > 120:
+    if ((item.get("change_h1") is not None and item["change_h1"] > 35)
+            or (item.get("change_h24") is not None and item["change_h24"] > 120)):
         return "WAIT", "Extreme short-term price acceleration; avoid chasing"
     if any("wash trading" in f or "manipulation" in f for f in flags):
         return "WAIT", "Abnormal flow needs investigation"
@@ -705,6 +707,7 @@ def send_telegram(item):
         f"MARKET SETUP: {setup} — {setup_reason}\n"
         f"ENTRY PATTERN: {entry_setup(item)[0]} — {entry_setup(item)[1]}\n"
         f"SETUP CHANGE: {item.get('setup_transition', 'INITIAL DISCOVERY')}\n"
+        f"{evidence_audit.summary(evidence_audit.audit(item))}\n"
         f"FINAL DECISION: {decision}\n"
         f"WHY: {summary}"
         f"{investment_plan(item, decision)}"
