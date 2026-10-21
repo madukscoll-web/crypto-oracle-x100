@@ -13,6 +13,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+import signal_tracker
+
 API = "https://api.geckoterminal.com/api/v2"
 # Override with comma-separated GeckoTerminal network IDs using ORACLE_NETWORKS.
 # Network IDs and API availability must be checked against GeckoTerminal.
@@ -722,6 +724,7 @@ def send_telegram(item):
 def main():
     seen = load_state()
     watchlist = load_watchlist()
+    history = signal_tracker.load()
     candidates = []
     keys_in_run = set()
     warnings = []
@@ -824,6 +827,9 @@ def main():
         setup_counts[setup] = setup_counts.get(setup, 0) + 1
         entry = entry_setup(item)[0]
         entry_counts[entry] = entry_counts.get(entry, 0) + 1
+        item["entry_pattern"] = entry
+        item["market_setup"] = setup
+        signal_tracker.record(history, item)
         transition = watchlist_transition(item, watchlist)
         if item["key"] in seen and not transition:
             save_watchlist(watchlist)
@@ -843,6 +849,8 @@ def main():
         else:
             delivered_existing += 1
         time.sleep(1)
+    signal_tracker.save(history)
+    print(f"Tracked pool histories: {len(history)}", flush=True)
     print(f"Risk triage among selected: {risk_counts}", flush=True)
     print(f"Market setups among selected: {setup_counts}", flush=True)
     print(f"Entry patterns among selected: {entry_counts}", flush=True)
