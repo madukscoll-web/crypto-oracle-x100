@@ -110,8 +110,8 @@ def inspect(pool, network, mode="new_pools"):
     buy_share = buys / trades if trades else 0
     volume_liquidity = volume / liquidity if liquidity else 0
     changes = attrs.get("price_change_percentage") or {}
-    change_h1 = number(changes.get("h1"))
-    change_h24 = number(changes.get("h24"))
+    change_h1 = number(changes["h1"]) if changes.get("h1") is not None else None
+    change_h24 = number(changes["h24"]) if changes.get("h24") is not None else None
 
     # Activity score (0-100). Deliberately excludes contract security.
     score = 0
@@ -644,7 +644,9 @@ def setup_assessment(item):
     flags = item.get("flags", [])
     if item.get("risk_category") == "AVOID / HIGH CONCERN":
         return "REJECT", "Critical provider risk flag"
-    if item.get("change_h1", 0) > 35 or item.get("change_h24", 0) > 120:
+    if item.get("change_h1") is None or item.get("change_h24") is None:
+        return "WAIT", "Missing price-change observations"
+    if item.get("change_h1") is not None and item["change_h1"] > 35 or item.get("change_h24") is not None and item["change_h24"] > 120:
         return "WAIT", "Extreme short-term price acceleration; avoid chasing"
     if any("wash trading" in f or "manipulation" in f for f in flags):
         return "WAIT", "Abnormal flow needs investigation"
@@ -680,7 +682,7 @@ def send_telegram(item):
         f"24h volume: ${item['volume']:,.0f}\n"
         f"1h trades: {item['trades']} ({item['buys']} buys / {item['sells']} sells)\n"
         f"1h buy share: {item['buy_share']:.0%}\n"
-        f"Price change: 1h {item.get('change_h1', 0):+.1f}% / 24h {item.get('change_h24', 0):+.1f}% (provider-reported)\n"
+        f"Price change: 1h {item.get('change_h1')}% / 24h {item.get('change_h24')}% (provider-reported; None means unavailable)\n"
         f"Activity flags: {flags}\n"
         f"Security: {item['contract_security']}; holders: {item['holder_concentration']}; "
         f"liquidity lock: {item['liquidity_lock']}\n"
@@ -706,7 +708,7 @@ def send_telegram(item):
         f"{investment_plan(item, decision)}"
     )
     if len(message) > 4096:
-        raise ValueError("Telegram message exceeds 4096 characters")
+        message = message[:3900] + "\n[Additional diagnostics truncated; see workflow logs.]"
     data = urllib.parse.urlencode({"chat_id": chat_id, "text": message}).encode("utf-8")
     request = urllib.request.Request(
         f"https://api.telegram.org/bot{token}/sendMessage", data=data, method="POST"
