@@ -38,6 +38,23 @@ class ScannerTests(unittest.TestCase):
         item = sample(observed_at="2025-01-01T00:00:00+00:00")
         self.assertNotEqual(oracle.setup_assessment(item)[0], "PRIORITY VERIFY")
 
+    def test_momentum_watch(self):
+        item = sample(change_h1=6, change_h24=18, trades=180, buy_share=0.58)
+        self.assertEqual(oracle.entry_setup(item)[0], "MOMENTUM WATCH")
+        self.assertEqual(oracle.decision_summary(item)[0], "WAIT AND VERIFY")
+
+    def test_pullback_watch(self):
+        item = sample(change_h1=-2, change_h24=8, trades=180, buy_share=0.55)
+        self.assertEqual(oracle.entry_setup(item)[0], "PULLBACK WATCH")
+
+    def test_overextended_rejected_as_entry(self):
+        item = sample(change_h1=45, change_h24=90, trades=180)
+        self.assertEqual(oracle.entry_setup(item)[0], "OVEREXTENDED")
+
+    def test_missing_change_data_is_not_a_setup(self):
+        item = sample(change_h1=None, change_h24=None, trades=180)
+        self.assertEqual(oracle.entry_setup(item)[0], "INSUFFICIENT DATA")
+
     def test_transition_only_when_priority_improves(self):
         state = {}
         item = sample(score=62)
