@@ -56,6 +56,12 @@ class ScannerTests(unittest.TestCase):
         item = sample(change_h1=None, change_h24=None, trades=180)
         self.assertEqual(oracle.entry_setup(item)[0], "INSUFFICIENT DATA")
 
+    def test_conflicting_market_provider_blocks_buy(self):
+        lead = sample(market_corroboration={"status": "CONFLICTING"})
+        decision, explanation = oracle.decision_summary(lead)
+        self.assertEqual(decision, "WAIT AND VERIFY")
+        self.assertIn("conflict", explanation.lower())
+
     def test_configurable_risk_plan(self):
         with patch.dict(oracle.os.environ, {"ORACLE_BUDGET_NGN": "100000",
                                            "ORACLE_RISK_FRACTION": "0.01",
