@@ -28,3 +28,13 @@ At a fresh pinned block the inspector checks runtime fingerprint, `token()`, `be
 The live LP adapter currently recognizes only Ethereum canonical Uniswap V2 factory `0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f`. It cross-checks `factory()`, `token0()`, `token1()` and the factory's `getPair()`. V3/V4 NFTs and other factories remain UNKNOWN. LP locks cannot protect against malicious token supply, transfer or reserve behavior.
 
 Holder observations come from on-chain balances at the same block, with zero/dead address balances reported separately. Provider LP/exchange labels and common-funder heuristics do not establish beneficial ownership. Without independently verified ownership and complete coverage, the possible common-control upper bound remains 100%.
+
+## Public source and provider adapters
+
+Sourcify v2 exact-runtime source matches are compared against independent pinned RPC bytecode. `source_profiles.json` pins every source/dependency hash for the OpenZeppelin v4.9.6 simple TokenTimelock profile; extra or substituted sources cannot match it. Automated escrow discovery examines provider-nominated LP holders, verifies actual selected-pool holdings and deployed code, and only inspects this canonical source profile. It does not assume that a missing or bounded candidate list is a complete lock inventory. Independent local compiler reproduction remains unverified.
+
+Safe service owner lists and thresholds are compared with on-chain `getOwners()`/`getThreshold()`. This corroborates signing authority, not beneficial persons, custody customers, hidden modules or unrelated wallets.
+
+`provider_bindings` optionally maps `network:lowercase-token-address` to `tokenomist_id`, `source_url` and timezone-bearing `observed_at`. Bindings must be sourced, fresh and manually attributable: Tokenomist's token-list API does not contain contract addresses, so the engine never guesses a slug from a name or symbol. `TOKENOMIST_API_KEY` stays in runtime secrets and is sent only in the documented `x-api-key` header. API quota metadata is excluded from saved evidence.
+
+The Tokenomist v5 adapter checks allocation TBD/untracked amounts and up to four 100-row daily-emission pages over an explicit 365-day window. Missing, stale, duplicate, overlapping or inconsistent pages stay unresolved. An empty dataset cannot establish zero future unlocks. Even a complete queried window is not complete lifetime supply/vesting/mint coverage.

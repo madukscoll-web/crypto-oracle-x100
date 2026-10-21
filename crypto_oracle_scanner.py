@@ -22,6 +22,7 @@ import onchain
 import gas_valuation
 import token_unlocks
 import execution_checks
+import candidate_evidence
 
 API = "https://api.geckoterminal.com/api/v2"
 # Override with comma-separated GeckoTerminal network IDs using ORACLE_NETWORKS.
@@ -865,7 +866,9 @@ def main():
         native_price = report["gas_valuation"].get("metrics", {}).get("native_usd")
         report["execution"] = execution_quotes.collect(item, os.environ, native_price=native_price)
         report["execution_checks"] = execution_checks.collect(item, report["execution"], os.environ.get("ORACLE_TAKER_ADDRESS", ""))
+        candidate_evidence.augment(item, report, fetch_json, os.environ, native_price=native_price)
         item["market_corroboration"] = market_corroboration.check(item, fetch_json)
+        item["mandatory_blockers"] = candidate_evidence.blockers(item)
         verification_reports[item["key"]] = item["verification"]
         risk_counts[item["risk_category"]] = risk_counts.get(item["risk_category"], 0) + 1
         setup = setup_assessment(item)[0]

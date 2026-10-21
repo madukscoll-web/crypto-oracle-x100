@@ -158,6 +158,9 @@ def collect(item, fetch):
     }
     for source, url in endpoints.items():
         try:
+            if source == 'honeypot' and not re.fullmatch(r'0x[0-9a-fA-F]{40}', item['address']):
+                report['sellability'] = observation(source, url, None, 'UNKNOWN', 'Simulator requires a 20-byte pool address; this discovery pool identifier is unsupported')
+                continue
             raw = fetch(url)
             if not isinstance(raw, dict):
                 raise ValueError('Expected object')
@@ -176,6 +179,7 @@ def collect(item, fetch):
                 report['entry']['analysis'] = analysis
         except (OSError, ValueError, TypeError, KeyError, AttributeError) as exc:
             report[source] = observation(source, url, None, 'UNKNOWN', 'Provider unavailable or invalid response: ' + type(exc).__name__)
+            report[source]['diagnostic'] = dict(error_type=type(exc).__name__, http_status=getattr(exc, 'code', None))
     report['execution'] = observation('0x', DOCS['quote'], None, 'UNKNOWN',
         'Executable two-way size-specific quote, taker address, API credential, gas and allowance simulation not configured')
     return report

@@ -11,6 +11,7 @@ import os
 import pathlib
 import execution_quotes
 import execution_checks
+import candidate_evidence
 import gas_valuation
 import onchain
 import telegram_validation
@@ -32,6 +33,7 @@ def validate(send_test=False):
     price=report['gas_valuation'].get('metrics',{}).get('native_usd')
     report['execution']=execution_quotes.collect(REFERENCE,os.environ,native_price=price)
     report['execution_checks']=execution_checks.collect(REFERENCE,report['execution'],os.environ.get('ORACLE_TAKER_ADDRESS',''))
+    candidate_evidence.augment(REFERENCE,report,fetch_json,os.environ,native_price=price,reference_order=dict(funding_token='0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',amount_base_units='100000000'))
     report['telegram']=telegram_validation.validate(os.environ,send_test)
     return dict(observed_at=dt.datetime.now(dt.timezone.utc).isoformat(),reference=REFERENCE,
                 automated_trading_enabled=False,verified_buy_issued=False,

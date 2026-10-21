@@ -7,6 +7,10 @@ on:
         description: Run reference integration validation without discovery or state writes
         type: boolean
         default: false
+      candidate_scan:
+        description: Include bounded live Ethereum, Base and BSC candidate assessment
+        type: boolean
+        default: false
       send_telegram_test:
         description: Send one deployment diagnostic labelled NO BUY SIGNAL during validation
         type: boolean
@@ -41,6 +45,7 @@ jobs:
       - name: Validate reference integrations
         if: github.event_name == 'workflow_dispatch' && inputs.validation_only
         env:
+          TOKENOMIST_API_KEY: ${{ secrets.TOKENOMIST_API_KEY }}
           ZEROX_API_KEY: ${{ secrets.ZEROX_API_KEY }}
           ORACLE_TAKER_ADDRESS: ${{ vars.ORACLE_TAKER_ADDRESS }}
           ORACLE_FUNDING_TOKEN: ${{ vars.ORACLE_FUNDING_TOKEN }}
@@ -54,9 +59,19 @@ jobs:
           else
             python integration_validation.py
           fi
+      - name: Scan live candidates without state writes
+        if: github.event_name == 'workflow_dispatch' && inputs.validation_only && inputs.candidate_scan
+        env:
+          TOKENOMIST_API_KEY: ${{ secrets.TOKENOMIST_API_KEY }}
+          ZEROX_API_KEY: ${{ secrets.ZEROX_API_KEY }}
+          ORACLE_TAKER_ADDRESS: ${{ vars.ORACLE_TAKER_ADDRESS }}
+          ORACLE_FUNDING_TOKEN: ${{ vars.ORACLE_FUNDING_TOKEN }}
+          ORACLE_ORDER_BASE_UNITS: ${{ vars.ORACLE_ORDER_BASE_UNITS }}
+        run: python live_candidate_scan.py --limit 3 --output live_candidate_scan.json
       - name: Run scanner
         if: github.event_name != 'workflow_dispatch' || !inputs.validation_only
         env:
+          TOKENOMIST_API_KEY: ${{ secrets.TOKENOMIST_API_KEY }}
           ZEROX_API_KEY: ${{ secrets.ZEROX_API_KEY }}
           ORACLE_TAKER_ADDRESS: ${{ vars.ORACLE_TAKER_ADDRESS }}
           ORACLE_FUNDING_TOKEN: ${{ vars.ORACLE_FUNDING_TOKEN }}
@@ -72,6 +87,7 @@ jobs:
           path: |
             verification_report.json
             validation_runtime.json
+            live_candidate_scan.json
           if-no-files-found: warn
       - name: Save scanner state
         if: always() && (github.event_name != 'workflow_dispatch' || !inputs.validation_only)
