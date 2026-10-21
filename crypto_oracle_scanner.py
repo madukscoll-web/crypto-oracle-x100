@@ -832,7 +832,8 @@ def main():
         entry_counts[entry] = entry_counts.get(entry, 0) + 1
         item["entry_pattern"] = entry
         item["market_setup"] = setup
-        signal_tracker.record(history, item)
+        if price_evidence(item)[0]:
+            signal_tracker.record(history, item)
         transition = watchlist_transition(item, watchlist)
         if item["key"] in seen and not transition:
             save_watchlist(watchlist)
@@ -854,6 +855,17 @@ def main():
         time.sleep(1)
     signal_tracker.save(history)
     print(f"Tracked pool histories: {len(history)}", flush=True)
+    for hours in signal_tracker.HORIZONS_HOURS:
+        values = [result["change_percent"]
+                  for observations in history.values()
+                  for result in signal_tracker.outcomes(observations)
+                  if result["horizon_hours"] == hours and result["status"] == "OBSERVED"]
+        if values:
+            values.sort()
+            median = (values[(len(values)-1)//2] + values[len(values)//2]) / 2
+            print(f"Paper {hours}h: n={len(values)}, median={median:+.2f}%, positive={sum(v > 0 for v in values)}/{len(values)}; indicative prices, selection bias", flush=True)
+        else:
+            print(f"Paper {hours}h: no measured outcomes yet", flush=True)
     print(f"Risk triage among selected: {risk_counts}", flush=True)
     print(f"Market setups among selected: {setup_counts}", flush=True)
     print(f"Entry patterns among selected: {entry_counts}", flush=True)
