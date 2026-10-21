@@ -576,6 +576,25 @@ def investment_plan(item, decision):
     return chr(10).join(lines)
 
 
+def setup_assessment(item):
+    """Market-only setup classification, never an authorization to trade."""
+    score = item.get("score", 0)
+    liq = item.get("liquidity", 0)
+    vol = item.get("volume", 0)
+    share = item.get("buy_share", 0)
+    flags = item.get("flags", [])
+    if item.get("risk_category") == "AVOID / HIGH CONCERN":
+        return "REJECT", "Critical provider risk flag"
+    if any("wash trading" in f or "manipulation" in f for f in flags):
+        return "WAIT", "Abnormal flow needs investigation"
+    if (score >= 75 and liq >= 250_000 and vol >= 300_000
+            and 0.45 <= share <= 0.70 and price_evidence(item)[0]):
+        return "PRIORITY VERIFY", "Strong observed activity; execution and security checks still required"
+    if score >= 60 and liq >= 100_000 and price_evidence(item)[0]:
+        return "WATCH SETUP", "Activity merits tracking; not a verified buy"
+    return "WAIT", "Market setup not strong enough"
+
+
 def send_telegram(item):
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
     chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
@@ -583,6 +602,7 @@ def send_telegram(item):
         raise RuntimeError("Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID")
     flags = "; ".join(item["flags"]) if item["flags"] else "No additional activity flags triggered"
     decision, summary = decision_summary(item)
+    setup, setup_reason = setup_assessment(item)
     message = (
         "🔎 CRYPTO-ORACLE Z — UNVERIFIED RESEARCH LEAD\n"
         f"Network: {item['network']}\n"
@@ -616,7 +636,7 @@ def send_telegram(item):
         f"Pool link: {item['url']}\n\n"
         "AUTOMATED SCREEN ONLY. Provider data are not an audit; "
         "no price forecast or guaranteed return is provided.\n\n"
-        f"FINAL DECISION: {decision}\n"
+        f"MARKET SETUP: {setup} — {setup_reason}\n"\n        f"FINAL DECISION: {decision}\n"
         f"WHY: {summary}"
         f"{investment_plan(item, decision)}"
     )
@@ -702,9 +722,12 @@ def main():
     delivered_new = 0
     delivered_existing = 0
     risk_counts = {}
+    setup_counts = {}
     for item in selected:
         enrich(item)
         risk_counts[item["risk_category"]] = risk_counts.get(item["risk_category"], 0) + 1
+        setup = setup_assessment(item)[0]
+        setup_counts[setup] = setup_counts.get(setup, 0) + 1
         try:
             send_telegram(item)
         except (urllib.error.URLError, ValueError, RuntimeError, TimeoutError, OSError) as exc:
@@ -719,6 +742,7 @@ def main():
             delivered_existing += 1
         time.sleep(1)
     print(f"Risk triage among selected: {risk_counts}", flush=True)
+    print(f"Market setups among selected: {setup_counts}", flush=True)
     print(f"Alerts delivered by category: NEW POOL={delivered_new}, "
           f"EXISTING POOL={delivered_existing}", flush=True)
 
