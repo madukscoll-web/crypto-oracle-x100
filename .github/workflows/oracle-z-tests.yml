@@ -2,8 +2,7 @@ name: CRYPTO-ORACLE Z Tests
 
 on:
   push:
-    branches:
-      - crypto-oracle-z
+  pull_request:
   workflow_dispatch:
 
 permissions:

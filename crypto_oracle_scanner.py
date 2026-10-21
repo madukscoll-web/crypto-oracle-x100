@@ -16,6 +16,8 @@ import urllib.request
 import signal_tracker
 import evidence_audit
 import market_corroboration
+import verification
+import execution_quotes
 
 API = "https://api.geckoterminal.com/api/v2"
 # Override with comma-separated GeckoTerminal network IDs using ORACLE_NETWORKS.
@@ -229,7 +231,7 @@ def risk_gate(info, holder_total=None, holder_count=0):
     if missing:
         return "WAIT / VERIFY", [
             "Missing or uninterpretable provider security fields: "
-            + ", ".join(missing)]
+            + ", ".join(missing)] + (["Concentration metadata: LP/exclusions unknown"] if holder_total is not None else [])
     # No flagged issues in the core provider fields is NOT proof of safety.
     return "RESEARCH CANDIDATE — LIMITED CHECKS", [
         "No specified risk flags detected in returned fields; not proof of safety"]
@@ -421,10 +423,12 @@ def decision_summary(item):
         )
     if item.get("market_corroboration", {}).get("status") == "CONFLICTING":
         return "WAIT AND VERIFY", "Independent market-data conflict: verify exact pool, token and current price."
+    if any(x.startswith("independent_") for x in evidence_audit.audit(item)["failures"]):
+        return "WAIT AND VERIFY", "Independent evidence failed: " + ", ".join(evidence_audit.audit(item)["failures"])
     # An independent, source-bound audit is mandatory; never accept caller-set
     # booleans or a synthetic quote as sufficient evidence.
     if evidence_audit.audit(item)["trade_ready"] is not True:
-        return "WAIT AND VERIFY", "Independent security, sellability, tokenomics and execution evidence is incomplete."
+        return "WAIT AND VERIFY", ((reasons[0] + ". ") if reasons else "") + "Independent security, sellability, tokenomics and execution evidence is incomplete; limited provider checks are not a contract audit."
     # A BUY CANDIDATE is permitted only after independent verification.
     # These fields are not inferred from activity scores or missing API data.
     if (risk == "RESEARCH CANDIDATE — LIMITED CHECKS"
@@ -681,6 +685,7 @@ def send_telegram(item):
     setup, setup_reason = setup_assessment(item)
     message = (
         "🔎 CRYPTO-ORACLE Z — UNVERIFIED RESEARCH LEAD\n"
+        f"FINAL DECISION: {decision}\nWHY: {summary}\n"
         f"Network: {item['network']}\n"
         f"Pool: {item['name']}\n"
         f"Pool classification: {item['pool_class']}\n"
@@ -828,6 +833,7 @@ def main():
         f"selected: new={len(selected_new)}, existing={len(selected_existing)}",
         flush=True,
     )
+    verification_reports = {}
     delivered = 0
     delivered_new = 0
     delivered_existing = 0
@@ -836,7 +842,10 @@ def main():
     entry_counts = {}
     for item in selected:
         enrich(item)
+        item["verification"] = verification.collect(item, fetch_json)
+        item["verification"]["execution"] = execution_quotes.collect(item, os.environ)
         item["market_corroboration"] = market_corroboration.check(item, fetch_json)
+        verification_reports[item["key"]] = item["verification"]
         risk_counts[item["risk_category"]] = risk_counts.get(item["risk_category"], 0) + 1
         setup = setup_assessment(item)[0]
         setup_counts[setup] = setup_counts.get(setup, 0) + 1
@@ -854,7 +863,7 @@ def main():
         try:
             send_telegram(item)
         except (urllib.error.URLError, ValueError, RuntimeError, TimeoutError, OSError) as exc:
-            errors.append(f"Telegram delivery failed for {item['key']}: {type(exc).__name__}: {exc}")
+            errors.append(f"Telegram delivery failed for {item['key']}: {type(exc).__name__}")
             continue
         seen.add(item["key"])
         save_state(seen)
@@ -865,6 +874,7 @@ def main():
         else:
             delivered_existing += 1
         time.sleep(1)
+    pathlib.Path("verification_report.json").write_text(json.dumps(verification_reports, indent=2) + "\n", encoding="utf-8")
     signal_tracker.save(history)
     print(f"Tracked pool histories: {len(history)}", flush=True)
     for hours in signal_tracker.HORIZONS_HOURS:

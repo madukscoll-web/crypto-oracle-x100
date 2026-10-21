@@ -53,7 +53,7 @@ class DecisionSummaryTests(unittest.TestCase):
             "buy_share": 0.58,
         }
         action, _ = decision_summary(item)
-        self.assertEqual(action, "BUY CANDIDATE — REVIEW ENTRY")
+        self.assertEqual(action, "WAIT AND VERIFY")
         for key in ("sellability_verified", "liquidity_lock_verified",
                     "holder_distribution_verified", "tokenomics_verified",
                     "entry_risk_reviewed", "executable_quote_verified",
