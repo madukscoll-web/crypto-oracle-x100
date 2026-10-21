@@ -35,10 +35,16 @@ def record(history, item):
     key = str(item.get("key") or "")
     if not key or not item.get("token_address") or item["token_address"] == "UNVERIFIED":
         return False
+    # A paper signal starts only with a qualifying observed entry pattern.
+    # Existing tracked signals continue receiving subsequent observations.
+    if key not in history and item.get("entry_pattern") not in ("MOMENTUM WATCH", "PULLBACK WATCH"):
+        return False
     observations = history.setdefault(key, [])
     if not isinstance(observations, list):
         return False
     iso = stamp.isoformat()
+    if observations and str(observations[0].get("token_address", "")).lower() != str(item["token_address"]).lower():
+        return False  # Pool identity changed; never splice two token histories.
     if any(x.get("at") == iso for x in observations):
         return False
     observations.append({
