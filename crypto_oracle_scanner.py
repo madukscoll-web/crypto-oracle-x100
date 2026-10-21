@@ -792,7 +792,8 @@ def main():
     revisits = []
     # Rotate tracked pools by oldest observation, instead of always refreshing the same eight.
     ordered_watchlist = sorted(watchlist.items(), key=lambda pair: pair[1].get("observed_at", ""))
-    for key, record in ordered_watchlist[:3]:
+    revisit_limit = max(1, min(12, int(os.environ.get("ORACLE_REVISITS", "6"))))
+    for key, record in ordered_watchlist[:revisit_limit]:
         network = record.get("network")
         address = record.get("pool_address")
         if not network or not address or key in {x["key"] for x in selected}:
