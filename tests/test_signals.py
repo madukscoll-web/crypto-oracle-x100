@@ -30,6 +30,14 @@ class ScannerTests(unittest.TestCase):
     def test_invalid_price_cannot_qualify(self):
         self.assertNotEqual(oracle.setup_assessment(sample(base_token_price_usd=0))[0], "PRIORITY VERIFY")
 
+    def test_pump_is_not_priority(self):
+        item = sample(change_h1=48, change_h24=80)
+        self.assertEqual(oracle.setup_assessment(item)[0], "WAIT")
+
+    def test_stale_price_is_not_priority(self):
+        item = sample(observed_at="2025-01-01T00:00:00+00:00")
+        self.assertNotEqual(oracle.setup_assessment(item)[0], "PRIORITY VERIFY")
+
     def test_transition_only_when_priority_improves(self):
         state = {}
         item = sample(score=62)
