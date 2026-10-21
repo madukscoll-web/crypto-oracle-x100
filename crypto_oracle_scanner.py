@@ -38,6 +38,7 @@ RATE_LIMIT_WAIT_SECONDS = (12, 24)
 MAX_ALERTS_PER_RUN = max(1, min(20, int(os.environ.get("ORACLE_MAX_ALERTS", "10"))))
 NEW_POOL_TARGET_SHARE = 0.70  # Minimum priority allocation when enough new candidates qualify.
 STATE_FILE = pathlib.Path("reported_pools.json")
+WATCH_STATE_FILE = pathlib.Path("watchlist_state.json")
 # Enrichment is limited to selected, not all discovered pools, to control API use.
 SECURITY_CHAIN_IDS = {"eth": "1", "bsc": "56", "polygon_pos": "137",
                       "arbitrum": "42161", "base": "8453", "optimism": "10",
@@ -576,6 +577,33 @@ def investment_plan(item, decision):
     return chr(10).join(lines)
 
 
+def load_watchlist():
+    if not WATCH_STATE_FILE.exists():
+        return {}
+    data = json.loads(WATCH_STATE_FILE.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise RuntimeError("Watchlist must be a JSON object")
+    return data
+
+
+def save_watchlist(data):
+    temp = WATCH_STATE_FILE.with_suffix(".json.tmp")
+    temp.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    temp.replace(WATCH_STATE_FILE)
+
+
+def watchlist_transition(item, watchlist):
+    key = item["key"]
+    setup, _ = setup_assessment(item)
+    previous = watchlist.get(key, {}).get("setup")
+    watchlist[key] = {"setup": setup, "observed_at": item["observed_at"],
+                      "score": item["score"], "network": item["network"],
+                      "pool_address": item["address"]}
+    if setup == "PRIORITY VERIFY" and previous != "PRIORITY VERIFY":
+        return "UPGRADED TO PRIORITY" if previous else "NEW PRIORITY SETUP"
+    return None
+
+
 def setup_assessment(item):
     """Market-only setup classification, never an authorization to trade."""
     score = item.get("score", 0)
@@ -636,7 +664,8 @@ def send_telegram(item):
         f"Pool link: {item['url']}\n\n"
         "AUTOMATED SCREEN ONLY. Provider data are not an audit; "
         "no price forecast or guaranteed return is provided.\n\n"
-        f"MARKET SETUP: {setup} — {setup_reason}\n"\n        f"FINAL DECISION: {decision}\n"
+        f"MARKET SETUP: {setup} — {setup_reason}\n"\n        f"SETUP CHANGE: {item.get('setup_transition', 'INITIAL DISCOVERY')}\n"
+        f"FINAL DECISION: {decision}\n"
         f"WHY: {summary}"
         f"{investment_plan(item, decision)}"
     )
@@ -654,6 +683,7 @@ def send_telegram(item):
 
 def main():
     seen = load_state()
+    watchlist = load_watchlist()
     candidates = []
     keys_in_run = set()
     warnings = []
@@ -711,6 +741,14 @@ def main():
     if remaining:
         selected_new.extend(new_unseen[len(selected_new):len(selected_new) + remaining])
     selected = selected_new + selected_existing
+    # Recheck reported pools that still appear in discovery feeds.
+    # A separate watchlist endpoint is needed for complete monitoring.
+    revisits = sorted(
+        (item for item in candidates if item["key"] in seen and item["key"] in watchlist),
+        key=lambda item: (item["score"], item["liquidity"]), reverse=True
+    )[:12]
+    selected_keys = {item["key"] for item in selected}
+    selected.extend(item for item in revisits if item["key"] not in selected_keys)
     print(
         f"Qualified candidates: NEW POOL={len(new_candidates)}, "
         f"EXISTING POOL={len(existing_candidates)}; "
@@ -728,6 +766,10 @@ def main():
         risk_counts[item["risk_category"]] = risk_counts.get(item["risk_category"], 0) + 1
         setup = setup_assessment(item)[0]
         setup_counts[setup] = setup_counts.get(setup, 0) + 1
+        transition = watchlist_transition(item, watchlist)
+        if item["key"] in seen and not transition:
+            continue
+        item["setup_transition"] = transition or "INITIAL DISCOVERY"
         try:
             send_telegram(item)
         except (urllib.error.URLError, ValueError, RuntimeError, TimeoutError, OSError) as exc:
@@ -735,6 +777,7 @@ def main():
             continue
         seen.add(item["key"])
         save_state(seen)
+        save_watchlist(watchlist)
         delivered += 1
         if item["pool_class"] == "NEW POOL":
             delivered_new += 1
