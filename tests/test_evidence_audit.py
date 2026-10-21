@@ -8,6 +8,20 @@ class EvidenceAuditTests(unittest.TestCase):
         self.assertFalse(result["trade_ready"])
         self.assertIn("sellability", result["unknown"])
 
+    def test_bare_boolean_claims_are_not_verification(self):
+        result = evidence_audit.audit({
+            "sellability_verified": True,
+            "liquidity_lock_verified": True,
+            "holder_distribution_verified": True,
+            "tokenomics_verified": True,
+            "executable_quote_verified": True,
+            "slippage_verified": True,
+        })
+        for name in ("sellability", "liquidity_lock", "holder_distribution",
+                     "tokenomics_unlocks", "execution_quote"):
+            self.assertEqual(result["checks"][name], "UNKNOWN")
+        self.assertFalse(result["trade_ready"])
+
     def test_high_concern_rejected(self):
         result = evidence_audit.audit({
             "risk_category": "AVOID / HIGH CONCERN",
