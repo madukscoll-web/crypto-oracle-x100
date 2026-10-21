@@ -213,8 +213,8 @@ def risk_gate(info, holder_total=None, holder_count=0):
     for field, (bad, description) in concerning.items():
         if str(info.get(field)) == bad:
             findings.append(f"{field}={bad}: {description}")
-    if holder_total is not None and holder_count:
-        findings.append(f"holders[0:{holder_count}].percent sum={holder_total:.1%}; LP/exclusions unknown")
+    # Descriptive holder percentages are not themselves evidence of a contract
+    # vulnerability. Keep them in holder_details, not the security-failure list.
     if severe:
         return "AVOID / HIGH CONCERN", findings
     if findings:
