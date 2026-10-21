@@ -664,7 +664,8 @@ def send_telegram(item):
         f"Pool link: {item['url']}\n\n"
         "AUTOMATED SCREEN ONLY. Provider data are not an audit; "
         "no price forecast or guaranteed return is provided.\n\n"
-        f"MARKET SETUP: {setup} — {setup_reason}\n"\n        f"SETUP CHANGE: {item.get('setup_transition', 'INITIAL DISCOVERY')}\n"
+        f"MARKET SETUP: {setup} — {setup_reason}\n"
+        f"SETUP CHANGE: {item.get('setup_transition', 'INITIAL DISCOVERY')}\n"
         f"FINAL DECISION: {decision}\n"
         f"WHY: {summary}"
         f"{investment_plan(item, decision)}"
@@ -768,6 +769,7 @@ def main():
         setup_counts[setup] = setup_counts.get(setup, 0) + 1
         transition = watchlist_transition(item, watchlist)
         if item["key"] in seen and not transition:
+            save_watchlist(watchlist)
             continue
         item["setup_transition"] = transition or "INITIAL DISCOVERY"
         try:
