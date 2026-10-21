@@ -6,33 +6,13 @@
     "version": "6.12.0",
     "build_commit": "25093ce63e15a46b9ffcbf00f1381d5a6dcf7c04",
     "api_version": "v1",
-    "secure": true,
-    "host": "api.safe.global",
-    "headers": [
-      "HTTP_X_FORWARDED_HOST",
-      "HTTP_X_FORWARDED_FOR",
-      "HTTP_X_FORWARDED_PROTO",
-      "HTTP_X_FORWARDED_PREFIX",
-      "HTTP_X_FORWARDED_PORT",
-      "HTTP_CLOUDFRONT_FORWARDED_PROTO"
-    ],
-    "settings": {
-      "AWS_CONFIGURED": true,
-      "AWS_S3_PUBLIC_URL": "https://safe-transaction-assets.safe.global",
-      "ETHEREUM_NODE_URL": "http://erpc-service.erpc.svc.cluster.local:4000",
-      "ETHEREUM_TRACING_NODE_URL": "http://erpc-service.erpc.svc.cluster.local:4000",
-      "ETH_EVENTS_BLOCK_PROCESS_LIMIT": 50,
-      "ETH_EVENTS_BLOCK_PROCESS_LIMIT_MAX": 0,
-      "ETH_EVENTS_QUERY_CHUNK_SIZE": 1000,
-      "ETH_EVENTS_UPDATED_BLOCK_BEHIND": 5760,
-      "ETH_INTERNAL_NO_FILTER": false,
-      "ETH_INTERNAL_TRACE_TXS_BATCH_SIZE": 0,
-      "ETH_INTERNAL_TXS_BLOCK_PROCESS_LIMIT": 10000,
-      "ETH_L2_NETWORK": false,
-      "ETH_REORG_BLOCKS": 10,
-      "SSO_ENABLED": true,
-      "TOKENS_LOGO_BASE_URI": "https://tokens-logo.localhost/",
-      "TOKENS_LOGO_EXTENSION": ".png"
-    }
-  }
+    "secure": true
+  },
+  "raw_response_canonical_sha256": "019f724fbafe4213bc41e522fcb29c8bdd340f1c1e48879c2f976122fb59aa5e",
+  "excluded_fields": [
+    "host",
+    "headers",
+    "settings"
+  ],
+  "note": "Service availability metadata only; request/header/server settings are unnecessary for custody evidence and omitted"
 }
