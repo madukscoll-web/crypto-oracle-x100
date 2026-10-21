@@ -32,10 +32,10 @@ MAX_NEW_POOL_AGE_HOURS = 72
 # Older pools can appear via trending_pools. These are NOT necessarily old tokens.
 MIN_TRENDING_POOL_AGE_HOURS = 72
 PAGES_PER_NETWORK = max(1, min(3, int(os.environ.get("ORACLE_PAGES", "1"))))
-REQUEST_DELAY_SECONDS = 5
+REQUEST_DELAY_SECONDS = 8
 RATE_LIMIT_RETRIES = 2
 RATE_LIMIT_WAIT_SECONDS = (12, 24)
-MAX_ALERTS_PER_RUN = max(1, min(20, int(os.environ.get("ORACLE_MAX_ALERTS", "10"))))
+MAX_ALERTS_PER_RUN = max(1, min(10, int(os.environ.get("ORACLE_MAX_ALERTS", "4"))))
 NEW_POOL_TARGET_SHARE = 0.70  # Minimum priority allocation when enough new candidates qualify.
 STATE_FILE = pathlib.Path("reported_pools.json")
 WATCH_STATE_FILE = pathlib.Path("watchlist_state.json")
@@ -43,7 +43,7 @@ WATCH_STATE_FILE = pathlib.Path("watchlist_state.json")
 SECURITY_CHAIN_IDS = {"eth": "1", "bsc": "56", "polygon_pos": "137",
                       "arbitrum": "42161", "base": "8453", "optimism": "10",
                       "avax": "43114"}
-ENRICHMENT_DELAY_SECONDS = 2
+ENRICHMENT_DELAY_SECONDS = 4
 
 
 
@@ -109,6 +109,9 @@ def inspect(pool, network, mode="new_pools"):
     name = attrs.get("name") or "Unnamed pool"
     buy_share = buys / trades if trades else 0
     volume_liquidity = volume / liquidity if liquidity else 0
+    changes = attrs.get("price_change_percentage") or {}
+    change_h1 = number(changes.get("h1"))
+    change_h24 = number(changes.get("h24"))
 
     # Activity score (0-100). Deliberately excludes contract security.
     score = 0
@@ -155,6 +158,8 @@ def inspect(pool, network, mode="new_pools"):
         "sells": sells,
         "trades": trades,
         "buy_share": buy_share,
+        "change_h1": change_h1,
+        "change_h24": change_h24,
         "score": score,
         "flags": flags,
         "url": f"https://www.geckoterminal.com/{network}/pools/{safe_address}",
@@ -613,6 +618,8 @@ def setup_assessment(item):
     flags = item.get("flags", [])
     if item.get("risk_category") == "AVOID / HIGH CONCERN":
         return "REJECT", "Critical provider risk flag"
+    if item.get("change_h1", 0) > 35 or item.get("change_h24", 0) > 120:
+        return "WAIT", "Extreme short-term price acceleration; avoid chasing"
     if any("wash trading" in f or "manipulation" in f for f in flags):
         return "WAIT", "Abnormal flow needs investigation"
     if (score >= 75 and liq >= 250_000 and vol >= 300_000
@@ -647,6 +654,7 @@ def send_telegram(item):
         f"24h volume: ${item['volume']:,.0f}\n"
         f"1h trades: {item['trades']} ({item['buys']} buys / {item['sells']} sells)\n"
         f"1h buy share: {item['buy_share']:.0%}\n"
+        f"Price change: 1h {item.get('change_h1', 0):+.1f}% / 24h {item.get('change_h24', 0):+.1f}% (provider-reported)\n"
         f"Activity flags: {flags}\n"
         f"Security: {item['contract_security']}; holders: {item['holder_concentration']}; "
         f"liquidity lock: {item['liquidity_lock']}\n"
@@ -745,7 +753,9 @@ def main():
     # Fetch tracked pools directly, including those absent from discovery feeds.
     # Bound requests to avoid exceeding the public API rate limit.
     revisits = []
-    for key, record in list(watchlist.items())[:8]:
+    # Rotate tracked pools by oldest observation, instead of always refreshing the same eight.
+    ordered_watchlist = sorted(watchlist.items(), key=lambda pair: pair[1].get("observed_at", ""))
+    for key, record in ordered_watchlist[:3]:
         network = record.get("network")
         address = record.get("pool_address")
         if not network or not address or key in {x["key"] for x in selected}:
