@@ -553,9 +553,11 @@ def investment_plan(item, decision):
     """Naira-denominated conservative plan; no assumed exchange rate."""
     if decision != "BUY CANDIDATE — REVIEW ENTRY":
         return ""
-    budget_ngn = 200_000  # User-confirmed total speculative strategy budget.
-    position_ngn = 50_000  # User-requested maximum per candidate (25% of total).
-    max_planned_loss_ngn = position_ngn * 0.10
+    budget_ngn = max(0, number(os.environ.get("ORACLE_BUDGET_NGN", "200000")))
+    risk_fraction = min(0.02, max(0, number(os.environ.get("ORACLE_RISK_FRACTION", "0.01"))))
+    max_allocation_fraction = min(0.25, max(0, number(os.environ.get("ORACLE_MAX_ALLOCATION_FRACTION", "0.10"))))
+    position_ngn = budget_ngn * max_allocation_fraction
+    max_planned_loss_ngn = budget_ngn * risk_fraction
     price = number(item.get("base_token_price_usd"))
     price_source = item.get("price_source", "UNVERIFIED")
     price_ok, price_status = price_evidence(item)
@@ -563,10 +565,10 @@ def investment_plan(item, decision):
         "",
         "INVESTMENT PLAN (ILLUSTRATIVE; NOT A TRADE ORDER)",
         f"Total speculative budget: NGN {budget_ngn:,.0f}",
-        f"Maximum permitted candidate allocation: NGN {position_ngn:,.0f} (25% of budget; NOT a default recommendation)",
-        f"Planned 10% position loss: NGN {max_planned_loss_ngn:,.0f} before fees/slippage",
+        f"Illustrative maximum allocation: NGN {position_ngn:,.0f} ({max_allocation_fraction:.0%} of budget; not a trade order)",
+        f"Illustrative risk budget: NGN {max_planned_loss_ngn:,.0f} ({risk_fraction:.1%} of budget; not guaranteed)",
         "USD order amount: UNAVAILABLE until a verified NGN/USD rate is supplied.",
-        "CONCENTRATION WARNING: NGN 50,000 is 25% of the NGN 200,000 budget; a single token can lose its entire allocation. Smaller positions are safer.",
+        "CONCENTRATION WARNING: a single token can lose its entire allocation; stops can slip or fail.",
     ]
     if not price_ok:
         lines.append(f"Entry/exit prices: UNAVAILABLE — {price_status}. Refresh before trading.")
