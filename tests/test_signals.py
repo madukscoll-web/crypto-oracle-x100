@@ -9,6 +9,7 @@ def sample(**updates):
         "key": "base:0xpool", "network": "base", "address": "0xpool",
         "token_address": "0xtoken", "score": 80, "liquidity": 300000,
         "volume": 400000, "buy_share": 0.55, "flags": [],
+        "change_h1": 6, "change_h24": 18, "trades": 180,
         "risk_category": "RESEARCH CANDIDATE — LIMITED CHECKS",
         "token_identity_status": "Base token from GeckoTerminal pool relationship",
         "base_token_price_usd": 0.05,
