@@ -15,6 +15,7 @@ import urllib.request
 
 import signal_tracker
 import evidence_audit
+import market_corroboration
 
 API = "https://api.geckoterminal.com/api/v2"
 # Override with comma-separated GeckoTerminal network IDs using ORACLE_NETWORKS.
@@ -694,6 +695,7 @@ def send_telegram(item):
         f"liquidity lock: {item['liquidity_lock']}\n"
         f"Provider security findings: {item['security_details']}\n"
         f"RISK TRIAGE: {item['risk_category']}\n"
+        f"Independent market corroboration: {item.get('market_corroboration', {}).get('status', 'UNKNOWN')} — {item.get('market_corroboration', {}).get('reason', 'Not checked')}\n"
         f"Risk evidence: {'; '.join(item['risk_reasons'])}\n"
         f"Exact provider fields: {item['security_fields']}\n"
         f"Holder evidence: {item['holder_details']}\n"
@@ -828,6 +830,7 @@ def main():
     entry_counts = {}
     for item in selected:
         enrich(item)
+        item["market_corroboration"] = market_corroboration.check(item, fetch_json)
         risk_counts[item["risk_category"]] = risk_counts.get(item["risk_category"], 0) + 1
         setup = setup_assessment(item)[0]
         setup_counts[setup] = setup_counts.get(setup, 0) + 1
