@@ -18,14 +18,13 @@ def audit(item):
         else "LIMITED" if item.get("risk_category") ==
         "RESEARCH CANDIDATE — LIMITED CHECKS" else "UNKNOWN"
     )
-    checks["sellability"] = "PASS" if item.get("sellability_verified") is True else "UNKNOWN"
-    checks["liquidity_lock"] = "PASS" if item.get("liquidity_lock_verified") is True else "UNKNOWN"
-    checks["holder_distribution"] = "PASS" if item.get("holder_distribution_verified") is True else "UNKNOWN"
-    checks["tokenomics_unlocks"] = "PASS" if item.get("tokenomics_verified") is True else "UNKNOWN"
-    checks["execution_quote"] = "PASS" if (
-        item.get("executable_quote_verified") is True and
-        item.get("slippage_verified") is True
-    ) else "UNKNOWN"
+    # Boolean flags alone are not independently verifiable evidence.
+    # Reserve PASS for future source-bound adapter results, not caller assertions.
+    checks["sellability"] = "UNKNOWN"
+    checks["liquidity_lock"] = "UNKNOWN"
+    checks["holder_distribution"] = "UNKNOWN"
+    checks["tokenomics_unlocks"] = "UNKNOWN"
+    checks["execution_quote"] = "UNKNOWN"
     try:
         liquidity = float(item.get("liquidity", 0))
         volume = float(item.get("volume", 0))
