@@ -419,6 +419,8 @@ def decision_summary(item):
             "Token identity could not be verified. Confirm the exact contract "
             "and independently check sellability, holders, and liquidity lock."
         )
+    if item.get("market_corroboration", {}).get("status") == "CONFLICTING":
+        return "WAIT AND VERIFY", "Independent market-data conflict: verify exact pool, token and current price."
     # A BUY CANDIDATE is permitted only after independent verification.
     # These fields are not inferred from activity scores or missing API data.
     if (risk == "RESEARCH CANDIDATE — LIMITED CHECKS"
@@ -432,6 +434,7 @@ def decision_summary(item):
             and item.get("executable_quote_verified") is True
             and item.get("slippage_verified") is True
             and validate_execution_evidence(item) is True
+            and item.get("market_corroboration", {}).get("status") == "CORROBORATED"
             and price_evidence(item)[0] is True
             and not any("wash trading" in f or "manipulation" in f for f in item.get("flags", []))
             and item.get("score", 0) >= 70
@@ -456,6 +459,8 @@ def decision_summary(item):
                 ("slippage_verified", "slippage verification"),
             ) if item.get(field) is not True
         ]
+        if item.get("market_corroboration", {}).get("status") != "CORROBORATED":
+            missing.append("independent exact-pool market-price corroboration")
         if not validate_execution_evidence(item):
             missing.append("fresh quote bound to exact network, token and pool")
         if not price_evidence(item)[0]:
