@@ -34,16 +34,24 @@ class PublicGate:
         url=BASE+path+('?' +urlencode(query) if query else '')
         raw=self.fetch(url);self.evidence.append(dict(url=url,retrieved_at=dt.datetime.now(dt.timezone.utc).isoformat(),provider_timestamp='UNKNOWN unless supplied in raw response',raw=raw));return raw
     def catalog(self):
+        # Publish identity metadata atomically: a malformed/partial reload must
+        # never leave a usable half-built uniqueness index.
+        for name in ('index','catalog_at'):
+            if hasattr(self,name):delattr(self,name)
         self.currencies=self.get('/spot/currencies');self.pairs=self.get('/spot/currency_pairs')
         if not isinstance(self.currencies,list) or not isinstance(self.pairs,list):raise ValueError('Invalid catalog')
-        self.catalog_at=dt.datetime.now(dt.timezone.utc).timestamp();self.index={}
+        index={}
         for currency in self.currencies:
+            if not isinstance(currency,dict) or not isinstance(currency.get('currency'),str):raise ValueError('Malformed currency metadata')
             for chain in currency.get('chains') or []:
+                if not isinstance(chain,dict) or not isinstance(chain.get('name'),str):raise ValueError('Malformed chain metadata')
                 network=GATE_CHAINS.get(chain.get('name'))
                 if not network or not chain.get('addr'):continue
                 try:identity=key(network,chain['addr'])
                 except ValueError:continue
-                self.index.setdefault(identity,[]).append(currency)
+                index.setdefault(identity,[]).append(currency)
+        if any(not isinstance(p,dict) or not isinstance(p.get('id'),str) for p in self.pairs):raise ValueError('Malformed pair catalog')
+        self.index=index;self.catalog_at=dt.datetime.now(dt.timezone.utc).timestamp()
         return dict(currency_records=len(self.currencies),spot_pair_records=len(self.pairs),
             normal_tradable_pairs=sum(p.get('type')=='normal' and p.get('trade_status')=='tradable' for p in self.pairs),
             exact_contract_keys=len(self.index),retrieved_at=self.catalog_at,listing_time_semantics='First observation is not a new listing; buy_start/sell_start are exchange-provided activation times')
@@ -166,7 +174,7 @@ def analyze_candles(raw,now):
             if len(row)!=8:raise ValueError('Ambiguous candle schema')
             t=int(row[0])
             if str(t)!=str(row[0]) or t%300:raise ValueError('Invalid five-minute timestamp')
-            if row[7] not in ('true','false',True,False):raise ValueError('Missing closed-candle flag')
+            if type(row[7]) not in (str,bool) or row[7] not in ('true','false',True,False):raise ValueError('Missing closed-candle flag')
             if row[7] in ('false',False) or t+300>now:continue
             volume,close,high,low,opening,base=[decimal(x,zero=True) for x in row[1:7]]
             if not 0<low<=min(opening,close)<=max(opening,close)<=high:raise ValueError('Invalid OHLC geometry')

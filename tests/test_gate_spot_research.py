@@ -52,6 +52,19 @@ class GateTests(unittest.TestCase):
             other=copy.deepcopy(d['/spot/currencies'][0]);other['currency']='OTHER';d['/spot/currencies'].append(other)
         self.assertNotEqual(self.client(duplicate).eligibility(self.asset(),NOW)['status'],'CONFIRMED_SPOT')
         self.assertNotEqual(self.client().eligibility(self.asset(),NOW+301)['status'],'CONFIRMED_SPOT')
+    def test_malformed_catalog_never_leaves_partial_or_previous_identity_index(self):
+        gate=self.client()
+        good=gate.currencies
+        from unittest.mock import patch
+        with patch.object(gate,'get',side_effect=[good+[{'currency':'BAD','chains':[{'name':[]}]}],gate.pairs]):
+            with self.assertRaises(ValueError):gate.catalog()
+        self.assertFalse(hasattr(gate,'index'))
+        self.assertNotEqual(gate.eligibility(self.asset(),NOW)['status'],'CONFIRMED_SPOT')
+
+    def test_numeric_closed_flag_is_not_explicit_candle_completion(self):
+        rows=candles();rows[-1][-1]=1
+        self.assertEqual(analyze_candles(rows,NOW)['status'],'UNKNOWN')
+
     def test_no_account_order_or_write_endpoint(self):
         gate=self.client()
         for path in ('/spot/orders','/spot/accounts','/wallet/deposit_address','/futures/usdt/contracts'):
