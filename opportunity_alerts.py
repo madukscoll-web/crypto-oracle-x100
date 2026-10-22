@@ -194,7 +194,7 @@ def format_alert(item,result,event='NEW WATCH',example=False):
         valuation(item),
         'Momentum: 1h '+measurement('change_h1',suffix='%')+' | 24h '+measurement('change_h24',suffix='%')+' | buy share '+measurement('buy_share')+' | trades '+measurement('trades'),
         'Pool age hours: '+measurement('age_hours')+'; token launch age UNKNOWN',
-        'Watch score: '+str(result.get('score','UNKNOWN'))+'/100 (activity, not safety/profit probability)',
+        'Watch score: '+str(result.get('score') if result.get('score') is not None else 'UNKNOWN')+'/100 (activity, not safety/profit probability)',
         'Score components: '+json.dumps(result.get('components',{}),sort_keys=True),
         'WHY OF INTEREST / DECISION:']+['- '+x for x in result.get('reasons',[])]+['AVAILABLE SECURITY EVIDENCE:']
     for key in ('contract_security','sellability','holders','liquidity','tokenomics','contract_source','custody','nft_custody','supply_comparison','tokenized_stock_reference'):

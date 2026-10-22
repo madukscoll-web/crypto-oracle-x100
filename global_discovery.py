@@ -127,14 +127,15 @@ def fallback_confirmation(item,fetch):
 
 def preview(item):
     analysis=item['global_assessment'];gate=item['gate_spot'];score=item['prelisting_score']
+    display=lambda value: 'UNKNOWN' if value is None else str(value)
     return '\n'.join(['CRYPTO-ORACLE X100 — '+analysis['category'],'NOT A VERIFIED BUY SIGNAL' if analysis['category']!='VERIFIED BUY' else 'Original mandatory evidence gates required',
         'Chain: '+CHAINS[item['network']],'Contract: '+item['token_address'],
         'Observed price (indicative USD): '+str(item.get('base_token_price_usd') if item.get('base_token_price_usd') is not None else 'UNKNOWN'),
-        'Liquidity USD: '+str(item.get('liquidity','UNKNOWN'))+'; 24h volume USD: '+str(item.get('volume','UNKNOWN')),
-        'Pool age hours: '+str(item.get('age_hours','UNKNOWN'))+'; token launch/pre-listing status UNKNOWN',
+        'Liquidity USD: '+display(item.get('liquidity'))+'; 24h volume USD: '+display(item.get('volume')),
+        'Pool age hours: '+display(item.get('age_hours'))+'; token launch/pre-listing status UNKNOWN',
         'Retrieved UTC: '+item['observed_at']+'; provider market timestamp UNKNOWN',
         'Source: '+item['source_url'],'Independent evidence: '+item['market_corroboration']['status'],
-        'Research score: '+str(score['score'])+' (UNCALIBRATED; not profit probability)',
+        'Research score: '+display(score['score'])+' (UNCALIBRATED; not profit probability)',
         'Gate Spot: '+gate['status']+' — '+gate['reason'],
         'Decision/risk: '+analysis['reason'],
         'UNKNOWN: developer history, complete permissions/holders/LP withdrawal/unlocks/adoption and personal execution risk',
