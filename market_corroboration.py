@@ -17,11 +17,12 @@ def check(item, fetch):
     url = f"{DEX}/{network}/{urllib.parse.quote(str(pool), safe='')}"
     try:
         payload = fetch(url)
+        identity=lambda value: str(value) if item.get("network")=="solana" else str(value).lower()
         matches = [p for p in payload.get("pairs") or []
                    if p.get("chainId") == network
-                   and str(p.get("pairAddress", "")).lower() == str(pool).lower()
-                   and str((p.get("baseToken") or {}).get("address", "")).lower()
-                   == str(item.get("token_address", "")).lower()]
+                   and identity(p.get("pairAddress", "")) == identity(pool)
+                   and identity((p.get("baseToken") or {}).get("address", ""))
+                   == identity(item.get("token_address", ""))]
         if not matches:
             return {"status": "CONFLICTING", "reason": "Exact pool/base-token match absent"}
         pair = matches[0]

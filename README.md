@@ -46,3 +46,13 @@ python reassess_candidates.py --input validation/larger-scan-2026-10-21.json.gz 
 ```
 
 This read-only review retains prior adverse evidence and inaccessible-host exclusions, assesses the saved qualified backlog first, and does not send notifications or write scanner state. [Latest candidate decisions](validation/targeted-candidates-2026-10-21.md) distinguish public observations, incomplete independent reconstruction, credentials and account-state prerequisites.
+
+## Global discovery and Gate Spot research — read-only increment
+
+```sh
+python global_discovery.py --limit 8 --output work/global-report.json.gz
+```
+
+Discovery covers Solana, Ethereum, Base and BNB Chain independently of Gate listing status. Exact chain/contract joins are required for normal, active Gate Spot eligibility. Native/wrapped tokens and ticker collisions never merge. Global categories are EARLY DISCOVERY, WATCH (including the existing entry-watch subtype), HIGH RISK, REJECTED and strictly gated VERIFIED BUY.
+
+The command writes raw evidence and unsent preview text, without messages, accounts, signing, orders or production state. `global-research.yml` provides a manual-only read-only artifact workflow. Scores are uncalibrated activity heuristics; unknown ownership, supply, permissions, LP risk, unlocks, genuine adoption and personal execution conditions remain blockers. [Scope, actual results and next increment](validation/global-discovery-2026-10-22.md).

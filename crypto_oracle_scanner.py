@@ -13,6 +13,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+import opportunity_alerts
 import signal_tracker
 import evidence_audit
 import market_corroboration
@@ -267,6 +268,28 @@ def enrich(item, fetch=None, delay=None):
     try:
         pool_url = f"{API}/networks/{urllib.parse.quote(network, safe='')}/pools/{urllib.parse.quote(item['address'], safe='')}?include=base_token,quote_token"
         payload = fetch(pool_url)
+        # All market filters must use the same fresh pool response, not old
+        # discovery metrics combined with a newly refreshed price.
+        attrs=(payload.get("data") or {}).get("attributes") or {}
+        def observed_number(value):
+            try:
+                return opportunity_alerts.number(value)
+            except (ValueError, TypeError):
+                return None
+        h1=(attrs.get("transactions") or {}).get("h1") or {}
+        for field,value in (("liquidity",attrs.get("reserve_in_usd")),
+                ("volume",(attrs.get("volume_usd") or {}).get("h24")),
+                ("buys",h1.get("buys")),("sells",h1.get("sells")),
+                ("change_h1",(attrs.get("price_change_percentage") or {}).get("h1")),
+                ("change_h24",(attrs.get("price_change_percentage") or {}).get("h24"))):
+            item[field]=observed_number(value)
+        if item["buys"] is not None and item["sells"] is not None and min(item["buys"],item["sells"])>=0:
+            item["trades"]=item["buys"]+item["sells"]
+            item["buy_share"]=item["buys"]/item["trades"] if item["trades"] else None
+        else:
+            item["trades"]=item["buy_share"]=None
+        item["market_raw"]=payload
+        item["refresh_failed"]=False
         # Refresh the indicative pool price at enrichment time. An absent or
         # malformed price must never inherit a potentially stale discovery quote.
         refreshed_price = number(((payload.get("data") or {}).get("attributes") or {}).get("base_token_price_usd"))
@@ -760,6 +783,7 @@ def send_telegram(item):
 
 
 def main():
+    config = opportunity_alerts.policy(os.environ.get("ORACLE_WATCH_POLICY"))
     seen = load_state()
     watchlist = load_watchlist()
     history = signal_tracker.load()
@@ -803,13 +827,18 @@ def main():
 
     # Rank independently: older, high-liquidity pools cannot crowd out new pools.
     # These are POOL classifications, not independently verified token ages.
+    def watch_rank(item):
+        try:
+            return opportunity_alerts.score(item,config)[0],item["liquidity"]
+        except (TypeError,ValueError,KeyError):
+            return -1,0
     new_candidates = sorted(
         (item for item in candidates if item["pool_class"] == "NEW POOL"),
-        key=lambda item: (item["score"], item["liquidity"]), reverse=True,
+        key=watch_rank, reverse=True,
     )
     existing_candidates = sorted(
         (item for item in candidates if item["pool_class"] == "EXISTING POOL"),
-        key=lambda item: (item["score"], item["liquidity"]), reverse=True,
+        key=watch_rank, reverse=True,
     )
     new_unseen = [item for item in new_candidates if item["key"] not in seen]
     existing_unseen = [item for item in existing_candidates if item["key"] not in seen]
@@ -843,10 +872,17 @@ def main():
             if not isinstance(pool, dict):
                 continue
             item = inspect(pool, network, "tracked")
+            if not item:
+                from live_candidate_scan import verification_observation
+                item=verification_observation(pool,network,"tracked")
             if item:
                 revisits.append(item)
         except (urllib.error.URLError, ValueError, KeyError, TimeoutError, OSError) as exc:
             warnings.append(f"Watchlist refresh failed for {key}: {type(exc).__name__}")
+            snapshot=record.get("last_snapshot")
+            if snapshot:
+                item=dict(snapshot,refresh_failed=True)
+                revisits.append(item)
         finally:
             time.sleep(REQUEST_DELAY_SECONDS)
     selected.extend(revisits)
@@ -884,29 +920,37 @@ def main():
         candidate_evidence.augment(item, report, fetch_json, os.environ, native_price=native_price)
         item["market_corroboration"] = market_corroboration.check(item, fetch_json)
         item["mandatory_blockers"] = candidate_evidence.blockers(item)
+        report["market_snapshot"] = dict(source=DATA_SOURCE, observed_at=item.get("observed_at"),raw=item.get("market_raw"),
+            metrics={k:item.get(k) for k in ("base_token_price_usd","liquidity","volume","trades","buy_share","change_h1","change_h24")})
+        report["market_corroboration"]=item["market_corroboration"]
         verification_reports[item["key"]] = item["verification"]
         risk_counts[item["risk_category"]] = risk_counts.get(item["risk_category"], 0) + 1
-        setup = setup_assessment(item)[0]
+        setup = "UNKNOWN" if any(item.get(k) is None for k in ("score","liquidity","volume","buy_share")) else setup_assessment(item)[0]
         setup_counts[setup] = setup_counts.get(setup, 0) + 1
-        entry = entry_setup(item)[0]
+        entry = "UNKNOWN" if any(item.get(k) is None for k in ("liquidity","volume","buy_share","trades")) else entry_setup(item)[0]
         entry_counts[entry] = entry_counts.get(entry, 0) + 1
         item["entry_pattern"] = entry
         item["market_setup"] = setup
         if price_evidence(item)[0]:
             signal_tracker.record(history, item)
-        transition = watchlist_transition(item, watchlist)
-        if item["key"] in seen and not transition:
-            save_watchlist(watchlist)
+        item["persistent_adverse_reasons"] = watchlist.get(item["key"],{}).get("unresolved_adverse_reasons",[])
+        result = opportunity_alerts.classify(item,config)
+        item["opportunity_classification"] = result
+        verification_reports[item["key"]]["opportunity_classification"] = result
+        notification=opportunity_alerts.plan(item,result,watchlist,config)
+        save_watchlist(watchlist)
+        if not notification:
             continue
-        item["setup_transition"] = transition or "INITIAL DISCOVERY"
         try:
-            send_telegram(item)
+            opportunity_alerts.send_notification(item,result,notification,watchlist,os.environ,
+                persist=lambda:save_watchlist(watchlist))
         except (urllib.error.URLError, ValueError, RuntimeError, TimeoutError, OSError) as exc:
+            opportunity_alerts.failed(watchlist,item["key"],dt.datetime.now(dt.timezone.utc).timestamp())
+            save_watchlist(watchlist)
             errors.append(f"Telegram delivery failed for {item['key']}: {type(exc).__name__}")
             continue
         seen.add(item["key"])
         save_state(seen)
-        save_watchlist(watchlist)
         delivered += 1
         if item["pool_class"] == "NEW POOL":
             delivered_new += 1

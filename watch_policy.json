@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "minimum_score": 70,
+  "minimum_liquidity_usd": 100000,
+  "minimum_volume_24h_usd": 200000,
+  "minimum_trades_1h": 80,
+  "minimum_buy_share": 0.50,
+  "maximum_buy_share": 0.72,
+  "maximum_market_age_seconds": 300,
+  "maximum_security_age_seconds": 900,
+  "cooldown_seconds": 1800,
+  "failure_retry_seconds": 300,
+  "weights": {"liquidity": 25, "volume": 20, "trades": 15, "flow": 15, "momentum": 15, "early_pool": 10}
+}
