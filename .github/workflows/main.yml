@@ -2,6 +2,33 @@ name: CRYPTO-ORACLE X100 Scanner
 
 on:
   workflow_dispatch:
+    inputs:
+      validation_only:
+        description: Run reference integration validation without discovery or state writes
+        type: boolean
+        default: false
+      candidate_scan:
+        description: Include bounded live Ethereum, Base and BSC candidate assessment
+        type: boolean
+        default: false
+      watch_alert_validation:
+        description: Validate live watch classifications and optionally send one clearly labelled alert example
+        type: boolean
+        default: false
+      scan_limit:
+        description: Maximum bounded candidate assessments
+        type: choice
+        options: ['3', '6', '12']
+        default: '3'
+      scan_pages:
+        description: Discovery pages per network and feed
+        type: choice
+        options: ['1', '2']
+        default: '1'
+      send_telegram_test:
+        description: Send one deployment diagnostic labelled NO BUY SIGNAL during validation
+        type: boolean
+        default: false
   schedule:
     - cron: '7 * * * *'
 
@@ -15,7 +42,7 @@ concurrency:
 jobs:
   scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 35
     steps:
       - name: Download repository
         uses: actions/checkout@v4
@@ -27,15 +54,74 @@ jobs:
           python-version: '3.11'
       - name: Validate scanner and signal rules
         run: |
-          python -m compileall -q crypto_oracle_scanner.py signal_tracker.py evidence_audit.py market_corroboration.py valuation_scenarios.py tests
+          python -m compileall -q *.py tests
           python -m unittest discover -s tests -v
-      - name: Run scanner
+      - name: Validate reference integrations
+        if: github.event_name == 'workflow_dispatch' && inputs.validation_only
         env:
+          TOKENOMIST_API_KEY: ${{ secrets.TOKENOMIST_API_KEY }}
+          ZEROX_API_KEY: ${{ secrets.ZEROX_API_KEY }}
+          ORACLE_TAKER_ADDRESS: ${{ vars.ORACLE_TAKER_ADDRESS }}
+          ORACLE_FUNDING_TOKEN: ${{ vars.ORACLE_FUNDING_TOKEN }}
+          ORACLE_ORDER_BASE_UNITS: ${{ vars.ORACLE_ORDER_BASE_UNITS }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SEND_TELEGRAM_TEST: ${{ inputs.send_telegram_test && !inputs.watch_alert_validation }}
+        run: |
+          if [ "$SEND_TELEGRAM_TEST" = "true" ]; then
+            python integration_validation.py --send-telegram-test
+          else
+            python integration_validation.py
+          fi
+      - name: Scan live candidates without state writes
+        if: github.event_name == 'workflow_dispatch' && inputs.validation_only && inputs.candidate_scan
+        env:
+          TOKENOMIST_API_KEY: ${{ secrets.TOKENOMIST_API_KEY }}
+          ZEROX_API_KEY: ${{ secrets.ZEROX_API_KEY }}
+          ORACLE_TAKER_ADDRESS: ${{ vars.ORACLE_TAKER_ADDRESS }}
+          ORACLE_FUNDING_TOKEN: ${{ vars.ORACLE_FUNDING_TOKEN }}
+          ORACLE_ORDER_BASE_UNITS: ${{ vars.ORACLE_ORDER_BASE_UNITS }}
+          SCAN_LIMIT: ${{ inputs.scan_limit }}
+          SCAN_PAGES: ${{ inputs.scan_pages }}
+        run: python live_candidate_scan.py --limit "$SCAN_LIMIT" --pages "$SCAN_PAGES" --output live_candidate_scan.json
+      - name: Validate live watch alerts
+        if: github.event_name == 'workflow_dispatch' && inputs.validation_only && inputs.watch_alert_validation
+        env:
+          TOKENOMIST_API_KEY: ${{ secrets.TOKENOMIST_API_KEY }}
+          ZEROX_API_KEY: ${{ secrets.ZEROX_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SEND_EXAMPLE: ${{ inputs.send_telegram_test }}
+        run: |
+          if [ "$SEND_EXAMPLE" = "true" ]; then
+            python watch_live_validation.py --limit 4 --send-example
+          else
+            python watch_live_validation.py --limit 4
+          fi
+      - name: Run scanner
+        if: github.event_name != 'workflow_dispatch' || !inputs.validation_only
+        env:
+          TOKENOMIST_API_KEY: ${{ secrets.TOKENOMIST_API_KEY }}
+          ZEROX_API_KEY: ${{ secrets.ZEROX_API_KEY }}
+          ORACLE_TAKER_ADDRESS: ${{ vars.ORACLE_TAKER_ADDRESS }}
+          ORACLE_FUNDING_TOKEN: ${{ vars.ORACLE_FUNDING_TOKEN }}
+          ORACLE_ORDER_BASE_UNITS: ${{ vars.ORACLE_ORDER_BASE_UNITS }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python crypto_oracle_scanner.py
-      - name: Save scanner state
+      - name: Upload verification evidence
         if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-evidence
+          path: |
+            verification_report.json
+            validation_runtime.json
+            live_candidate_scan.json
+            watch_alert_validation.json
+          if-no-files-found: warn
+      - name: Save scanner state
+        if: always() && (github.event_name != 'workflow_dispatch' || !inputs.validation_only)
         run: |
           if [ -f reported_pools.json ] || [ -f watchlist_state.json ] || [ -f signal_history.json ]; then
             git config user.name "github-actions[bot]"

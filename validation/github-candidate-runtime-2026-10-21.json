@@ -1,0 +1,131 @@
+{
+  "run_url": "https://github.com/madukscoll-web/crypto-oracle-x100/actions/runs/39673647450",
+  "head_sha": "33805ce0e650a7df16089e52774915db056bbc01",
+  "conclusion": "success",
+  "steps": [
+    {
+      "name": "Set up job",
+      "conclusion": "success"
+    },
+    {
+      "name": "Download repository",
+      "conclusion": "success"
+    },
+    {
+      "name": "Set up Python",
+      "conclusion": "success"
+    },
+    {
+      "name": "Validate scanner and signal rules",
+      "conclusion": "success"
+    },
+    {
+      "name": "Validate reference integrations",
+      "conclusion": "success"
+    },
+    {
+      "name": "Scan live candidates without state writes",
+      "conclusion": "success"
+    },
+    {
+      "name": "Run scanner",
+      "conclusion": "skipped"
+    },
+    {
+      "name": "Upload verification evidence",
+      "conclusion": "success"
+    },
+    {
+      "name": "Save scanner state",
+      "conclusion": "skipped"
+    },
+    {
+      "name": "Post Set up Python",
+      "conclusion": "success"
+    },
+    {
+      "name": "Post Download repository",
+      "conclusion": "success"
+    },
+    {
+      "name": "Complete job",
+      "conclusion": "success"
+    }
+  ],
+  "candidates": [
+    {
+      "candidate": "eth:0xc3db44adc1fcdfd5671f555236eae49f4a8eea18",
+      "contract": "0x57e114b691db790c35207b2e685d4a43181e6061",
+      "mandatory_blockers": [
+        "Exact source/bytecode verification unavailable: Exact source/chain/runtime match unavailable; no source-based safety or supply conclusion",
+        "Independent contract mint/upgrade/transfer authority audit is incomplete",
+        "LP coverage unknown: Unsupported pair/factory or unavailable LP proof",
+        "Beneficial ownership and related-wallet concentration coverage are incomplete; signing addresses do not prove beneficial persons",
+        "Complete circulating supply, vesting/unlocks and mint authority are unverified: No exact-contract sourced unlock disclosure; missing data does not mean zero dilution",
+        "Funded size-specific sequential buy/sell execution, allowances and minimum-output proof unavailable",
+        "Order-specific total fees/gas, approved slippage, equity sizing and historical invalidation are not fully verified",
+        "Entry evidence: Malformed historical candle evidence"
+      ]
+    },
+    {
+      "candidate": "base:0x1131db5977242a03ebead1acd18f80a9a29e5922",
+      "contract": "0x311935cd80b76769bf2ecc9d8ab7635b2139cf82",
+      "mandatory_blockers": [
+        "Exact source/bytecode verification unavailable: Exact source/chain/runtime match unavailable; no source-based safety or supply conclusion (HTTP 404)",
+        "Independent contract mint/upgrade/transfer authority audit is incomplete",
+        "LP coverage unknown: Unsupported pair/factory or unavailable LP proof",
+        "Beneficial ownership and related-wallet concentration coverage are incomplete; signing addresses do not prove beneficial persons",
+        "Supply evidence conflict: CoinGecko total differs from gross on-chain supply by more than 0.1%; burn/circulation methodology unresolved",
+        "Complete circulating supply, vesting/unlocks and mint authority are unverified: No exact-contract sourced unlock disclosure; missing data does not mean zero dilution",
+        "Exact-pool independent sellability: Provider unavailable or invalid response: HTTPError",
+        "Funded size-specific sequential buy/sell execution, allowances and minimum-output proof unavailable",
+        "Order-specific total fees/gas, approved slippage, equity sizing and historical invalidation are not fully verified",
+        "Entry evidence: No confirmed volume-supported breakout"
+      ]
+    },
+    {
+      "candidate": "base:0x2df380544b88adb3ad0a94100dcc45fd705aae2d",
+      "contract": "0x07b3d902783c3c12b077508c3b5c00113d1291d0",
+      "mandatory_blockers": [
+        "Exact source/bytecode verification unavailable: Exact source/chain/runtime match unavailable; no source-based safety or supply conclusion",
+        "Independent contract mint/upgrade/transfer authority audit is incomplete",
+        "LP coverage unknown: Unsupported pair/factory or unavailable LP proof",
+        "Beneficial ownership and related-wallet concentration coverage are incomplete; signing addresses do not prove beneficial persons",
+        "Complete circulating supply, vesting/unlocks and mint authority are unverified: No exact-contract sourced unlock disclosure; missing data does not mean zero dilution",
+        "Funded size-specific sequential buy/sell execution, allowances and minimum-output proof unavailable",
+        "Order-specific total fees/gas, approved slippage, equity sizing and historical invalidation are not fully verified",
+        "Entry evidence: No confirmed volume-supported breakout"
+      ]
+    }
+  ],
+  "summary": {
+    "qualified_discovery_count": 13,
+    "assessed_candidate_count": 3,
+    "conclusion": "NO VERIFIED BUY: every assessed candidate has unresolved mandatory evidence; unexamined pools and failed feeds remain unassessed"
+  },
+  "observed_log_lines": [
+    "scan\tValidate scanner and signal rules\t2026-10-21T20:49:44.9819824Z Ran 114 tests in 0.022s",
+    "scan\tValidate reference integrations\t2026-10-21T20:49:59.8891418Z unlock_provider UNKNOWN Tokenomist API key or sourced exact-contract provider binding missing; no slug/symbol guessing",
+    "scan\tValidate reference integrations\t2026-10-21T20:49:59.8893016Z supply_comparison CONFLICTING CoinGecko total differs from gross on-chain supply by more than 0.1%; burn/circulation methodology unresolved",
+    "scan\tValidate reference integrations\t2026-10-21T20:49:59.8894874Z contract_source LIMITED Source service match corroborated with RPC runtime; no full authority, ownership or vesting-completeness audit",
+    "scan\tValidate reference integrations\t2026-10-21T20:49:59.8899987Z kyber LIMITED Two-way diagnostic route previews; no configured taker or funded execution proof",
+    "scan\tValidate reference integrations\t2026-10-21T20:49:59.8903142Z telegram PREFLIGHT_OK Bot and destination checked; delivery not attempted",
+    "scan\tScan live candidates without state writes\t2026-10-21T20:51:55.1237598Z {\"candidate\": \"eth:0xc3db44adc1fcdfd5671f555236eae49f4a8eea18\", \"contract\": \"0x57e114b691db790c35207b2e685d4a43181e6061\", \"mandatory_blockers\": [\"Exact source/bytecode verification unavailable: Exact source/chain/runtime match unavailable; no source-based safety or supply conclusion\", \"Independent contract mint/upgrade/transfer authority audit is incomplete\", \"LP coverage unknown: Unsupported pair/factory or unavailable LP proof\", \"Beneficial ownership and related-wallet concentration coverage are incomplete; signing addresses do not prove beneficial persons\", \"Complete circulating supply, vesting/unlocks and mint authority are unverified: No exact-contract sourced unlock disclosure; missing data does not mean zero dilution\", \"Funded size-specific sequential buy/sell execution, allowances and minimum-output proof unavailable\", \"Order-specific total fees/gas, approved slippage, equity sizing and historical invalidation are not fully verified\", \"Entry evidence: Malformed historical candle evidence\"]}",
+    "scan\tScan live candidates without state writes\t2026-10-21T20:52:38.6447767Z {\"candidate\": \"base:0x1131db5977242a03ebead1acd18f80a9a29e5922\", \"contract\": \"0x311935cd80b76769bf2ecc9d8ab7635b2139cf82\", \"mandatory_blockers\": [\"Exact source/bytecode verification unavailable: Exact source/chain/runtime match unavailable; no source-based safety or supply conclusion (HTTP 404)\", \"Independent contract mint/upgrade/transfer authority audit is incomplete\", \"LP coverage unknown: Unsupported pair/factory or unavailable LP proof\", \"Beneficial ownership and related-wallet concentration coverage are incomplete; signing addresses do not prove beneficial persons\", \"Supply evidence conflict: CoinGecko total differs from gross on-chain supply by more than 0.1%; burn/circulation methodology unresolved\", \"Complete circulating supply, vesting/unlocks and mint authority are unverified: No exact-contract sourced unlock disclosure; missing data does not mean zero dilution\", \"Exact-pool independent sellability: Provider unavailable or invalid response: HTTPError\", \"Funded size-specific sequential buy/sell execution, allowances and minimum-output proof unavailable\", \"Order-specific total fees/gas, approved slippage, equity sizing and historical invalidation are not fully verified\", \"Entry evidence: No confirmed volume-supported breakout\"]}",
+    "scan\tScan live candidates without state writes\t2026-10-21T20:53:10.1670317Z {\"candidate\": \"base:0x2df380544b88adb3ad0a94100dcc45fd705aae2d\", \"contract\": \"0x07b3d902783c3c12b077508c3b5c00113d1291d0\", \"mandatory_blockers\": [\"Exact source/bytecode verification unavailable: Exact source/chain/runtime match unavailable; no source-based safety or supply conclusion\", \"Independent contract mint/upgrade/transfer authority audit is incomplete\", \"LP coverage unknown: Unsupported pair/factory or unavailable LP proof\", \"Beneficial ownership and related-wallet concentration coverage are incomplete; signing addresses do not prove beneficial persons\", \"Complete circulating supply, vesting/unlocks and mint authority are unverified: No exact-contract sourced unlock disclosure; missing data does not mean zero dilution\", \"Funded size-specific sequential buy/sell execution, allowances and minimum-output proof unavailable\", \"Order-specific total fees/gas, approved slippage, equity sizing and historical invalidation are not fully verified\", \"Entry evidence: No confirmed volume-supported breakout\"]}",
+    "scan\tScan live candidates without state writes\t2026-10-21T20:53:10.2179400Z {\"qualified_discovery_count\": 13, \"assessed_candidate_count\": 3, \"conclusion\": \"NO VERIFIED BUY: every assessed candidate has unresolved mandatory evidence; unexamined pools and failed feeds remain unassessed\"}"
+  ],
+  "artifacts": [
+    {
+      "digest": "sha256:ffe04b592b21236facad2da2fb3ac7de2a594768b2a27a1b48e7fac896a0ad1b",
+      "expired": false,
+      "id": 12380589203,
+      "name": "verification-evidence",
+      "size_in_bytes": 512972
+    }
+  ],
+  "artifact_download_verified": false,
+  "remote_raw_evidence_location": "GitHub run verification-evidence artifact; public local scan raw evidence is separately committed",
+  "automatic_trading_enabled": false,
+  "verified_buy_issued": false
+}

@@ -13,9 +13,18 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+import opportunity_alerts
 import signal_tracker
 import evidence_audit
 import market_corroboration
+import verification
+import execution_quotes
+import onchain
+import gas_valuation
+import token_unlocks
+import execution_checks
+import candidate_evidence
+from provider_session import CURRENT, Session
 
 API = "https://api.geckoterminal.com/api/v2"
 # Override with comma-separated GeckoTerminal network IDs using ORACLE_NETWORKS.
@@ -59,6 +68,8 @@ def number(value):
 
 
 def fetch_json(url):
+    if CURRENT.get() is not None:
+        return CURRENT.get().get(url)
     request = urllib.request.Request(url, headers=HEADERS)
     for attempt in range(RATE_LIMIT_RETRIES + 1):
         try:
@@ -229,7 +240,7 @@ def risk_gate(info, holder_total=None, holder_count=0):
     if missing:
         return "WAIT / VERIFY", [
             "Missing or uninterpretable provider security fields: "
-            + ", ".join(missing)]
+            + ", ".join(missing)] + (["Concentration metadata: LP/exclusions unknown"] if holder_total is not None else [])
     # No flagged issues in the core provider fields is NOT proof of safety.
     return "RESEARCH CANDIDATE — LIMITED CHECKS", [
         "No specified risk flags detected in returned fields; not proof of safety"]
@@ -239,8 +250,10 @@ def risk_gate_unavailable(reason):
     return "WAIT / VERIFY", [reason]
 
 
-def enrich(item):
+def enrich(item, fetch=None, delay=None):
     """Best-effort token identification; never suppress an alert on API failure."""
+    fetch = fetch or fetch_json
+    delay = ENRICHMENT_DELAY_SECONDS if delay is None else delay
     item.update(token_address="UNVERIFIED", token_symbol="UNVERIFIED",
                 previous_pools="UNKNOWN", security_source="NOT CHECKED",
                 security_details="UNVERIFIED", holder_details="UNVERIFIED",
@@ -254,7 +267,29 @@ def enrich(item):
     network = item["network"]
     try:
         pool_url = f"{API}/networks/{urllib.parse.quote(network, safe='')}/pools/{urllib.parse.quote(item['address'], safe='')}?include=base_token,quote_token"
-        payload = fetch_json(pool_url)
+        payload = fetch(pool_url)
+        # All market filters must use the same fresh pool response, not old
+        # discovery metrics combined with a newly refreshed price.
+        attrs=(payload.get("data") or {}).get("attributes") or {}
+        def observed_number(value):
+            try:
+                return opportunity_alerts.number(value)
+            except (ValueError, TypeError):
+                return None
+        h1=(attrs.get("transactions") or {}).get("h1") or {}
+        for field,value in (("liquidity",attrs.get("reserve_in_usd")),
+                ("volume",(attrs.get("volume_usd") or {}).get("h24")),
+                ("buys",h1.get("buys")),("sells",h1.get("sells")),
+                ("change_h1",(attrs.get("price_change_percentage") or {}).get("h1")),
+                ("change_h24",(attrs.get("price_change_percentage") or {}).get("h24"))):
+            item[field]=observed_number(value)
+        if item["buys"] is not None and item["sells"] is not None and min(item["buys"],item["sells"])>=0:
+            item["trades"]=item["buys"]+item["sells"]
+            item["buy_share"]=item["buys"]/item["trades"] if item["trades"] else None
+        else:
+            item["trades"]=item["buy_share"]=None
+        item["market_raw"]=payload
+        item["refresh_failed"]=False
         # Refresh the indicative pool price at enrichment time. An absent or
         # malformed price must never inherit a potentially stale discovery quote.
         refreshed_price = number(((payload.get("data") or {}).get("attributes") or {}).get("base_token_price_usd"))
@@ -278,13 +313,13 @@ def enrich(item):
         print(f"Enrichment identity unavailable for {item['key']}: {type(exc).__name__}", flush=True)
         return item
     finally:
-        time.sleep(ENRICHMENT_DELAY_SECONDS)
+        time.sleep(delay)
 
     # A first-page check can prove older pools exist, but cannot prove none exist.
     try:
         url = (f"{API}/networks/{urllib.parse.quote(network, safe='')}/tokens/"
                f"{urllib.parse.quote(address, safe='')}/pools?page=1")
-        response = fetch_json(url)
+        response = fetch(url)
         older = 0
         for pool in response.get("data") or []:
             created = (pool.get("attributes") or {}).get("pool_created_at")
@@ -303,7 +338,7 @@ def enrich(item):
     except (urllib.error.URLError, ValueError, KeyError, TimeoutError, OSError) as exc:
         print(f"Previous-pool check unavailable for {item['key']}: {type(exc).__name__}", flush=True)
     finally:
-        time.sleep(ENRICHMENT_DELAY_SECONDS)
+        time.sleep(delay)
 
     chain_id = SECURITY_CHAIN_IDS.get(network)
     if not chain_id or not address.lower().startswith("0x"):
@@ -312,7 +347,7 @@ def enrich(item):
     try:
         params = urllib.parse.urlencode({"contract_addresses": address})
         url = f"https://api.gopluslabs.io/api/v1/token_security/{chain_id}?{params}"
-        payload = fetch_json(url)
+        payload = fetch(url)
         result = payload.get("result") or {}
         info = result.get(address.lower()) or result.get(address) or {}
         if not isinstance(info, dict) or not info:
@@ -359,7 +394,7 @@ def enrich(item):
         print(f"GoPlus security unavailable for {item['key']}: {type(exc).__name__}", flush=True)
         item["security_source"] = "GoPlus unavailable; NOT VERIFIED"
     finally:
-        time.sleep(ENRICHMENT_DELAY_SECONDS)
+        time.sleep(delay)
     return item
 
 
@@ -414,6 +449,16 @@ def decision_summary(item):
             f"Critical security concern: {detail}. Do not treat high volume "
             "or activity as a reason to override this warning."
         )
+    independent = item.get("verification", {}).get("sellability", {})
+    if independent.get("source") == "honeypot" and independent.get("status") == "FAIL":
+        raw = independent.get("raw") or {}
+        chain = SECURITY_CHAIN_IDS.get(item.get("network"))
+        if chain and item.get("token_address") and item.get("address"):
+            outcome, detail = verification.honeypot(raw, item["token_address"], chain, item["address"])
+            if outcome == "FAIL" and detail == "Independent provider reports honeypot":
+                return "DISCARD", "Exact-chain/token/pool independent provider reports honeypot; other provider clearance cannot override this adverse evidence."
+    if item.get('discovery_eligible') is False:
+        return "WAIT AND VERIFY", "Original market discovery filters failed; verification-only observations cannot qualify for BUY."
     if item.get("token_identity_status", "").startswith("UNVERIFIED"):
         return "WAIT AND VERIFY", (
             "Token identity could not be verified. Confirm the exact contract "
@@ -421,10 +466,12 @@ def decision_summary(item):
         )
     if item.get("market_corroboration", {}).get("status") == "CONFLICTING":
         return "WAIT AND VERIFY", "Independent market-data conflict: verify exact pool, token and current price."
+    if any(x.startswith("independent_") for x in evidence_audit.audit(item)["failures"]):
+        return "WAIT AND VERIFY", "Independent evidence failed: " + ", ".join(evidence_audit.audit(item)["failures"])
     # An independent, source-bound audit is mandatory; never accept caller-set
     # booleans or a synthetic quote as sufficient evidence.
     if evidence_audit.audit(item)["trade_ready"] is not True:
-        return "WAIT AND VERIFY", "Independent security, sellability, tokenomics and execution evidence is incomplete."
+        return "WAIT AND VERIFY", ((reasons[0] + ". ") if reasons else "") + "Independent security, sellability, tokenomics and execution evidence is incomplete; limited provider checks are not a contract audit."
     # A BUY CANDIDATE is permitted only after independent verification.
     # These fields are not inferred from activity scores or missing API data.
     if (risk == "RESEARCH CANDIDATE — LIMITED CHECKS"
@@ -681,6 +728,7 @@ def send_telegram(item):
     setup, setup_reason = setup_assessment(item)
     message = (
         "🔎 CRYPTO-ORACLE Z — UNVERIFIED RESEARCH LEAD\n"
+        f"FINAL DECISION: {decision}\nWHY: {summary}\n"
         f"Network: {item['network']}\n"
         f"Pool: {item['name']}\n"
         f"Pool classification: {item['pool_class']}\n"
@@ -735,9 +783,14 @@ def send_telegram(item):
 
 
 def main():
+    config = opportunity_alerts.policy(os.environ.get("ORACLE_WATCH_POLICY"))
     seen = load_state()
     watchlist = load_watchlist()
     history = signal_tracker.load()
+    registry = json.loads(pathlib.Path(__file__).with_name("evidence_registry.json").read_text())
+    if registry.get("version") != 1 or not isinstance(registry.get("tokens"), dict) or not isinstance(registry.get("lp_locks"), dict):
+        raise ValueError("Unsupported evidence registry schema")
+    native_prices = {}
     candidates = []
     keys_in_run = set()
     warnings = []
@@ -774,13 +827,18 @@ def main():
 
     # Rank independently: older, high-liquidity pools cannot crowd out new pools.
     # These are POOL classifications, not independently verified token ages.
+    def watch_rank(item):
+        try:
+            return opportunity_alerts.score(item,config)[0],item["liquidity"]
+        except (TypeError,ValueError,KeyError):
+            return -1,0
     new_candidates = sorted(
         (item for item in candidates if item["pool_class"] == "NEW POOL"),
-        key=lambda item: (item["score"], item["liquidity"]), reverse=True,
+        key=watch_rank, reverse=True,
     )
     existing_candidates = sorted(
         (item for item in candidates if item["pool_class"] == "EXISTING POOL"),
-        key=lambda item: (item["score"], item["liquidity"]), reverse=True,
+        key=watch_rank, reverse=True,
     )
     new_unseen = [item for item in new_candidates if item["key"] not in seen]
     existing_unseen = [item for item in existing_candidates if item["key"] not in seen]
@@ -814,10 +872,17 @@ def main():
             if not isinstance(pool, dict):
                 continue
             item = inspect(pool, network, "tracked")
+            if not item:
+                from live_candidate_scan import verification_observation
+                item=verification_observation(pool,network,"tracked")
             if item:
                 revisits.append(item)
         except (urllib.error.URLError, ValueError, KeyError, TimeoutError, OSError) as exc:
             warnings.append(f"Watchlist refresh failed for {key}: {type(exc).__name__}")
+            snapshot=record.get("last_snapshot")
+            if snapshot:
+                item=dict(snapshot,refresh_failed=True)
+                revisits.append(item)
         finally:
             time.sleep(REQUEST_DELAY_SECONDS)
     selected.extend(revisits)
@@ -828,6 +893,7 @@ def main():
         f"selected: new={len(selected_new)}, existing={len(selected_existing)}",
         flush=True,
     )
+    verification_reports = {}
     delivered = 0
     delivered_new = 0
     delivered_existing = 0
@@ -836,35 +902,62 @@ def main():
     entry_counts = {}
     for item in selected:
         enrich(item)
+        item["verification"] = verification.collect(item, fetch_json)
+        report = item["verification"]
+        info = ((report.get("contract_security", {}).get("raw") or {}).get("result") or {}).get(item["token_address"].lower(), {})
+        lock_key = item["network"] + ":" + item["address"].lower()
+        report["onchain"] = onchain.collect(item, info.get("holders") or [], lock_descriptors=registry["lp_locks"].get(lock_key, []))
+        report["unlocks"] = token_unlocks.collect(item, registry)
+        if item["network"] not in native_prices:
+            native_prices[item["network"]] = gas_valuation.collect(item["network"], fetch_json)
+        report["gas_valuation"] = native_prices[item["network"]]
+        # Reuse only fresh native prices; never carry a stale run-level cache.
+        if (dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(report["gas_valuation"]["observed_at"])).total_seconds() > 120:
+            report["gas_valuation"] = gas_valuation.collect(item["network"], fetch_json)
+        native_price = report["gas_valuation"].get("metrics", {}).get("native_usd")
+        report["execution"] = execution_quotes.collect(item, os.environ, native_price=native_price)
+        report["execution_checks"] = execution_checks.collect(item, report["execution"], os.environ.get("ORACLE_TAKER_ADDRESS", ""))
+        candidate_evidence.augment(item, report, fetch_json, os.environ, native_price=native_price)
         item["market_corroboration"] = market_corroboration.check(item, fetch_json)
+        item["mandatory_blockers"] = candidate_evidence.blockers(item)
+        report["market_snapshot"] = dict(source=DATA_SOURCE, observed_at=item.get("observed_at"),raw=item.get("market_raw"),
+            metrics={k:item.get(k) for k in ("base_token_price_usd","liquidity","volume","trades","buy_share","change_h1","change_h24")})
+        report["market_corroboration"]=item["market_corroboration"]
+        verification_reports[item["key"]] = item["verification"]
         risk_counts[item["risk_category"]] = risk_counts.get(item["risk_category"], 0) + 1
-        setup = setup_assessment(item)[0]
+        setup = "UNKNOWN" if any(item.get(k) is None for k in ("score","liquidity","volume","buy_share")) else setup_assessment(item)[0]
         setup_counts[setup] = setup_counts.get(setup, 0) + 1
-        entry = entry_setup(item)[0]
+        entry = "UNKNOWN" if any(item.get(k) is None for k in ("liquidity","volume","buy_share","trades")) else entry_setup(item)[0]
         entry_counts[entry] = entry_counts.get(entry, 0) + 1
         item["entry_pattern"] = entry
         item["market_setup"] = setup
         if price_evidence(item)[0]:
             signal_tracker.record(history, item)
-        transition = watchlist_transition(item, watchlist)
-        if item["key"] in seen and not transition:
-            save_watchlist(watchlist)
+        item["persistent_adverse_reasons"] = watchlist.get(item["key"],{}).get("unresolved_adverse_reasons",[])
+        result = opportunity_alerts.classify(item,config)
+        item["opportunity_classification"] = result
+        verification_reports[item["key"]]["opportunity_classification"] = result
+        notification=opportunity_alerts.plan(item,result,watchlist,config)
+        save_watchlist(watchlist)
+        if not notification:
             continue
-        item["setup_transition"] = transition or "INITIAL DISCOVERY"
         try:
-            send_telegram(item)
+            opportunity_alerts.send_notification(item,result,notification,watchlist,os.environ,
+                persist=lambda:save_watchlist(watchlist))
         except (urllib.error.URLError, ValueError, RuntimeError, TimeoutError, OSError) as exc:
-            errors.append(f"Telegram delivery failed for {item['key']}: {type(exc).__name__}: {exc}")
+            opportunity_alerts.failed(watchlist,item["key"],dt.datetime.now(dt.timezone.utc).timestamp())
+            save_watchlist(watchlist)
+            errors.append(f"Telegram delivery failed for {item['key']}: {type(exc).__name__}")
             continue
         seen.add(item["key"])
         save_state(seen)
-        save_watchlist(watchlist)
         delivered += 1
         if item["pool_class"] == "NEW POOL":
             delivered_new += 1
         else:
             delivered_existing += 1
         time.sleep(1)
+    pathlib.Path("verification_report.json").write_text(json.dumps(verification_reports, indent=2) + "\n", encoding="utf-8")
     signal_tracker.save(history)
     print(f"Tracked pool histories: {len(history)}", flush=True)
     for hours in signal_tracker.HORIZONS_HOURS:
@@ -895,4 +988,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    with Session(max_requests=2000,max_seconds=660):
+        main()
