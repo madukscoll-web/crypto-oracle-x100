@@ -4,6 +4,16 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      global_research:
+        description: Collect bounded public global discovery and Gate Spot evidence without notifications or state writes
+        type: boolean
+        default: false
+      assessment_limit:
+        description: Maximum canonical token assessments across four chains
+        type: choice
+        options: ['4', '8', '12']
+        default: '4'
 
 permissions:
   contents: read
@@ -11,6 +21,7 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -22,3 +33,15 @@ jobs:
         run: python -m compileall -q *.py tests
       - name: Run offline regression tests
         run: python -m unittest discover -s tests -v
+      - name: Collect read-only global and Gate Spot research
+        if: github.event_name == 'workflow_dispatch' && inputs.global_research
+        env:
+          ASSESSMENT_LIMIT: ${{ inputs.assessment_limit }}
+        run: python global_discovery.py --limit "$ASSESSMENT_LIMIT" --output global_discovery_report.json.gz
+      - name: Upload timestamped research and unsent previews
+        if: always() && github.event_name == 'workflow_dispatch' && inputs.global_research
+        uses: actions/upload-artifact@v4
+        with:
+          name: global-discovery-gate-spot-research
+          path: global_discovery_report*
+          if-no-files-found: warn

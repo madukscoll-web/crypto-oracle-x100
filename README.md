@@ -55,4 +55,10 @@ python global_discovery.py --limit 8 --output work/global-report.json.gz
 
 Discovery covers Solana, Ethereum, Base and BNB Chain independently of Gate listing status. Exact chain/contract joins are required for normal, active Gate Spot eligibility. Native/wrapped tokens and ticker collisions never merge. Global categories are EARLY DISCOVERY, WATCH (including the existing entry-watch subtype), HIGH RISK, REJECTED and strictly gated VERIFIED BUY.
 
-The command writes raw evidence and unsent preview text, without messages, accounts, signing, orders or production state. `global-research.yml` provides a manual-only read-only artifact workflow. Scores are uncalibrated activity heuristics; unknown ownership, supply, permissions, LP risk, unlocks, genuine adoption and personal execution conditions remain blockers. [Scope, actual results and next increment](validation/global-discovery-2026-10-22.md).
+The command writes raw evidence and unsent preview text, without messages, accounts, signing, orders or production state. `oracle-z-tests.yml` with `global_research=true` provides a manual-only read-only artifact workflow. Scores are uncalibrated activity heuristics; unknown ownership, supply, permissions, LP risk, unlocks, genuine adoption and personal execution conditions remain blockers. [Scope, actual results and next increment](validation/global-discovery-2026-10-22.md).
+
+To validate the draft branch through the registered read-only workflow without deployment:
+
+```sh
+gh workflow run oracle-z-tests.yml --ref improve-independent-verification -f global_research=true -f assessment_limit=4
+```

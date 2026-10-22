@@ -59,13 +59,15 @@ def prior_exclusions(paths):
         sources.append(dict(path=str(path),sha256=hashlib.sha256(path.read_bytes()).hexdigest()))
         for item in report.get('candidates',[])+report.get('previous_rejections',[]):
             global_rejection=(item.get('global_assessment') or {}).get('category')=='REJECTED'
-            if not global_rejection and item.get('decision') not in ('DISCARD','REJECT','REJECTED') and 'decision_reason' not in item:continue
-            # previous_rejections has no decision field, while WAIT assessments do.
-            if not global_rejection and item.get('decision') and item['decision'] not in ('DISCARD','REJECT','REJECTED'):continue
+            hard_rejection=item.get('decision') in ('DISCARD','REJECT','REJECTED') or global_rejection
+            retained_rejection=item.get('decision') is None and 'decision_reason' in item
+            adverse=[name+': '+entry.get('reason','Adverse evidence') for name,entry in (item.get('verification') or {}).items()
+                if name in opportunity_alerts.CRITICAL and isinstance(entry,dict) and entry.get('status') in ('FAIL','CONFLICTING')]
+            if not (hard_rejection or retained_rejection or adverse):continue
             network=item.get('network') or item.get('key','').split(':')[0]
             try:identity=key(network,item['token_address'])
             except (ValueError,KeyError):continue
-            exclusions.setdefault(identity,[]).append(dict(source_file=str(path),pool=item.get('address') or item.get('key'),reason=item.get('decision_reason') or (item.get('global_assessment') or {}).get('reason','Retained prior exclusion'),observed_at=item.get('observed_at',report.get('started_at','UNKNOWN'))))
+            exclusions.setdefault(identity,[]).append(dict(source_file=str(path),pool=item.get('address') or item.get('key'),reason=('Unresolved historical adverse evidence: '+'; '.join(adverse)) if adverse and not hard_rejection else item.get('decision_reason') or (item.get('global_assessment') or {}).get('reason','Retained prior exclusion'),observed_at=item.get('observed_at',report.get('started_at','UNKNOWN'))))
     return exclusions,sources
 
 

@@ -144,3 +144,12 @@ class FallbackTests(unittest.TestCase):
             if url.endswith('/token-profiles/latest/v1'):return [dict(chainId='ethereum',tokenAddress=TOKEN)]
             return [dict(chainId='bsc',pairAddress=POOL,baseToken={'address':TOKEN})]
         self.assertEqual(ProfileFallback(fetch).discover('eth')['rows'],[])
+
+class HistoricalFailureTests(unittest.TestCase):
+    def test_old_wait_decision_cannot_erase_known_security_failure(self):
+        import tempfile,pathlib,json
+        with tempfile.TemporaryDirectory() as folder:
+            path=pathlib.Path(folder)/'old.json'
+            path.write_text(json.dumps({'candidates':[dict(network='eth',token_address=TOKEN,address=POOL,decision='WAIT AND VERIFY',verification={'contract_security':{'status':'FAIL','reason':'Known balance authority'}})]}))
+            excluded,_=global_engine.prior_exclusions([path])
+        self.assertIn('Known balance authority',excluded[key('eth',TOKEN)][0]['reason'])

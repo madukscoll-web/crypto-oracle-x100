@@ -1,12 +1,12 @@
 # Current first increment — global discovery / Gate Spot research
 
-**200 tests pass locally**, preserving existing verification and unfinished watch-alert functionality. Compilation, actionlint and diff checks pass. No merge, deployment, Telegram transmission or trade.
+**201 tests pass locally**, preserving existing verification and unfinished watch-alert functionality. Compilation, actionlint and diff checks pass. No merge, deployment, Telegram transmission or trade.
 
 The bounded read-only run observed **160 pools / 151 unique chain-contract tokens**, assessing eight across Solana, Ethereum, Base and BNB Chain: **one EARLY DISCOVERY, five REJECTED, two HIGH RISK; zero WATCH or VERIFIED BUY**. The other 143 tokens remain unassessed.
 
 One previously rejected Base token was independently confirmed as normal, active Gate Spot by exact contract. Its rejection and blocked entry plan were preserved. A separate USDC reference validated public Spot identity, books, candles and support-derived conditional research; it is not an opportunity or execution approval.
 
-See [the consolidated audit, scope and evidence report](validation/global-discovery-2026-10-22.md), [raw timestamped observations](validation/global-discovery-2026-10-22.json.gz) and [unsent historical alert examples](validation/global-alert-previews-2026-10-22.txt). Latest-commit Actions links are maintained on existing Draft PR #4. The new global workflow is manual and read-only; production deployment is not claimed.
+See [the consolidated audit, scope and evidence report](validation/global-discovery-2026-10-22.md), [raw timestamped observations](validation/global-discovery-2026-10-22.json.gz) and [unsent historical alert examples](validation/global-alert-previews-2026-10-22.txt). Latest-commit Actions links are maintained on existing Draft PR #4. The global research mode is manual and read-only; production deployment is not claimed.
 
 ## Earlier validation history
 
