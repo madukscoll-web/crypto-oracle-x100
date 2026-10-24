@@ -15,6 +15,7 @@ import urllib.parse
 
 import signal_tracker
 import evidence_audit
+import investment_gates
 import market_corroboration
 from oracle_http import get_json
 from telegram_notify import send_message
@@ -708,7 +709,7 @@ def send_telegram(item):
         f"ENTRY PATTERN: {entry_setup(item)[0]} — {entry_setup(item)[1]}\n"
         f"SETUP CHANGE: {item.get('setup_transition', 'INITIAL DISCOVERY')}\n"
         f"{evidence_audit.summary(evidence_audit.audit(item))}\n"
-        f"FINAL DECISION: {decision}\n"
+        f"{investment_gates.telegram_summary(item)}\n"\n        f"FINAL DECISION: {decision}\n"
         f"WHY: {summary}"
         f"{investment_plan(item, decision)}"
     )
