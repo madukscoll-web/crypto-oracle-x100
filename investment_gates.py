@@ -23,7 +23,7 @@ def assess(item):
         blockers.append("Critical provider security flag: independently investigate")
     if item.get("token_identity_status") != "Base token from GeckoTerminal pool relationship":
         blockers.append("Exact base-token identity unverified")
-    if item.get("security_source", "").startswith("GoPlus") is False:
+    if not str(item.get("security_source") or "").startswith("GoPlus token_security API"):
         blockers.append("Provider security assessment unavailable")
     # Provider observations are never substituted for independent verification.
     for field, name in (("sellability_verified", "independent sellability"),
