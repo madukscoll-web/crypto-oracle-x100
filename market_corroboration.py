@@ -35,5 +35,5 @@ def check(item, fetch):
         return {"status": "CORROBORATED", "reason": "Matching chain, pool, base token and price",
                 "source": url, "observed_at": dt.datetime.now(dt.timezone.utc).isoformat(),
                 "price_usd": price, "price_divergence_percent": round(divergence, 2)}
-    except (KeyError, ValueError, TypeError, OverflowError, OSError, IndexError) as exc:
+    except (KeyError, ValueError, TypeError, AttributeError, OverflowError, OSError, IndexError) as exc:
         return {"status": "UNKNOWN", "reason": f"Provider unavailable or invalid: {type(exc).__name__}"}

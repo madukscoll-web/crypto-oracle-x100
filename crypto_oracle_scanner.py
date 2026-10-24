@@ -6,16 +6,18 @@ probability is inferred from pool-level GeckoTerminal market data.
 
 import datetime as dt
 import json
+import math
 import os
 import pathlib
 import time
 import urllib.error
 import urllib.parse
-import urllib.request
 
 import signal_tracker
 import evidence_audit
 import market_corroboration
+from oracle_http import get_json
+from telegram_notify import send_message
 
 API = "https://api.geckoterminal.com/api/v2"
 # Override with comma-separated GeckoTerminal network IDs using ORACLE_NETWORKS.
@@ -37,8 +39,6 @@ MAX_NEW_POOL_AGE_HOURS = 72
 MIN_TRENDING_POOL_AGE_HOURS = 72
 PAGES_PER_NETWORK = max(1, min(3, int(os.environ.get("ORACLE_PAGES", "1"))))
 REQUEST_DELAY_SECONDS = 8
-RATE_LIMIT_RETRIES = 2
-RATE_LIMIT_WAIT_SECONDS = (12, 24)
 MAX_ALERTS_PER_RUN = max(1, min(10, int(os.environ.get("ORACLE_MAX_ALERTS", "4"))))
 NEW_POOL_TARGET_SHARE = 0.70  # Minimum priority allocation when enough new candidates qualify.
 STATE_FILE = pathlib.Path("reported_pools.json")
@@ -53,28 +53,14 @@ ENRICHMENT_DELAY_SECONDS = 4
 
 def number(value):
     try:
-        return float(value)
+        result = float(value)
+        return result if math.isfinite(result) else 0.0
     except (TypeError, ValueError, OverflowError):
         return 0.0
 
 
 def fetch_json(url):
-    request = urllib.request.Request(url, headers=HEADERS)
-    for attempt in range(RATE_LIMIT_RETRIES + 1):
-        try:
-            with urllib.request.urlopen(request, timeout=25) as response:
-                return json.load(response)
-        except urllib.error.HTTPError as exc:
-            if exc.code != 429 or attempt >= RATE_LIMIT_RETRIES:
-                raise
-            retry_after = exc.headers.get("Retry-After")
-            delay = number(retry_after) if retry_after else 0
-            if delay <= 0:
-                delay = RATE_LIMIT_WAIT_SECONDS[attempt]
-            delay = min(max(delay, 1), 60)
-            print(f"Rate limited (HTTP 429); retrying in {delay:g}s", flush=True)
-            time.sleep(delay)
-    raise RuntimeError("Unreachable rate-limit retry state")
+    return get_json(url, headers=HEADERS)
 
 
 def inspect(pool, network, mode="new_pools"):
@@ -274,7 +260,7 @@ def enrich(item):
         item["token_address"] = address
         item["token_symbol"] = symbol
         item["token_identity_status"] = "Base token from GeckoTerminal pool relationship"
-    except (urllib.error.URLError, ValueError, KeyError, TimeoutError, OSError) as exc:
+    except (urllib.error.URLError, ValueError, KeyError, TypeError, AttributeError, TimeoutError, OSError) as exc:
         print(f"Enrichment identity unavailable for {item['key']}: {type(exc).__name__}", flush=True)
         return item
     finally:
@@ -300,7 +286,7 @@ def enrich(item):
                 continue
         item["previous_pools"] = (f"YES: {older} older pools on first API page" if older
                                   else "NOT FOUND on first API page (not proof of absence)")
-    except (urllib.error.URLError, ValueError, KeyError, TimeoutError, OSError) as exc:
+    except (urllib.error.URLError, ValueError, KeyError, TypeError, AttributeError, TimeoutError, OSError) as exc:
         print(f"Previous-pool check unavailable for {item['key']}: {type(exc).__name__}", flush=True)
     finally:
         time.sleep(ENRICHMENT_DELAY_SECONDS)
@@ -355,7 +341,7 @@ def enrich(item):
                 item["holder_details"] = (f"Provider's first {len(percentages)} listed holders: "
                                           f"{holder_total:.1%} combined; exclusions/LP unknown")
         item["risk_category"], item["risk_reasons"] = risk_gate(info, holder_total, holder_count)
-    except (urllib.error.URLError, ValueError, KeyError, TimeoutError, OSError) as exc:
+    except (urllib.error.URLError, ValueError, KeyError, TypeError, AttributeError, TimeoutError, OSError) as exc:
         print(f"GoPlus security unavailable for {item['key']}: {type(exc).__name__}", flush=True)
         item["security_source"] = "GoPlus unavailable; NOT VERIFIED"
     finally:
@@ -424,7 +410,11 @@ def decision_summary(item):
     # An independent, source-bound audit is mandatory; never accept caller-set
     # booleans or a synthetic quote as sufficient evidence.
     if evidence_audit.audit(item)["trade_ready"] is not True:
-        return "WAIT AND VERIFY", "Independent security, sellability, tokenomics and execution evidence is incomplete."
+        detail = reasons[0] if reasons else "Provider checks are not a contract audit."
+        return "WAIT AND VERIFY", (
+            f"{detail} Independent security, sellability, tokenomics and execution "
+            "evidence is incomplete; provider checks are not a contract audit."
+        )
     # A BUY CANDIDATE is permitted only after independent verification.
     # These fields are not inferred from activity scores or missing API data.
     if (risk == "RESEARCH CANDIDATE — LIMITED CHECKS"
@@ -724,14 +714,7 @@ def send_telegram(item):
     )
     if len(message) > 4096:
         message = message[:3900] + "\n[Additional diagnostics truncated; see workflow logs.]"
-    data = urllib.parse.urlencode({"chat_id": chat_id, "text": message}).encode("utf-8")
-    request = urllib.request.Request(
-        f"https://api.telegram.org/bot{token}/sendMessage", data=data, method="POST"
-    )
-    with urllib.request.urlopen(request, timeout=25) as response:
-        result = json.load(response)
-    if not result.get("ok"):
-        raise RuntimeError("Telegram API did not confirm delivery")
+    return send_message(message)
 
 
 def main():
@@ -743,6 +726,7 @@ def main():
     warnings = []
     errors = []
     total_checked = 0
+    successful_feeds = 0
     for network in NETWORKS:
         network_checked = 0
         for mode in SCAN_MODES:
@@ -750,7 +734,10 @@ def main():
                 try:
                     url = f"{API}/networks/{network}/{mode}?page={page}"
                     payload = fetch_json(url)
-                    pools = payload.get("data") or []
+                    pools = payload.get("data")
+                    if not isinstance(pools, list):
+                        raise ValueError("Discovery response data must be an array")
+                    successful_feeds += 1
                     network_checked += len(pools)
                     total_checked += len(pools)
                     for pool in pools:
@@ -760,8 +747,8 @@ def main():
                             keys_in_run.add(item["key"])
                     if not pools:
                         break
-                except (urllib.error.URLError, ValueError, KeyError, TimeoutError, OSError) as exc:
-                    detail = f"{network} {mode} page {page}: {type(exc).__name__}: {exc}"
+                except (urllib.error.URLError, ValueError, KeyError, TypeError, AttributeError, TimeoutError, OSError) as exc:
+                    detail = f"{network} {mode} page {page}: {type(exc).__name__}"
                     if (isinstance(exc, urllib.error.HTTPError) and exc.code == 429
                             and total_checked > 0):
                         warnings.append(f"Incomplete scan after rate limiting: {detail}")
@@ -816,7 +803,7 @@ def main():
             item = inspect(pool, network, "tracked")
             if item:
                 revisits.append(item)
-        except (urllib.error.URLError, ValueError, KeyError, TimeoutError, OSError) as exc:
+        except (urllib.error.URLError, ValueError, KeyError, TypeError, AttributeError, TimeoutError, OSError) as exc:
             warnings.append(f"Watchlist refresh failed for {key}: {type(exc).__name__}")
         finally:
             time.sleep(REQUEST_DELAY_SECONDS)
@@ -846,6 +833,7 @@ def main():
         item["market_setup"] = setup
         if price_evidence(item)[0]:
             signal_tracker.record(history, item)
+        previous_watch = watchlist.get(item["key"])
         transition = watchlist_transition(item, watchlist)
         if item["key"] in seen and not transition:
             save_watchlist(watchlist)
@@ -854,7 +842,12 @@ def main():
         try:
             send_telegram(item)
         except (urllib.error.URLError, ValueError, RuntimeError, TimeoutError, OSError) as exc:
-            errors.append(f"Telegram delivery failed for {item['key']}: {type(exc).__name__}: {exc}")
+            errors.append(f"Telegram delivery failed for {item['key']}: {type(exc).__name__}")
+            # Retry a failed priority-transition alert on the next scan.
+            if previous_watch is None:
+                watchlist.pop(item["key"], None)
+            else:
+                watchlist[item["key"]] = previous_watch
             continue
         seen.add(item["key"])
         save_state(seen)
@@ -865,6 +858,7 @@ def main():
         else:
             delivered_existing += 1
         time.sleep(1)
+    save_watchlist(watchlist)
     signal_tracker.save(history)
     print(f"Tracked pool histories: {len(history)}", flush=True)
     for hours in signal_tracker.HORIZONS_HOURS:
@@ -890,8 +884,17 @@ def main():
         print(f"WARNING: {warning}", flush=True)
     for error in errors:
         print(f"ERROR: {error}", flush=True)
+    if not successful_feeds:
+        errors.append("No discovery feeds completed successfully")
+    report = {"status": "failed" if errors else "completed",
+              "observations": total_checked, "candidates": len(candidates),
+              "alerts_delivered": delivered, "successful_feeds": successful_feeds,
+              "warnings": warnings, "errors": errors,
+              "completed_at": dt.datetime.now(dt.timezone.utc).isoformat()}
+    pathlib.Path("scan_summary.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     if errors:
         raise SystemExit(1)
+    return report
 
 
 if __name__ == "__main__":
