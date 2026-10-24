@@ -76,3 +76,31 @@ Local: `python -m compileall -q *.py tests`; full unittest discovery passes
 78 tests, including transport retry bounds, pacing, malformed responses, secret
 redaction, empty scans, outages, atomic state, and failed-transition recovery.
 Live GitHub Actions and Telegram validation will be recorded in the PR.
+
+### Live evidence (24 October 2026)
+
+[Scanner run #71](https://github.com/madukscoll-web/crypto-oracle-x100/actions/runs/40060543768)
+completed successfully on repair implementation `56f8bb2` (Python 3.11.17).
+All 78 tests passed, all eight networks were scanned, and 314 pool observations
+produced 54 activity-screened research leads. Four separate research alerts and
+the completion summary each received `ok=true` with `message_id` from Telegram.
+Secrets came from the existing GitHub Secrets; no values were read or exposed.
+HTTP 429 retries were exercised against the real GeckoTerminal API and recovered.
+State commit `7706ec1` pushed successfully to the repair branch. The run retained
+all four diagnostic/state artifact files (artifact ID `12547198350`).
+
+[PR CI run #90](https://github.com/madukscoll-web/crypto-oracle-x100/actions/runs/40060565195)
+and branch CI run #89 (`40060543841`) both passed compilation and all 78 tests.
+
+Acceptance status:
+
+- Successful GitHub Actions scanner run: VERIFIED on the repair branch.
+- Telegram delivery: VERIFIED by Bot API acknowledgment for four candidate
+  messages and one hourly summary. This confirms acceptance by Telegram, not
+  that a person has read the messages.
+- Hourly scheduling: VERIFIED configuration (`7 * * * *`).
+- Critical test failures: NONE; 78/78 pass locally and on Actions.
+- Repaired automatic hourly execution on main: UNVERIFIED pending merge and the
+  first scheduled run after merge. The PR is deliberately left unmerged.
+- Zero-candidate completion and failure-report delivery paths: covered by offline
+  regression tests; no production outage was induced to send a test failure.
