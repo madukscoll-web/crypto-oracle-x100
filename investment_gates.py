@@ -80,7 +80,26 @@ def assess(item):
                 warnings.append(f"Upcoming token unlock in {days:.1f} days")
         except (ValueError, TypeError, OverflowError):
             blockers.append("Invalid unlock timestamp")
+    # Any claimed external quote must be bound to the same observed asset and pool.
     quote = item.get("execution_evidence")
+    if isinstance(quote, dict):
+        for source_key, item_key in (("network", "network"), ("pool_address", "address"),
+                                     ("token_address", "token_address")):
+            a, b = quote.get(source_key), item.get(item_key)
+            if not a or not b or str(a).lower() != str(b).lower():
+                blockers.append(f"Execution evidence {source_key} mismatched or absent")
+        observed = quote.get("observed_at")
+        try:
+            t = dt.datetime.fromisoformat(str(observed).replace("Z", "+00:00"))
+            if t.tzinfo is None:
+                raise ValueError("Timezone required")
+            age = (dt.datetime.now(dt.timezone.utc) - t).total_seconds()
+            if age < 0 or age > _threshold("ORACLE_QUOTE_MAX_AGE_SECONDS", 120):
+                blockers.append("Executable quote stale or future-dated")
+        except (ValueError, TypeError, OverflowError):
+            blockers.append("Executable quote timestamp missing or invalid")
+        if not quote.get("source_url") or not quote.get("source"):
+            blockers.append("Executable quote source provenance missing")
     if not isinstance(quote, dict):
         blockers.append("Exact-pool fresh executable quote unavailable")
     else:
