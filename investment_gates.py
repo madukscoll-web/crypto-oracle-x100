@@ -4,6 +4,8 @@ import math
 import os
 
 def _positive(value):
+    if isinstance(value, bool):
+        return None
     try:
         x = float(value)
         return x if math.isfinite(x) and x > 0 else None
@@ -14,11 +16,15 @@ def _threshold(name, default):
     x = _positive(os.environ.get(name))
     return x if x is not None else default
 
-def assess(item):
+def assess(item, now=None):
     """Missing independent evidence is UNKNOWN, not zero or PASS."""
+    now = now or dt.datetime.now(dt.timezone.utc)
     blockers = []
     warnings = []
     risk = item.get("risk_category", "WAIT / VERIFY")
+    review = item.get("evidence_review") or {}
+    if any((review.get(key) or {}).get("status") == "HIGH CONCERN" for key in ("security", "provider_security")):
+        risk = "AVOID / HIGH CONCERN"
     if risk == "AVOID / HIGH CONCERN":
         blockers.append("Critical provider security flag: independently investigate")
     if item.get("token_identity_status") != "Base token from GeckoTerminal pool relationship":
@@ -43,6 +49,9 @@ def assess(item):
         record = evidence.get(field) or {}
         # No independently authenticated verification adapter is configured.
         blockers.append(field + ": " + ("CONFLICTING" if record.get("status") == "CONFLICTING" else "UNVERIFIED"))
+    for field, reviewed in (review.get("supply") or {}).items():
+        if reviewed.get("status") == "CONFLICTING":
+            blockers.append("Independent " + field + " sources CONFLICTING")
     liquidity = _positive(item.get("liquidity"))
     volume = _positive(item.get("volume"))
     if liquidity and volume:
@@ -51,14 +60,17 @@ def assess(item):
             warnings.append(f"24h volume/liquidity {ratio:.1f}x: authenticity requires investigation")
     else:
         blockers.append("Positive pool liquidity and volume unavailable")
-    cap = _positive(item.get("market_cap_usd"))
-    fdv = _positive(item.get("fdv_usd"))
+    def observed(field):
+        value = (evidence.get(field) or {}).get("value")
+        return value if value is not None else item.get(field)
+    cap = _positive(observed("market_cap_usd"))
+    fdv = _positive(observed("fdv_usd"))
     if cap and fdv and fdv / cap > _threshold("ORACLE_DILUTION_WARNING", 5):
         warnings.append(f"FDV/circulating cap {fdv/cap:.1f}x: potential dilution")
     elif cap is None or fdv is None:
         blockers.append("Market capitalization or FDV unverified")
-    circulating = _positive(item.get("circulating_supply"))
-    maximum = _positive(item.get("max_supply"))
+    circulating = _positive(observed("circulating_supply"))
+    maximum = _positive(observed("max_supply"))
     if circulating is None or maximum is None:
         blockers.append("Circulating/maximum supply unverified")
     elif circulating > maximum:
@@ -68,11 +80,13 @@ def assess(item):
         blockers.append("Top-holder concentration excluding LP/CEX/burn unverified")
     else:
         try:
+            if isinstance(holder_pct, bool):
+                raise ValueError("Boolean is not concentration")
             h = float(holder_pct)
             if not 0 <= h <= 1:
                 blockers.append("Invalid adjusted holder concentration")
             elif h > _threshold("ORACLE_TOP10_WARNING", .5):
-                warnings.append(f"Adjusted top-ten holders control {h:.0%}")
+                warnings.append(f"Adjusted top-ten holders control {h:.0%} (UNVERIFIED claim)")
         except (ValueError, TypeError):
             blockers.append("Invalid adjusted holder concentration")
     unlock = item.get("next_unlock_utc")
@@ -83,7 +97,7 @@ def assess(item):
             t = dt.datetime.fromisoformat(str(unlock).replace("Z", "+00:00"))
             if t.tzinfo is None:
                 raise ValueError("Timezone required")
-            days = (t - dt.datetime.now(dt.timezone.utc)).total_seconds()/86400
+            days = (t - now).total_seconds()/86400
             if 0 <= days <= _threshold("ORACLE_UNLOCK_WARNING_DAYS", 30):
                 warnings.append(f"Upcoming token unlock in {days:.1f} days")
         except (ValueError, TypeError, OverflowError):
@@ -101,7 +115,7 @@ def assess(item):
             t = dt.datetime.fromisoformat(str(observed).replace("Z", "+00:00"))
             if t.tzinfo is None:
                 raise ValueError("Timezone required")
-            age = (dt.datetime.now(dt.timezone.utc) - t).total_seconds()
+            age = (now - t).total_seconds()
             if age < 0 or age > _threshold("ORACLE_QUOTE_MAX_AGE_SECONDS", 120):
                 blockers.append("Executable quote stale or future-dated")
         except (ValueError, TypeError, OverflowError):
@@ -111,7 +125,8 @@ def assess(item):
     if not isinstance(quote, dict):
         blockers.append("Exact-pool fresh executable quote unavailable")
     else:
-        spread = _positive(quote.get("spread_percent"))
+        from fundamental_evidence import finite
+        spread = finite(quote.get("spread_percent"))
         depth = _positive(quote.get("depth_usd"))
         if spread is None:
             blockers.append("Spread unverified or crossed")
@@ -132,12 +147,22 @@ def assess(item):
         bid, ask = _positive(quote.get("bid")), _positive(quote.get("ask"))
         if bid is None or ask is None or bid > ask:
             blockers.append("Bid/ask UNVERIFIED or crossed")
-        slip = _positive(quote.get("slippage_percent"))
+        from fundamental_evidence import finite
+        slip = finite(quote.get("slippage_percent"))
         if slip is None:
             blockers.append("Slippage UNVERIFIED")
         elif slip > _threshold("ORACLE_SLIPPAGE_WARNING_PERCENT", 2):
             warnings.append(f"High claimed slippage {slip:.2f}% (UNVERIFIED)")
+    reviewed_unlock = review.get("unlocks") or {}
+    if reviewed_unlock.get("large_unlock"):
+        warnings.append("Large upcoming corroborated unlock: " + str(reviewed_unlock.get("fraction")) + " of circulating supply; enforceability UNVERIFIED")
+    reviewed_holders = review.get("holders") or {}
+    if reviewed_holders.get("excessive"):
+        warnings.append("Excessive adjusted holder concentration: " + str(reviewed_holders.get("adjusted_top10_fraction")) + "; snapshot authenticity UNVERIFIED")
+    for flag in (review.get("execution") or {}).get("flags", []):
+        warnings.append("Quote observation: " + flag)
     return {
+        "source_review": review,
         "decision": "AVOID / HIGH CONCERN" if risk == "AVOID / HIGH CONCERN" else "WAIT / VERIFY",
         "evidence": evidence,
         "activity": {"score": item.get("score"), "meaning": "Observed pool activity ONLY; not safety"},
@@ -174,6 +199,7 @@ def telegram_summary(item):
         r = records.get("circulating_supply") or {}
         lines.append("Fundamentals: " + str(r.get("provider", "UNVERIFIED")) + "; retrieved: " + str(r.get("observed_at", "UNVERIFIED")))
         lines.append("Reported circulating / max supply: " + str(r.get("value", "UNVERIFIED")) + " / " + str((records.get("max_supply") or {}).get("value", "UNVERIFIED")) + " (UNVERIFIED)")
+    lines.append("Offline source review: " + str(item.get("research_record_status", "UNVERIFIED")))
     lines.append(scenario_summary())
     return "\n".join(lines)
 

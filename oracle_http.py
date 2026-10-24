@@ -22,27 +22,27 @@ def retry_delay(headers, attempt):
     return (12, 24)[min(attempt, 1)]
 
 
-def get_json(url, headers=None):
+def get_json(url, headers=None, *, retries=RETRIES, timeout=TIMEOUT):
     host = urllib.parse.urlsplit(url).netloc
     request = urllib.request.Request(url, headers=headers or {})
-    for attempt in range(RETRIES + 1):
+    for attempt in range(retries + 1):
         wait = MIN_INTERVAL - (time.monotonic() - _LAST_REQUEST.get(host, -MIN_INTERVAL))
         if wait > 0:
             time.sleep(wait)
         _LAST_REQUEST[host] = time.monotonic()
         try:
-            with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
                 payload = json.load(response)
             if not isinstance(payload, dict):
                 raise ValueError("Provider JSON must be an object")
             return payload
         except urllib.error.HTTPError as exc:
-            if exc.code not in (429, 500, 502, 503, 504) or attempt == RETRIES:
+            if exc.code not in (429, 500, 502, 503, 504) or attempt == retries:
                 raise
             delay = retry_delay(exc.headers, attempt)
             print(f"API {host}: HTTP {exc.code}; retry {attempt + 1}/{RETRIES} in {delay:g}s", flush=True)
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
-            if attempt == RETRIES:
+            if attempt == retries:
                 raise
             delay = retry_delay({}, attempt)
             print(f"API {host}: {type(exc).__name__}; retry {attempt + 1}/{RETRIES}", flush=True)

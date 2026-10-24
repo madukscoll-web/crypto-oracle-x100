@@ -2,6 +2,7 @@
 import datetime as dt
 import math
 import urllib.parse
+from fundamental_evidence import same_address
 
 DEX = "https://api.dexscreener.com/latest/dex/pairs"
 NETWORK_IDS = {"eth": "ethereum", "bsc": "bsc", "base": "base",
@@ -19,9 +20,9 @@ def check(item, fetch):
         payload = fetch(url)
         matches = [p for p in payload.get("pairs") or []
                    if p.get("chainId") == network
-                   and str(p.get("pairAddress", "")).lower() == str(pool).lower()
-                   and str((p.get("baseToken") or {}).get("address", "")).lower()
-                   == str(item.get("token_address", "")).lower()]
+                   and same_address(item.get("network"), p.get("pairAddress"), pool)
+                   and same_address(item.get("network"), (p.get("baseToken") or {}).get("address"),
+                                    item.get("token_address"))]
         if not matches:
             return {"status": "CONFLICTING", "reason": "Exact pool/base-token match absent"}
         pair = matches[0]

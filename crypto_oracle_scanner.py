@@ -6,6 +6,7 @@ probability is inferred from pool-level GeckoTerminal market data.
 
 import datetime as dt
 import json
+import hashlib
 import math
 import os
 import pathlib
@@ -17,6 +18,8 @@ import signal_tracker
 import evidence_audit
 import investment_gates
 import fundamental_evidence
+import evidence_checks
+import research_records
 import market_corroboration
 from oracle_http import get_json
 from telegram_notify import send_message
@@ -243,6 +246,10 @@ def enrich(item):
     try:
         pool_url = f"{API}/networks/{urllib.parse.quote(network, safe='')}/pools/{urllib.parse.quote(item['address'], safe='')}?include=base_token,quote_token"
         payload = fetch_json(pool_url)
+        returned_pool = ((payload.get("data") or {}).get("attributes") or {}).get("address")
+        if not fundamental_evidence.same_address(network, returned_pool, item["address"]):
+            item["token_identity_status"] = "UNVERIFIED (returned pool identity mismatch)"
+            return item
         # Refresh the indicative pool price at enrichment time. An absent or
         # malformed price must never inherit a potentially stale discovery quote.
         refreshed_price = number(((payload.get("data") or {}).get("attributes") or {}).get("base_token_price_usd"))
@@ -260,6 +267,7 @@ def enrich(item):
             item["token_identity_status"] = "UNVERIFIED (base-token relationship unavailable)"
             return item
         item["token_address"] = address
+        item["quote_token_address"] = _relationship_token(payload, "quote_token")[0]
         item["token_symbol"] = symbol
         item["token_identity_status"] = "Base token from GeckoTerminal pool relationship"
     except (urllib.error.URLError, ValueError, KeyError, TypeError, AttributeError, TimeoutError, OSError) as exc:
@@ -301,6 +309,9 @@ def enrich(item):
         params = urllib.parse.urlencode({"contract_addresses": address})
         url = f"https://api.gopluslabs.io/api/v1/token_security/{chain_id}?{params}"
         payload = fetch_json(url)
+        if payload.get("code") != 1:
+            item["security_source"] = "GoPlus did not report successful response; UNVERIFIED"
+            return item
         result = payload.get("result") or {}
         info = result.get(address.lower()) or result.get(address) or {}
         if not isinstance(info, dict) or not info:
@@ -312,7 +323,9 @@ def enrich(item):
             "provider": "GoPlus", "chain_id": str(chain_id),
             "contract_address": address, "retrieved_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
             "fields_present": sorted(str(k) for k in info.keys()),
+            "response_sha256": hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest(),
             "source_url": url, "network": network,
+            "values": {"total_supply": info.get("total_supply")},
             "status": "PROVIDER OBSERVATION — NOT INDEPENDENT AUDIT",
             "findings": {k: info.get(k) for k in (
                 "is_honeypot", "owner_change_balance", "hidden_owner",
@@ -409,6 +422,9 @@ def horizon_notes():
 def decision_summary(item):
     """Evidence-based action; never turn activity scores into buy advice."""
     risk = item.get("risk_category", "WAIT / VERIFY")
+    if any(((item.get("evidence_review") or {}).get(key) or {}).get("status") == "HIGH CONCERN"
+           for key in ("security", "provider_security")):
+        return "DISCARD", "Source-bound security observations report critical concerns; independently investigate."
     reasons = item.get("risk_reasons") or []
     if risk == "AVOID / HIGH CONCERN":
         detail = reasons[0] if reasons else "Critical provider risk flag reported."
@@ -500,48 +516,13 @@ def decision_summary(item):
 
 
 def validate_execution_evidence(item):
-    """Require bound, recent, documented execution evidence, not booleans alone.
+    """No authenticated execution adapter exists; caller claims cannot authorize.
 
-    A future provider integration must populate the fields independently.
-    Current scanner deliberately does not create them.
+    evidence_checks.quotes reports source-bound metrics separately. Even valid
+    metrics do not prove authenticity, successful simulation, or sellability.
     """
-    evidence = item.get("execution_evidence")
-    if not isinstance(evidence, dict):
-        return False
-    if evidence.get("network") != item.get("network"):
-        return False
-    if str(evidence.get("token_address", "")).lower() != str(item.get("token_address", "")).lower():
-        return False
-    if evidence.get("pool_address") != item.get("address"):
-        return False
-    if not evidence.get("provider") or not evidence.get("quote_id"):
-        return False
-    # A caller-controlled 'verified' boolean is not independent evidence.
-    # Require traceable raw quote amounts, explicit quote direction, and
-    # an authenticated provider adapter before this can qualify for BUY.
-    if evidence.get("verified") is not True:
-        return False
-    if evidence.get("provider_authenticated") is not True:
-        return False
-    if evidence.get("direction") != "BUY":
-        return False
-    import math
-    amount_in = number(evidence.get("amount_in"))
-    amount_out = number(evidence.get("amount_out"))
-    if (not math.isfinite(amount_in) or not math.isfinite(amount_out)
-            or amount_in <= 0 or amount_out <= 0):
-        return False
-    slip = number(evidence.get("slippage_percent"))
-    if not math.isfinite(slip) or slip < 0 or slip > 2:
-        return False
-    try:
-        stamp = dt.datetime.fromisoformat(str(evidence["observed_at"]).replace("Z", "+00:00"))
-        if stamp.tzinfo is None:
-            return False
-        age = (dt.datetime.now(dt.timezone.utc) - stamp).total_seconds()
-    except (KeyError, TypeError, ValueError, OverflowError):
-        return False
-    return -60 <= age <= 120
+    return False
+
 
 
 def price_evidence(item):
@@ -842,12 +823,25 @@ def main():
     entry_counts = {}
     for item in selected:
         enrich(item)
-        item["fundamental_evidence"] = fundamental_evidence.collect(item, fetch_json)
+        item["fundamental_evidence"] = fundamental_evidence.collect(item, lambda url: get_json(url, headers=HEADERS, retries=0, timeout=5))
+        item["research_records"], item["research_record_status"] = research_records.load_for(item)
+        item["research_records"] = research_records.combine(item, item["research_records"])
+        item["evidence_review"] = evidence_checks.review(item)
+        item["market_corroboration"] = market_corroboration.check(item, fetch_json)
         evidence_reports.append({"network": item["network"], "pool": item["address"],
                                  "contract": item.get("token_address"),
                                  "security": item.get("security_provider_evidence"),
+                                 "source_records": item["research_records"],
+                                 "market_corroboration": item["market_corroboration"],
+                                 "activity": {"provider": item.get("source"), "network": item["network"],
+                                              "contract": item.get("token_address"), "pool": item["address"],
+                                              "observed_at": item.get("observed_at"),
+                                              "status": "PROVIDER OBSERVATION — NOT SAFETY",
+                                              "values": {key: item.get(key) for key in (
+                                                  "liquidity", "volume", "buy_share", "score", "age_hours",
+                                                  "change_h1", "change_h24", "base_token_price_usd")}},
+                                 "source_review": item["evidence_review"],
                                  "assessment": investment_gates.assess(item)})
-        item["market_corroboration"] = market_corroboration.check(item, fetch_json)
         risk_counts[item["risk_category"]] = risk_counts.get(item["risk_category"], 0) + 1
         setup = setup_assessment(item)[0]
         setup_counts[setup] = setup_counts.get(setup, 0) + 1
