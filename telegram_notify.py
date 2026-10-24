@@ -15,12 +15,17 @@ class NotificationError(RuntimeError):
     """Safe to log: never includes a URL, token, chat ID or response body."""
 
 
+def bounded_text(message, limit=4096):
+    """Telegram counts UTF-16 units; preserve a complete Unicode prefix."""
+    return message.encode("utf-16-le")[:limit * 2].decode("utf-16-le", errors="ignore")
+
+
 def send_message(message):
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
     chat = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
     if not token or not chat:
         raise NotificationError("Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID")
-    payload = urllib.parse.urlencode({"chat_id": chat, "text": message[:4096]}).encode()
+    payload = urllib.parse.urlencode({"chat_id": chat, "text": bounded_text(message)}).encode()
     request = urllib.request.Request(
         "https://api.telegram.org/bot" + token + "/sendMessage", data=payload, method="POST")
     failure = "Telegram delivery unconfirmed"
@@ -31,7 +36,9 @@ def send_message(message):
                 result = json.load(response)
             if not isinstance(result, dict):
                 raise ValueError("Invalid response")
-            if result.get("ok") is True and isinstance(result.get("result"), dict) and result["result"].get("message_id") is not None:
+            receipt = (result.get("result") or {})
+            message_id = receipt.get("message_id") if isinstance(receipt, dict) else None
+            if result.get("ok") is True and type(message_id) is int and message_id > 0:
                 print("Telegram delivery confirmed by Bot API (message_id present).", flush=True)
                 return True
             code = result.get("error_code")

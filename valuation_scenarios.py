@@ -1,6 +1,6 @@
 """Conservative arithmetic for hypothetical 10x/100x valuation scenarios.
 
-No tokenomics API is integrated; unknown supply cannot be estimated.
+Unknown or unverified future supply cannot be estimated.
 """
 import math
 
