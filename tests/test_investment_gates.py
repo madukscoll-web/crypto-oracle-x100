@@ -57,5 +57,18 @@ class GateTests(unittest.TestCase):
         r = investment_gates.assess(self.item(network="bsc", token_address="0xfebe8c1ed424dbf688551d4e2267e7a53698f0aa"))
         self.assertFalse(r["buy_eligible"])
 
+    def test_cross_pool_quote_rejected(self):
+        r = investment_gates.assess(self.item(execution_evidence={
+            "network": "base", "pool_address": "other-pool", "token_address": "0xabc",
+            "observed_at": "2026-10-24T04:00:00+00:00", "source": "test",
+            "source_url": "https://example.org", "spread_percent": .1, "depth_usd": 5000}))
+        self.assertTrue(any("pool_address mismatched" in b for b in r["blockers"]))
+
+    def test_missing_quote_provenance_rejected(self):
+        r = investment_gates.assess(self.item(execution_evidence={
+            "network": "base", "pool_address": "pool", "token_address": "0xabc",
+            "observed_at": "invalid", "spread_percent": .1, "depth_usd": 5000}))
+        self.assertTrue(any("source provenance" in b for b in r["blockers"]))
+
 if __name__ == "__main__":
     unittest.main()
