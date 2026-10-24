@@ -30,7 +30,7 @@ class DecisionSummaryTests(unittest.TestCase):
         self.assertEqual(action, "WAIT AND VERIFY")
         self.assertIn("identity", reason.lower())
 
-    def test_verified_strong_candidate(self):
+    def test_assertions_and_synthetic_quote_never_authorize_buy(self):
         item = {
             "risk_category": "RESEARCH CANDIDATE — LIMITED CHECKS",
             "token_identity_status": "Base token from GeckoTerminal pool relationship",
@@ -53,7 +53,7 @@ class DecisionSummaryTests(unittest.TestCase):
             "buy_share": 0.58,
         }
         action, _ = decision_summary(item)
-        self.assertEqual(action, "BUY CANDIDATE — REVIEW ENTRY")
+        self.assertEqual(action, "WAIT AND VERIFY")
         for key in ("sellability_verified", "liquidity_lock_verified",
                     "holder_distribution_verified", "tokenomics_verified",
                     "entry_risk_reviewed", "executable_quote_verified",

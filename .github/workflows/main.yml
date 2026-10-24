@@ -9,105 +9,54 @@ permissions:
   contents: write
 
 concurrency:
-  group: crypto-oracle-hourly
+  group: crypto-oracle-hourly-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 20
     steps:
       - name: Download repository
         uses: actions/checkout@v4
         with:
           persist-credentials: true
+          fetch-depth: 0
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
       - name: Check Python source compilation
-        run: python -m compileall -q crypto_oracle_scanner.py signal_tracker.py evidence_audit.py market_corroboration.py valuation_scenarios.py tests
+        id: compile
+        run: python -m compileall -q *.py tests
       - name: Run scanner unit tests
+        id: tests
         run: python -m unittest discover -s tests -v
+      - name: Check Telegram configuration
+        id: telegram_config
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python - <<'PYTHON'
+          import os
+          import sys
+          missing = [key for key in ('TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID') if not os.environ.get(key, '').strip()]
+          if missing:
+              print('::error::Missing required GitHub Secrets: ' + ', '.join(missing))
+              sys.exit(1)
+          print('Required Telegram secrets are configured (values withheld).')
+          PYTHON
       - name: Run scanner
+        id: scan
+        timeout-minutes: 15
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python crypto_oracle_scanner.py
-      - name: Send Telegram hourly completion heartbeat
-        if: success()
-        continue-on-error: true
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          GH_REPOSITORY: ${{ github.repository }}
-          GH_RUN_ID: ${{ github.run_id }}
-        run: |
-          python - <<'PY'
-          import json
-          import os
-          import urllib.parse
-          import urllib.request
-
-          token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
-          chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
-          if not token or not chat_id:
-              print("Telegram heartbeat skipped: missing bot token or chat ID.")
-          else:
-              message = (
-                  "CRYPTO-ORACLE X100 hourly scan completed. "
-                  "Candidate alerts are sent separately only when qualifying new findings occur. "
-                  "A completed scan is not a buy signal. "
-                  "Run: https://github.com/" + os.environ["GH_REPOSITORY"]
-                  + "/actions/runs/" + os.environ["GH_RUN_ID"]
-              )
-              payload = urllib.parse.urlencode({"chat_id": chat_id, "text": message}).encode()
-              url = "https://api.telegram.org/bot" + token + "/sendMessage"
-              with urllib.request.urlopen(urllib.request.Request(url, data=payload), timeout=20) as response:
-                  result = json.load(response)
-              if not result.get("ok"):
-                  raise RuntimeError("Telegram did not confirm heartbeat delivery")
-          PY
-      - name: Notify Telegram when scanner fails
-        if: failure()
-        continue-on-error: true
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          GH_REPOSITORY: ${{ github.repository }}
-          GH_RUN_ID: ${{ github.run_id }}
-        run: |
-          python - <<'PY'
-          import json
-          import os
-          import urllib.parse
-          import urllib.request
-
-          token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
-          chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
-          if not token or not chat_id:
-              print("Telegram failure alert skipped: bot token or chat ID not configured.")
-          else:
-              url = "https://api.telegram.org/bot" + token + "/sendMessage"
-              message = (
-                  "CRYPTO-ORACLE X100: GitHub scanner FAILED. "
-                  "No successful scan report should be assumed. "
-                  "Inspect: https://github.com/"
-                  + os.environ["GH_REPOSITORY"]
-                  + "/actions/runs/"
-                  + os.environ["GH_RUN_ID"]
-              )
-              payload = urllib.parse.urlencode({"chat_id": chat_id, "text": message}).encode()
-              try:
-                  with urllib.request.urlopen(urllib.request.Request(url, data=payload), timeout=15) as response:
-                      result = json.load(response)
-                  if not result.get("ok"):
-                      print("Telegram did not confirm failure alert delivery.")
-              except Exception as exc:
-                  print("Telegram failure alert unsuccessful:", type(exc).__name__)
-          PY
+        run: python -u crypto_oracle_scanner.py
       - name: Save scanner state
-        if: always()
+        id: state
+        if: always() && steps.scan.outcome != 'skipped'
         run: |
           if [ -f reported_pools.json ] || [ -f watchlist_state.json ] || [ -f signal_history.json ]; then
             git config user.name "github-actions[bot]"
@@ -136,3 +85,29 @@ jobs:
               exit 1
             fi
           fi
+      - name: Send Telegram hourly completion summary
+        id: summary
+        if: success()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python telegram_notify.py completion
+      - name: Notify Telegram when workflow fails
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          FAILED_STAGES: compile=${{ steps.compile.outcome }}, tests=${{ steps.tests.outcome }}, config=${{ steps.telegram_config.outcome }}, scan=${{ steps.scan.outcome }}, state=${{ steps.state.outcome }}, summary=${{ steps.summary.outcome }}
+        run: python telegram_notify.py failure
+      - name: Retain scan diagnostics and state snapshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scan-diagnostics-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            scan_summary.json
+            reported_pools.json
+            watchlist_state.json
+            signal_history.json
