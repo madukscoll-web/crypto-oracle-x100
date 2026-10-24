@@ -306,6 +306,14 @@ def enrich(item):
             item["security_source"] = "GoPlus: no matching token report returned"
             return item
         item["security_source"] = "GoPlus token_security API (provider data; not an audit)"
+        # Preserve provider provenance; never promote this to independent verification.
+        item["security_provider_evidence"] = {
+            "provider": "GoPlus", "chain_id": str(chain_id),
+            "contract_address": address, "retrieved_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
+            "fields_present": sorted(str(k) for k in info.keys()),
+        }
+        # Supply, FDV, holders and vesting are intentionally not inferred from
+        # incomplete security API fields or from pool activity.
         item["security_fields"] = "; ".join(
             f"{field}={info.get(field)}" for field in
             ("is_honeypot", "owner_change_balance", "hidden_owner",
