@@ -16,6 +16,7 @@ import urllib.parse
 import signal_tracker
 import evidence_audit
 import investment_gates
+import fundamental_evidence
 import market_corroboration
 from oracle_http import get_json
 from telegram_notify import send_message
@@ -311,6 +312,12 @@ def enrich(item):
             "provider": "GoPlus", "chain_id": str(chain_id),
             "contract_address": address, "retrieved_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
             "fields_present": sorted(str(k) for k in info.keys()),
+            "source_url": url, "network": network,
+            "status": "PROVIDER OBSERVATION — NOT INDEPENDENT AUDIT",
+            "findings": {k: info.get(k) for k in (
+                "is_honeypot", "owner_change_balance", "hidden_owner",
+                "is_blacklisted", "cannot_sell_all", "is_open_source",
+                "is_mintable", "trading_cooldown")},
         }
         # Supply, FDV, holders and vesting are intentionally not inferred from
         # incomplete security API fields or from pool activity.
@@ -680,6 +687,8 @@ def send_telegram(item):
     setup, setup_reason = setup_assessment(item)
     message = (
         "🔎 CRYPTO-ORACLE Z — UNVERIFIED RESEARCH LEAD\n"
+        f"FINAL DECISION: {decision}\n"
+        f"{investment_gates.telegram_summary(item)}\n"
         f"Network: {item['network']}\n"
         f"Pool: {item['name']}\n"
         f"Pool classification: {item['pool_class']}\n"
@@ -689,7 +698,6 @@ def send_telegram(item):
         f"Identity evidence: {item['token_identity_status']}\n"
         f"Older trading pools: {item['previous_pools']}\n"
         f"Activity score: {item['score']}/100 (NOT safety or success probability)\n"
-        f"{investment_gates.telegram_summary(item)}\n"
         f"Pool age: {item['age_hours']:.1f} hours\n"
         f"Liquidity: ${item['liquidity']:,.0f}\n"
         f"24h volume: ${item['volume']:,.0f}\n"
@@ -830,9 +838,15 @@ def main():
     delivered_existing = 0
     risk_counts = {}
     setup_counts = {}
+    evidence_reports = []
     entry_counts = {}
     for item in selected:
         enrich(item)
+        item["fundamental_evidence"] = fundamental_evidence.collect(item, fetch_json)
+        evidence_reports.append({"network": item["network"], "pool": item["address"],
+                                 "contract": item.get("token_address"),
+                                 "security": item.get("security_provider_evidence"),
+                                 "assessment": investment_gates.assess(item)})
         item["market_corroboration"] = market_corroboration.check(item, fetch_json)
         risk_counts[item["risk_category"]] = risk_counts.get(item["risk_category"], 0) + 1
         setup = setup_assessment(item)[0]
@@ -896,6 +910,7 @@ def main():
         print(f"ERROR: {error}", flush=True)
     if not successful_feeds:
         errors.append("No discovery feeds completed successfully")
+    pathlib.Path("evidence_report.json").write_text(json.dumps(evidence_reports, indent=2) + "\n", encoding="utf-8")
     report = {"status": "failed" if errors else "completed",
               "observations": total_checked, "candidates": len(candidates),
               "alerts_delivered": delivered, "successful_feeds": successful_feeds,

@@ -33,8 +33,16 @@ def assess(item):
                         ("executable_quote_verified", "executable quote"),
                         ("slippage_verified", "slippage"),
                         ("entry_risk_reviewed", "technical entry and downside")):
-        if item.get(field) is not True:
-            blockers.append(name + " not verified")
+        # Caller booleans cannot establish independently sourced evidence.
+        blockers.append(name + " not verified")
+    # Explicitly preserve every source-bound field, including failures.
+    evidence = item.get("fundamental_evidence") or {}
+    for field in ("circulating_supply", "total_supply", "max_supply", "market_cap_usd",
+                  "fdv_usd", "unlocks", "adjusted_top10_fraction", "adoption",
+                  "lp_controls", "independent_security", "execution_quote"):
+        record = evidence.get(field) or {}
+        # No independently authenticated verification adapter is configured.
+        blockers.append(field + ": " + ("CONFLICTING" if record.get("status") == "CONFLICTING" else "UNVERIFIED"))
     liquidity = _positive(item.get("liquidity"))
     volume = _positive(item.get("volume"))
     if liquidity and volume:
@@ -113,7 +121,25 @@ def assess(item):
             blockers.append("Executable depth unverified")
         elif depth < _threshold("ORACLE_MIN_DEPTH_USD", 1000):
             warnings.append(f"Thin executable depth ${depth:,.0f}")
+    if item.get("unlock_amount") is not None:
+        amount = _positive(item.get("unlock_amount"))
+        if amount is None or circulating is None:
+            blockers.append("Unlock amount/circulating supply UNVERIFIED")
+        elif amount / circulating > _threshold("ORACLE_UNLOCK_FRACTION_WARNING", .1):
+            warnings.append(f"Large claimed unlock: {amount/circulating:.1%} of circulating supply (UNVERIFIED)")
+    if isinstance(quote, dict):
+        blockers.append("Quote authenticity and exact route/sellability UNVERIFIED")
+        bid, ask = _positive(quote.get("bid")), _positive(quote.get("ask"))
+        if bid is None or ask is None or bid > ask:
+            blockers.append("Bid/ask UNVERIFIED or crossed")
+        slip = _positive(quote.get("slippage_percent"))
+        if slip is None:
+            blockers.append("Slippage UNVERIFIED")
+        elif slip > _threshold("ORACLE_SLIPPAGE_WARNING_PERCENT", 2):
+            warnings.append(f"High claimed slippage {slip:.2f}% (UNVERIFIED)")
     return {
+        "decision": "AVOID / HIGH CONCERN" if risk == "AVOID / HIGH CONCERN" else "WAIT / VERIFY",
+        "evidence": evidence,
         "activity": {"score": item.get("score"), "meaning": "Observed pool activity ONLY; not safety"},
         "security": "HIGH CONCERN" if risk == "AVOID / HIGH CONCERN" else "INCOMPLETE",
         "fundamentals": "INCOMPLETE" if any("supply" in x or "FDV" in x or "unlock" in x for x in blockers) else "REVIEW",
@@ -128,7 +154,9 @@ def assess(item):
 
 def telegram_summary(item):
     result = assess(item)
-    lines = ["EVIDENCE GATES: Activity is NOT safety.",
+    from fundamental_evidence import scenario_summary
+    lines = ["DECISION: " + result["decision"],
+             "EVIDENCE GATES: Activity is NOT safety.",
              "Security: " + result["security"],
              "Fundamentals/dilution: " + result["fundamentals"],
              "Trade readiness: NOT VERIFIED — no automatic BUY",
@@ -137,4 +165,15 @@ def telegram_summary(item):
         lines.append(f"Plus {len(result['blockers'])-5} further evidence gaps")
     if result["warnings"]:
         lines.append("WARNINGS: " + "; ".join(result["warnings"][:3]))
+    lines.append("Supply / unlocks / adjusted holders / adoption / LP controls / execution: UNVERIFIED")
+    lines.append("Pool source: " + str(item.get("source", "UNVERIFIED")) + "; observed: " + str(item.get("observed_at", "UNVERIFIED")))
+    provider = item.get("security_provider_evidence") or {}
+    lines.append("Security: GoPlus provider data, NOT audit; observed: " + str(provider.get("retrieved_utc", "UNVERIFIED")))
+    records = result["evidence"]
+    if records:
+        r = records.get("circulating_supply") or {}
+        lines.append("Fundamentals: " + str(r.get("provider", "UNVERIFIED")) + "; retrieved: " + str(r.get("observed_at", "UNVERIFIED")))
+        lines.append("Reported circulating / max supply: " + str(r.get("value", "UNVERIFIED")) + " / " + str((records.get("max_supply") or {}).get("value", "UNVERIFIED")) + " (UNVERIFIED)")
+    lines.append(scenario_summary())
     return "\n".join(lines)
+
