@@ -114,6 +114,23 @@ class GlobalIntegrationTests(unittest.TestCase):
         self.assertEqual(report['counts']['verified_buy'],0);self.assertFalse(report['orders_allowed'])
 
 class PriorExclusionTests(unittest.TestCase):
+    def test_missing_required_history_fails_before_discovery(self):
+        import tempfile
+        import pathlib
+        with tempfile.TemporaryDirectory() as folder:
+            with self.assertRaisesRegex(ValueError, 'Required prior exclusion evidence missing'):
+                global_engine.prior_exclusions([pathlib.Path(folder)/'missing.json'])
+
+    def test_corrupt_required_history_is_not_treated_as_empty(self):
+        import tempfile
+        import pathlib
+        import json
+        with tempfile.TemporaryDirectory() as folder:
+            path=pathlib.Path(folder)/'corrupt.json'
+            path.write_text('{')
+            with self.assertRaises(json.JSONDecodeError):
+                global_engine.prior_exclusions([path])
+
     def test_earliest_committed_honeypot_exclusion_is_retained(self):
         excluded,_=global_engine.prior_exclusions(['validation/live-candidates-2026-10-21.json'])
         self.assertIn(key('bsc','0x2c3a8ee94ddd97244a93bc48298f97d2c412f7db'),excluded)
