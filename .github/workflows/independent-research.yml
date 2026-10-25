@@ -2,6 +2,15 @@ name: Independent research validation (read-only)
 
 on:
   workflow_dispatch:
+    inputs:
+      validate_scanner:
+        description: 'Run bounded hourly scanner code with isolated state and Telegram validation'
+        type: boolean
+        default: false
+      test_failure_notification:
+        description: 'Send one explicitly labelled Telegram failure-notification test'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -15,16 +24,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Check out isolated integration branch
+      - name: Check out selected revision
         uses: actions/checkout@v4
         with:
-          ref: integration/preserve-production-scanner
+          ref: ${{ github.sha }}
           persist-credentials: false
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Compile and test isolated integration branch
+      - name: Compile and test selected revision
         run: |
           python -m compileall -q *.py tests
           python -m unittest discover -s tests -v
@@ -47,3 +56,115 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
           path: live_candidate_scan.json
+
+  scanner_validation:
+    if: inputs.validate_scanner
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+    steps:
+      - name: Check out selected revision without write credentials
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Copy scanner state into isolated validation directory
+        run: |
+          mkdir -p "$RUNNER_TEMP/scanner-validation"
+          cp reported_pools.json watchlist_state.json signal_history.json "$RUNNER_TEMP/scanner-validation/"
+      - name: Run bounded hourly scanner code with isolated state
+        id: scan
+        timeout-minutes: 15
+        env:
+          ORACLE_NETWORKS: eth,base,bsc
+          ORACLE_PAGES: '1'
+          ORACLE_MAX_ALERTS: '1'
+          ORACLE_REVISITS: '1'
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          cd "$RUNNER_TEMP/scanner-validation"
+          python -u "$GITHUB_WORKSPACE/crypto_oracle_scanner.py"
+      - name: Confirm production state was not modified
+        if: always()
+        run: git diff --exit-code -- reported_pools.json watchlist_state.json signal_history.json
+      - name: Send labelled scanner validation completion summary
+        if: success()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          cd "$RUNNER_TEMP/scanner-validation"
+          python - <<'PYTHON'
+          from telegram_notify import send_message, workflow_message
+          send_message('INTEGRATION VALIDATION — isolated state; NO BUY SIGNAL\n' + workflow_message('completion'))
+          PYTHON
+      - name: Notify Telegram when scanner validation fails
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          FAILED_STAGES: integration_validation_scan=${{ steps.scan.outcome }}
+        run: python telegram_notify.py failure
+      - name: Preserve isolated scanner diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scanner-validation-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/scanner-validation/*.json
+
+  failure_notification_validation:
+    if: inputs.test_failure_notification
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out selected revision without write credentials
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Inject offline scanner failure and require a nonzero exit
+        id: injected_failure
+        continue-on-error: true
+        run: |
+          python - <<'PYTHON'
+          from unittest.mock import patch
+          import crypto_oracle_scanner as scanner
+          with patch.object(scanner, 'main', side_effect=TypeError('Authorized offline fault injection')):
+              raise SystemExit(scanner.cli())
+          PYTHON
+      - name: Send labelled Telegram failure diagnostic
+        id: notification
+        if: steps.injected_failure.outcome == 'failure'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          FAILED_STAGES: authorized_offline_scanner_fault_injection
+        run: |
+          python - <<'PYTHON'
+          from telegram_notify import send_message, workflow_message
+          send_message('AUTHORIZED FAILURE-NOTIFICATION TEST — NO BUY SIGNAL\n' + workflow_message('failure'))
+          PYTHON
+      - name: Require both failure detection and confirmed notification
+        if: always()
+        env:
+          INJECTED_OUTCOME: ${{ steps.injected_failure.outcome }}
+          NOTIFICATION_OUTCOME: ${{ steps.notification.outcome }}
+        run: |
+          python - <<'PYTHON'
+          import os
+          if os.environ['INJECTED_OUTCOME'] != 'failure' or os.environ['NOTIFICATION_OUTCOME'] != 'success':
+              raise SystemExit('Failure detection or Telegram confirmation failed')
+          print('Nonzero scanner failure and Telegram failure-notification delivery both verified.')
+          PYTHON

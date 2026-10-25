@@ -68,6 +68,27 @@ def fetch_json(url):
     return get_json(url, headers=HEADERS)
 
 
+def missing_market_fields(item):
+    """Require actual finite observations; unknown values never become zero."""
+    missing = []
+    for field in ("liquidity", "volume", "trades", "buy_share", "change_h1", "change_h24"):
+        value = item.get(field)
+        if (isinstance(value, bool) or not isinstance(value, (int, float))
+                or fundamental_evidence.finite(value, minimum=-math.inf) is None):
+            missing.append(field)
+        elif (field == "liquidity" and value <= 0
+              or field in ("volume", "trades") and value < 0
+              or field == "trades" and value != int(value)
+              or field == "buy_share" and not 0 <= value <= 1):
+            missing.append(field)
+    return missing
+
+
+def display_measurement(value, spec):
+    value = fundamental_evidence.finite(value)
+    return "UNKNOWN" if value is None else format(value, spec)
+
+
 def inspect(pool, network, mode="new_pools"):
     """Score observed pool activity; never infer contract or token safety."""
     attrs = pool.get("attributes") or {}
@@ -218,11 +239,12 @@ def risk_gate(info, holder_total=None, holder_count=0):
     missing = [field for field in required
                if str(info.get(field)) not in ("0", "1")]
     if missing:
-        return "WAIT / VERIFY", [
+        return "WAIT / VERIFY", (["Holder concentration is descriptive only; LP/exclusions unknown."] if holder_total is not None else []) + [
             "Missing or uninterpretable provider security fields: "
             + ", ".join(missing)]
     # No flagged issues in the core provider fields is NOT proof of safety.
-    return "RESEARCH CANDIDATE — LIMITED CHECKS", [
+    return "RESEARCH CANDIDATE — LIMITED CHECKS", ([
+        "Holder concentration is descriptive only; LP/exclusions unknown."] if holder_total is not None else []) + [
         "No specified risk flags detected in returned fields; not proof of safety"]
 
 
@@ -230,7 +252,7 @@ def risk_gate_unavailable(reason):
     return "WAIT / VERIFY", [reason]
 
 
-def enrich(item):
+def enrich(item, fetch=None, delay=None):
     """Best-effort token identification; never suppress an alert on API failure."""
     item.update(token_address="UNVERIFIED", token_symbol="UNVERIFIED",
                 previous_pools="UNKNOWN", security_source="NOT CHECKED",
@@ -242,18 +264,39 @@ def enrich(item):
                 holder_distribution_verified=False, tokenomics_verified=False,
                 entry_risk_reviewed=False, executable_quote_verified=False,
                 slippage_verified=False)
+    # A failed or partial refresh must not reuse discovery measurements as fresh.
+    for field in ("liquidity", "volume", "buys", "sells", "trades", "buy_share", "change_h1", "change_h24"):
+        item[field] = None
+    item.update(base_token_price_usd=0, price_source="Pool price refresh unavailable")
+    item.pop("market_raw", None)
     network = item["network"]
+    fetch = fetch or fetch_json
+    delay = ENRICHMENT_DELAY_SECONDS if delay is None else delay
     try:
         pool_url = f"{API}/networks/{urllib.parse.quote(network, safe='')}/pools/{urllib.parse.quote(item['address'], safe='')}?include=base_token,quote_token"
-        payload = fetch_json(pool_url)
+        payload = fetch(pool_url)
         returned_pool = ((payload.get("data") or {}).get("attributes") or {}).get("address")
         if not fundamental_evidence.same_address(network, returned_pool, item["address"]):
             item["token_identity_status"] = "UNVERIFIED (returned pool identity mismatch)"
             return item
+        # Never carry stale discovery liquidity, volume or trade counts into a refreshed assessment.
+        attrs = (payload.get("data") or {}).get("attributes") or {}
+        fresh_liquidity = fundamental_evidence.finite(attrs.get("reserve_in_usd"))
+        fresh_volume = fundamental_evidence.finite((attrs.get("volume_usd") or {}).get("h24"))
+        tx = (attrs.get("transactions") or {}).get("h1") or {}
+        counts = [fundamental_evidence.finite(tx.get(field)) for field in ("buys", "sells")]
+        item["buys"], item["sells"] = [int(x) if x is not None and x.is_integer() else None for x in counts]
+        item["liquidity"] = fresh_liquidity if fresh_liquidity is not None and fresh_liquidity > 0 else None
+        item["volume"] = fresh_volume
+        item["trades"] = item["buys"] + item["sells"] if all(x is not None for x in (item["buys"], item["sells"])) else None
+        item["buy_share"] = item["buys"] / item["trades"] if item["trades"] else None
+        changes = attrs.get("price_change_percentage") or {}
+        for field in ("h1", "h24"):
+            item["change_" + field] = fundamental_evidence.finite(changes.get(field), minimum=-math.inf)
+        item["market_raw"] = payload
         # Refresh the indicative pool price at enrichment time. An absent or
         # malformed price must never inherit a potentially stale discovery quote.
         refreshed_price = number(((payload.get("data") or {}).get("attributes") or {}).get("base_token_price_usd"))
-        import math
         item["base_token_price_usd"] = (
             refreshed_price if math.isfinite(refreshed_price) and refreshed_price > 0 else 0
         )
@@ -274,13 +317,13 @@ def enrich(item):
         print(f"Enrichment identity unavailable for {item['key']}: {type(exc).__name__}", flush=True)
         return item
     finally:
-        time.sleep(ENRICHMENT_DELAY_SECONDS)
+        time.sleep(delay)
 
     # A first-page check can prove older pools exist, but cannot prove none exist.
     try:
         url = (f"{API}/networks/{urllib.parse.quote(network, safe='')}/tokens/"
                f"{urllib.parse.quote(address, safe='')}/pools?page=1")
-        response = fetch_json(url)
+        response = fetch(url)
         older = 0
         for pool in response.get("data") or []:
             created = (pool.get("attributes") or {}).get("pool_created_at")
@@ -299,7 +342,7 @@ def enrich(item):
     except (urllib.error.URLError, ValueError, KeyError, TypeError, AttributeError, TimeoutError, OSError) as exc:
         print(f"Previous-pool check unavailable for {item['key']}: {type(exc).__name__}", flush=True)
     finally:
-        time.sleep(ENRICHMENT_DELAY_SECONDS)
+        time.sleep(delay)
 
     chain_id = SECURITY_CHAIN_IDS.get(network)
     if not chain_id or not address.lower().startswith("0x"):
@@ -308,7 +351,7 @@ def enrich(item):
     try:
         params = urllib.parse.urlencode({"contract_addresses": address})
         url = f"https://api.gopluslabs.io/api/v1/token_security/{chain_id}?{params}"
-        payload = fetch_json(url)
+        payload = fetch(url)
         if payload.get("code") != 1:
             item["security_source"] = "GoPlus did not report successful response; UNVERIFIED"
             return item
@@ -374,7 +417,7 @@ def enrich(item):
         print(f"GoPlus security unavailable for {item['key']}: {type(exc).__name__}", flush=True)
         item["security_source"] = "GoPlus unavailable; NOT VERIFIED"
     finally:
-        time.sleep(ENRICHMENT_DELAY_SECONDS)
+        time.sleep(delay)
     return item
 
 
@@ -425,6 +468,17 @@ def decision_summary(item):
     if any(((item.get("evidence_review") or {}).get(key) or {}).get("status") == "HIGH CONCERN"
            for key in ("security", "provider_security")):
         return "DISCARD", "Source-bound security observations report critical concerns; independently investigate."
+    # Reject independently observed sellability failures for the exact chain, token and pool.
+    sell = ((item.get("verification") or {}).get("sellability") or {})
+    raw = sell.get("raw") or {}
+    if (sell.get("status") in ("FAIL", "HIGH CONCERN")
+            and sell.get("source") == "honeypot"
+            and isinstance(raw, dict)
+            and str((raw.get("token") or {}).get("address", "")).lower() == str(item.get("token_address", "")).lower()
+            and str(raw.get("pairAddress", "")).lower() == str(item.get("address", "")).lower()
+            and str((raw.get("chain") or {}).get("id", "")) == {"eth": "1", "bsc": "56", "base": "8453"}.get(item.get("network"))
+            and (raw.get("honeypotResult") or {}).get("isHoneypot") is True):
+        return "DISCARD", "Exact-pool independent honeypot evidence failed sellability verification."
     reasons = item.get("risk_reasons") or []
     if risk == "AVOID / HIGH CONCERN":
         detail = reasons[0] if reasons else "Critical provider risk flag reported."
@@ -439,6 +493,16 @@ def decision_summary(item):
         )
     if item.get("market_corroboration", {}).get("status") == "CONFLICTING":
         return "WAIT AND VERIFY", "Independent market-data conflict: verify exact pool, token and current price."
+    if item.get("discovery_eligible") is False:
+        return "WAIT AND VERIFY", "This is verification-only research; discovery eligibility is not established."
+    if sell.get("status") in ("FAIL", "CONFLICTING", "HIGH CONCERN"):
+        return "WAIT AND VERIFY", "Independent sellability evidence failed or conflicts; exact binding requires investigation."
+    if item.get("scan_mode") == "verification_only":
+        return "WAIT AND VERIFY", "This is verification-only research; no entry qualification is permitted."
+    missing = missing_market_fields(item)
+    if missing:
+        detail = reasons[0] if reasons else "Independent evidence is incomplete."
+        return "WAIT AND VERIFY", detail + " Missing or invalid market observations: " + ", ".join(missing) + "; provider checks are not a contract audit."
     # An independent, source-bound audit is mandatory; never accept caller-set
     # booleans or a synthetic quote as sufficient evidence.
     if evidence_audit.audit(item)["trade_ready"] is not True:
@@ -615,6 +679,9 @@ def entry_setup(item):
         return "NO SETUP", reason
     if item.get("risk_category") == "AVOID / HIGH CONCERN":
         return "NO SETUP", "Critical security concern"
+    missing = missing_market_fields(item)
+    if missing:
+        return "INSUFFICIENT DATA", "Missing or invalid market observations: " + ", ".join(missing)
     h1 = item.get("change_h1")
     h24 = item.get("change_h24")
     if h1 is None or h24 is None:
@@ -643,6 +710,9 @@ def setup_assessment(item):
     flags = item.get("flags", [])
     if item.get("risk_category") == "AVOID / HIGH CONCERN":
         return "REJECT", "Critical provider risk flag"
+    missing = missing_market_fields(item)
+    if missing:
+        return "WAIT", "Missing or invalid market observations: " + ", ".join(missing)
     if item.get("change_h1") is None or item.get("change_h24") is None:
         return "WAIT", "Missing price-change observations"
     if ((item.get("change_h1") is not None and item["change_h1"] > 35)
@@ -678,12 +748,12 @@ def send_telegram(item):
         f"Base-token contract: {item['token_address']}\n"
         f"Identity evidence: {item['token_identity_status']}\n"
         f"Older trading pools: {item['previous_pools']}\n"
-        f"Activity score: {item['score']}/100 (NOT safety or success probability)\n"
+        f"Discovery activity score: {item['score']}/100 (NOT safety or success probability)\n"
         f"Pool age: {item['age_hours']:.1f} hours\n"
-        f"Liquidity: ${item['liquidity']:,.0f}\n"
-        f"24h volume: ${item['volume']:,.0f}\n"
-        f"1h trades: {item['trades']} ({item['buys']} buys / {item['sells']} sells)\n"
-        f"1h buy share: {item['buy_share']:.0%}\n"
+        f"Liquidity: ${display_measurement(item.get('liquidity'), ',.0f')}\n"
+        f"24h volume: ${display_measurement(item.get('volume'), ',.0f')}\n"
+        f"1h trades: {display_measurement(item.get('trades'), '.0f')} ({display_measurement(item.get('buys'), '.0f')} buys / {display_measurement(item.get('sells'), '.0f')} sells)\n"
+        f"1h buy share: {display_measurement(item.get('buy_share'), '.0%')}\n"
         f"Price change: 1h {item.get('change_h1')}% / 24h {item.get('change_h24')}% (provider-reported; None means unavailable)\n"
         f"Activity flags: {flags}\n"
         f"Security: {item['contract_security']}; holders: {item['holder_concentration']}; "
@@ -916,5 +986,26 @@ def main():
     return report
 
 
+def cli():
+    """Unexpected errors fail the workflow with credential-safe diagnostics.
+
+    The hourly workflow's failure step sends the Telegram error notification.
+    Never leave an earlier successful summary behind after an unexpected crash.
+    """
+    try:
+        main()
+    except Exception as exc:
+        error = "Unexpected scanner failure: " + type(exc).__name__
+        print("::error::" + error + "; see workflow failure notification", flush=True)
+        try:
+            pathlib.Path("scan_summary.json").write_text(json.dumps(dict(
+                status="failed", errors=[error],
+                completed_at=dt.datetime.now(dt.timezone.utc).isoformat())) + "\n", encoding="utf-8")
+        except OSError:
+            print("::error::Could not write failed scan summary", flush=True)
+        return 1
+    return 0
+
+
 if __name__ == "__main__":
-    main()
+    raise SystemExit(cli())
