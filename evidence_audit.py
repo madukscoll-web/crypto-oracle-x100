@@ -34,6 +34,12 @@ def audit(item):
         "PASS" if math.isfinite(liquidity) and math.isfinite(volume)
         and liquidity >= 250000 and volume >= 300000 else "FAIL"
     )
+    # An explicit independent supply conflict is adverse, never merely unknown.
+    supply = ((item.get("verification") or {}).get("supply_comparison") or {})
+    checks["independent_supply_comparison"] = (
+        "FAIL" if supply.get("status") in ("FAIL", "CONFLICTING", "HIGH CONCERN")
+        else "UNKNOWN"
+    )
     checks["entry_pattern"] = (
         "LIMITED" if item.get("entry_pattern") in ("MOMENTUM WATCH", "PULLBACK WATCH")
         else "UNKNOWN"

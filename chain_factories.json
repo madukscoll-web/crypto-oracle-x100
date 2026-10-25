@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "v2": {
+    "1": {
+      "0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f": "UniswapV2",
+      "0x1097053fd2ea711dad45caccc45eff7548fcb362": "PancakeV2"
+    },
+    "8453": {
+      "0x8909dc15e40173ff4699343b6eb8132c65e18ec6": "UniswapV2",
+      "0x02a84c1b3bbd7401a5f7fa98a384ebc70bb5749e": "PancakeV2",
+      "0x420dd381b31aef6683db6b902084cb0ffece40da": "AerodromeV2"
+    },
+    "56": {
+      "0x8909dc15e40173ff4699343b6eb8132c65e18ec6": "UniswapV2",
+      "0xca143ce32fe78f1f7019d7d551a6402fc5350c73": "PancakeV2"
+    }
+  },
+  "v3": {
+    "8453": {
+      "0x33128a8fc17869897dce68ed026d694621f6fdfd": "UniswapV3",
+      "0x5e7bb104d84c7cb9b682aac2f3d509f5f406809a": "AerodromeSlipstream",
+      "0xade65c38cd4849adba595a4323a8c7ddfe89716a": "AerodromeSlipstream",
+      "0xf8f2eb4940cfe7d13603dddd87f123820fc061ef": "AerodromeSlipstream"
+    },
+    "1": {
+      "0x1f98431c8ad98523631ae4a59f267346ea31f984": "UniswapV3"
+    },
+    "56": {
+      "0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865": "PancakeV3"
+    }
+  },
+  "sources": [
+    "https://docs.uniswap.org/contracts/v2/reference/smart-contracts/v2-deployments",
+    "https://developer.pancakeswap.finance/contracts/v2/addresses",
+    "https://docs.uniswap.org/contracts/v3/reference/deployments/base-deployments",
+    "https://docs.uniswap.org/contracts/v3/reference/deployments/ethereum-deployments",
+    "https://developer.pancakeswap.finance/contracts/v3/addresses",
+    "https://github.com/aerodrome-finance/slipstream/blob/main/script/constants/output/DeployCL-Base.json",
+    "https://github.com/aerodrome-finance/slipstream/blob/main/script/constants/output/DeployCL-Base-Gauge-Caps.json",
+    "https://github.com/aerodrome-finance/slipstream/blob/main/script/constants/output/DeployCL-Base-MinUnstake.json",
+    "https://github.com/aerodrome-finance/slipstream/blob/main/contracts/core/interfaces/ICLFactory.sol",
+    "https://github.com/aerodrome-finance/slipstream/blob/main/contracts/periphery/interfaces/INonfungiblePositionManager.sol"
+  ],
+  "position_managers": {
+    "1": {
+      "0x1f98431c8ad98523631ae4a59f267346ea31f984": "0xc36442b4a4522e871399cd717abdd847ab11fe88"
+    },
+    "8453": {
+      "0x33128a8fc17869897dce68ed026d694621f6fdfd": "0x03a520b32c04bf3beef7beb72e919cf822ed34f1",
+      "0x5e7bb104d84c7cb9b682aac2f3d509f5f406809a": "0x827922686190790b37229fd06084350e74485b72",
+      "0xade65c38cd4849adba595a4323a8c7ddfe89716a": "0xa990c6a764b73bf43cee5bb40339c3322fb9d55f",
+      "0xf8f2eb4940cfe7d13603dddd87f123820fc061ef": "0xe1f8cd9ac4e4a65f54f38a5cdafca44f6dd68b53"
+    },
+    "56": {
+      "0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865": "0x46a15b0b27311cedf172ab29e4f4766fbe7f4364"
+    }
+  },
+  "aerodrome_v2_sources": [
+    "https://aerodrome.finance/security",
+    "https://github.com/aerodrome-finance/contracts/blob/main/contracts/factories/PoolFactory.sol"
+  ]
+}

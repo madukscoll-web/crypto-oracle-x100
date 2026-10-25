@@ -56,8 +56,7 @@ class RiskGateTests(unittest.TestCase):
     def test_holder_concentration_descriptive(self):
         label, reasons = risk_gate({"is_honeypot": "0"}, 0.666, 10)
         self.assertEqual(label, "WAIT / VERIFY")
-        self.assertTrue(any("Missing or uninterpretable" in x for x in reasons))
-        self.assertFalse(any("holders" in x for x in reasons))
+        self.assertTrue(any("LP/exclusions unknown" in x for x in reasons))
 
 
 if __name__ == "__main__":

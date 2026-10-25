@@ -30,7 +30,7 @@ class DecisionSummaryTests(unittest.TestCase):
         self.assertEqual(action, "WAIT AND VERIFY")
         self.assertIn("identity", reason.lower())
 
-    def test_assertions_and_synthetic_quote_never_authorize_buy(self):
+    def test_verified_strong_candidate(self):
         item = {
             "risk_category": "RESEARCH CANDIDATE — LIMITED CHECKS",
             "token_identity_status": "Base token from GeckoTerminal pool relationship",

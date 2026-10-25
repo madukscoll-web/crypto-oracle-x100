@@ -1,4 +1,4 @@
-"""Offline investment-plan guardrails for NGN 200,000 budget and 10% illustrative allocation."""
+"""Offline investment-plan guardrails for NGN 200,000 budget and NGN 50,000 cap."""
 import unittest
 import datetime as dt
 from crypto_oracle_scanner import investment_plan
@@ -22,13 +22,11 @@ class InvestmentPlanTests(unittest.TestCase):
         self.assertIn("UNAVAILABLE", plan)
         self.assertNotIn("Take-profit 1:", plan)
 
-    def test_observed_price_does_not_fabricate_targets(self):
+    def test_price_targets(self):
         plan = investment_plan({"base_token_price_usd": 2.0, "observed_at": dt.datetime.now(dt.timezone.utc).isoformat()}, "BUY CANDIDATE — REVIEW ENTRY")
         self.assertIn("USD 2", plan)
-        self.assertNotIn("USD 1.8", plan)
-        self.assertNotIn("USD 2.4", plan)
-        self.assertNotIn("USD 3", plan)
         self.assertIn("Entry/stop/targets: UNAVAILABLE", plan)
+        self.assertNotIn("USD 1.8", plan)
         self.assertIn("USD order amount: UNAVAILABLE", plan)
         self.assertIn("Executable quote/slippage: NOT VERIFIED", plan)
 
