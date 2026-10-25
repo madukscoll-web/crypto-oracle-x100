@@ -68,6 +68,27 @@ def fetch_json(url):
     return get_json(url, headers=HEADERS)
 
 
+def missing_market_fields(item):
+    """Require actual finite observations; unknown values never become zero."""
+    missing = []
+    for field in ("liquidity", "volume", "trades", "buy_share", "change_h1", "change_h24"):
+        value = item.get(field)
+        if (isinstance(value, bool) or not isinstance(value, (int, float))
+                or fundamental_evidence.finite(value, minimum=-math.inf) is None):
+            missing.append(field)
+        elif (field == "liquidity" and value <= 0
+              or field in ("volume", "trades") and value < 0
+              or field == "trades" and value != int(value)
+              or field == "buy_share" and not 0 <= value <= 1):
+            missing.append(field)
+    return missing
+
+
+def display_measurement(value, spec):
+    value = fundamental_evidence.finite(value)
+    return "UNKNOWN" if value is None else format(value, spec)
+
+
 def inspect(pool, network, mode="new_pools"):
     """Score observed pool activity; never infer contract or token safety."""
     attrs = pool.get("attributes") or {}
@@ -243,6 +264,11 @@ def enrich(item, fetch=None, delay=None):
                 holder_distribution_verified=False, tokenomics_verified=False,
                 entry_risk_reviewed=False, executable_quote_verified=False,
                 slippage_verified=False)
+    # A failed or partial refresh must not reuse discovery measurements as fresh.
+    for field in ("liquidity", "volume", "buys", "sells", "trades", "buy_share", "change_h1", "change_h24"):
+        item[field] = None
+    item.update(base_token_price_usd=0, price_source="Pool price refresh unavailable")
+    item.pop("market_raw", None)
     network = item["network"]
     fetch = fetch or fetch_json
     delay = ENRICHMENT_DELAY_SECONDS if delay is None else delay
@@ -255,13 +281,18 @@ def enrich(item, fetch=None, delay=None):
             return item
         # Never carry stale discovery liquidity, volume or trade counts into a refreshed assessment.
         attrs = (payload.get("data") or {}).get("attributes") or {}
-        fresh_liquidity = number(attrs.get("reserve_in_usd"))
-        fresh_volume = number((attrs.get("volume_usd") or {}).get("h24"))
+        fresh_liquidity = fundamental_evidence.finite(attrs.get("reserve_in_usd"))
+        fresh_volume = fundamental_evidence.finite((attrs.get("volume_usd") or {}).get("h24"))
         tx = (attrs.get("transactions") or {}).get("h1") or {}
-        fresh_buys, fresh_sells = number(tx.get("buys")), number(tx.get("sells"))
-        item["liquidity"] = fresh_liquidity if math.isfinite(fresh_liquidity) and fresh_liquidity > 0 else None
-        item["volume"] = fresh_volume if (attrs.get("volume_usd") or {}).get("h24") is not None and math.isfinite(fresh_volume) and fresh_volume >= 0 else None
-        item["trades"] = int(fresh_buys + fresh_sells) if all(math.isfinite(x) and x >= 0 for x in (fresh_buys, fresh_sells)) else None
+        counts = [fundamental_evidence.finite(tx.get(field)) for field in ("buys", "sells")]
+        item["buys"], item["sells"] = [int(x) if x is not None and x.is_integer() else None for x in counts]
+        item["liquidity"] = fresh_liquidity if fresh_liquidity is not None and fresh_liquidity > 0 else None
+        item["volume"] = fresh_volume
+        item["trades"] = item["buys"] + item["sells"] if all(x is not None for x in (item["buys"], item["sells"])) else None
+        item["buy_share"] = item["buys"] / item["trades"] if item["trades"] else None
+        changes = attrs.get("price_change_percentage") or {}
+        for field in ("h1", "h24"):
+            item["change_" + field] = fundamental_evidence.finite(changes.get(field), minimum=-math.inf)
         item["market_raw"] = payload
         # Refresh the indicative pool price at enrichment time. An absent or
         # malformed price must never inherit a potentially stale discovery quote.
@@ -468,6 +499,10 @@ def decision_summary(item):
         return "WAIT AND VERIFY", "Independent sellability evidence failed or conflicts; exact binding requires investigation."
     if item.get("scan_mode") == "verification_only":
         return "WAIT AND VERIFY", "This is verification-only research; no entry qualification is permitted."
+    missing = missing_market_fields(item)
+    if missing:
+        detail = reasons[0] if reasons else "Independent evidence is incomplete."
+        return "WAIT AND VERIFY", detail + " Missing or invalid market observations: " + ", ".join(missing) + "; provider checks are not a contract audit."
     # An independent, source-bound audit is mandatory; never accept caller-set
     # booleans or a synthetic quote as sufficient evidence.
     if evidence_audit.audit(item)["trade_ready"] is not True:
@@ -644,6 +679,9 @@ def entry_setup(item):
         return "NO SETUP", reason
     if item.get("risk_category") == "AVOID / HIGH CONCERN":
         return "NO SETUP", "Critical security concern"
+    missing = missing_market_fields(item)
+    if missing:
+        return "INSUFFICIENT DATA", "Missing or invalid market observations: " + ", ".join(missing)
     h1 = item.get("change_h1")
     h24 = item.get("change_h24")
     if h1 is None or h24 is None:
@@ -672,6 +710,9 @@ def setup_assessment(item):
     flags = item.get("flags", [])
     if item.get("risk_category") == "AVOID / HIGH CONCERN":
         return "REJECT", "Critical provider risk flag"
+    missing = missing_market_fields(item)
+    if missing:
+        return "WAIT", "Missing or invalid market observations: " + ", ".join(missing)
     if item.get("change_h1") is None or item.get("change_h24") is None:
         return "WAIT", "Missing price-change observations"
     if ((item.get("change_h1") is not None and item["change_h1"] > 35)
@@ -707,12 +748,12 @@ def send_telegram(item):
         f"Base-token contract: {item['token_address']}\n"
         f"Identity evidence: {item['token_identity_status']}\n"
         f"Older trading pools: {item['previous_pools']}\n"
-        f"Activity score: {item['score']}/100 (NOT safety or success probability)\n"
+        f"Discovery activity score: {item['score']}/100 (NOT safety or success probability)\n"
         f"Pool age: {item['age_hours']:.1f} hours\n"
-        f"Liquidity: ${item['liquidity']:,.0f}\n"
-        f"24h volume: ${item['volume']:,.0f}\n"
-        f"1h trades: {item['trades']} ({item['buys']} buys / {item['sells']} sells)\n"
-        f"1h buy share: {item['buy_share']:.0%}\n"
+        f"Liquidity: ${display_measurement(item.get('liquidity'), ',.0f')}\n"
+        f"24h volume: ${display_measurement(item.get('volume'), ',.0f')}\n"
+        f"1h trades: {display_measurement(item.get('trades'), '.0f')} ({display_measurement(item.get('buys'), '.0f')} buys / {display_measurement(item.get('sells'), '.0f')} sells)\n"
+        f"1h buy share: {display_measurement(item.get('buy_share'), '.0%')}\n"
         f"Price change: 1h {item.get('change_h1')}% / 24h {item.get('change_h24')}% (provider-reported; None means unavailable)\n"
         f"Activity flags: {flags}\n"
         f"Security: {item['contract_security']}; holders: {item['holder_concentration']}; "
@@ -945,5 +986,26 @@ def main():
     return report
 
 
+def cli():
+    """Unexpected errors fail the workflow with credential-safe diagnostics.
+
+    The hourly workflow's failure step sends the Telegram error notification.
+    Never leave an earlier successful summary behind after an unexpected crash.
+    """
+    try:
+        main()
+    except Exception as exc:
+        error = "Unexpected scanner failure: " + type(exc).__name__
+        print("::error::" + error + "; see workflow failure notification", flush=True)
+        try:
+            pathlib.Path("scan_summary.json").write_text(json.dumps(dict(
+                status="failed", errors=[error],
+                completed_at=dt.datetime.now(dt.timezone.utc).isoformat())) + "\n", encoding="utf-8")
+        except OSError:
+            print("::error::Could not write failed scan summary", flush=True)
+        return 1
+    return 0
+
+
 if __name__ == "__main__":
-    main()
+    raise SystemExit(cli())
