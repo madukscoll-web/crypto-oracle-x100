@@ -49,6 +49,14 @@ class ClassificationTests(unittest.TestCase):
         for check in alerts.CRITICAL:
             item=candidate();item['verification'][check]={'status':'FAIL','reason':'Known adverse evidence'}
             self.assertEqual(alerts.classify(item,now=NOW)['classification'],'REJECT',check)
+    def test_high_concern_evidence_rejects_before_watch_scoring(self):
+        for check in alerts.CRITICAL:
+            item=candidate()
+            item['verification'][check]={'status':'HIGH CONCERN','reason':'Provider reports a serious concern'}
+            result=alerts.classify(item,now=NOW)
+            self.assertEqual(result['classification'],'REJECT',check)
+            self.assertFalse(result['eligible_for_buy'])
+
     def test_caller_clear_label_cannot_hide_raw_mint_or_honeypot_flag(self):
         for field in ('is_honeypot','owner_change_balance','is_mintable','is_proxy'):
             item=candidate();item['verification']['contract_security']['raw']['result'][TOKEN][field]='1'
