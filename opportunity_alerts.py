@@ -68,7 +68,7 @@ def classify(item,config=None,now=None):
                 risks=['Can lose the entire allocation; liquidity and exits may disappear','Advanced verification incomplete; no executable entry or guaranteed return'],
                 entry=None,observed_at=item.get('observed_at'),eligible_for_buy=False)
     failed=list(item.get('persistent_adverse_reasons') or [])
-    failed += [k+': '+e[k].get('reason','Adverse evidence') for k in CRITICAL if e.get(k,{}).get('status') in ('FAIL','CONFLICTING')]
+    failed += [k+': '+e[k].get('reason','Adverse evidence') for k in CRITICAL if e.get(k,{}).get('status') in ('FAIL','CONFLICTING','HIGH CONCERN')]
     failed.extend('Prior '+x.get('check','evidence')+': unresolved adverse evidence' for x in item.get('unresolved_prior_adverse_evidence',[]))
     if item.get('risk_category')=='AVOID / HIGH CONCERN':failed.extend(item.get('risk_reasons') or ['Critical security concern'])
     if failed:
