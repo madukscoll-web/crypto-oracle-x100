@@ -1,0 +1,42 @@
+name: Independent research validation (read-only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: independent-research-manual
+  cancel-in-progress: false
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out isolated integration branch
+        uses: actions/checkout@v4
+        with:
+          ref: integration/preserve-production-scanner
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile and test isolated integration branch
+        run: |
+          python -m compileall -q *.py tests
+          python -m unittest discover -s tests -v
+      - name: Run bounded live research without Telegram, secrets or orders
+        timeout-minutes: 12
+        run: |
+          python -u live_candidate_scan.py --networks eth,base,bsc --limit 3 --pages 1 --output live_candidate_scan.json
+      - name: Preserve evidence, including partial results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: independent-research-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: live_candidate_scan.json
