@@ -32,6 +32,13 @@ jobs:
         timeout-minutes: 12
         run: |
           python -u live_candidate_scan.py --networks eth,base,bsc --limit 3 --pages 1 --output live_candidate_scan.json
+      - name: Send conservative Telegram research summary
+        if: success()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python research_summary.py
       - name: Preserve evidence, including partial results
         if: always()
         uses: actions/upload-artifact@v4
