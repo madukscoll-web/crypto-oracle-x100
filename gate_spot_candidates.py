@@ -138,7 +138,9 @@ def strategy(pair, raw_book, candles, now):
     stop_distance = (entry-invalidation)/entry
     if not 0.01 <= stop_distance <= 0.08:
         raise ValueError('Invalidation distance outside 1–8% policy')
-    allowances = 2*(POLICY['fee_allowance_each_side']+POLICY['slippage_allowance_each_side'])
+    probe = analyze_book(raw_book, str(POLICY['maximum_paper_notional_usdt']), now)
+    spread_fraction = number(probe['spread_bps'])/10000
+    allowances = 2*(POLICY['fee_allowance_each_side']+POLICY['slippage_allowance_each_side']) + spread_fraction
     size = min(POLICY['maximum_paper_notional_usdt'], POLICY['paper_capital_usdt']*POLICY['risk_fraction']/(stop_distance+allowances))
     units = (Decimal(str(size))/limit).quantize(Decimal(1).scaleb(-amount_precision), rounding=ROUND_FLOOR)
     if units <= 0:
@@ -169,6 +171,7 @@ def strategy(pair, raw_book, candles, now):
                 planned_paper_loss_usdt=notional*(stop_distance+allowances),
                 total_loss_exposure_usdt=notional,
                 fee_allowance_each_side=POLICY['fee_allowance_each_side'],
+                round_trip_cost_allowance_fraction=allowances,
                 fees_scope='Policy allowance, NOT authenticated account fees; verify before any manual order',
                 expires_at=dt.datetime.fromtimestamp(expiry,dt.timezone.utc).isoformat(),
                 candle_at=candle_at, book=book,

@@ -46,7 +46,7 @@ eligibility and underlying investment/custody risk remain for manual assessment.
 - A synthetic 1,000 USDT paper capital has a 1% planned risk ceiling and a 25 USDT
   allocation cap. These are research inputs, not the user's real account balance
   or NGN budget. Estimated losses include a 0.5% fee allowance and 0.2% slippage
-  allowance per side. Actual account fees are unknown and must be checked.
+  allowance per side, plus the observed spread. Actual account fees are unknown and must be checked.
 - The take-profit reference is arithmetic 2R after assumed costs, not a price
   forecast. Minimum amounts and quantity/price precision must permit the size.
 - Signals expire with the 30-second book snapshot and are not sent after expiry.
