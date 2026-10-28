@@ -1,0 +1,35 @@
+name: Focused LINK and AKE chain review (read-only)
+on:
+  push:
+    branches: [repair/hourly-evidence-and-gate]
+    paths:
+      - focused_token_review.py
+      - .github/workflows/focused-token-review.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile and run offline tests
+        run: |
+          python -m compileall -q *.py tests
+          python -m unittest discover -s tests -v
+      - name: Collect pinned wallet and contract-source evidence
+        run: python -u focused_token_review.py
+      - name: Retain raw and partial review evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: focused-token-review-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: focused_token_review_report.json
