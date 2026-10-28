@@ -35,6 +35,9 @@ def refresh():
 
 class MissingMarketTests(unittest.TestCase):
     def setUp(self):
+        optional = patch.object(scanner.hourly_evidence, "collect_safely")
+        optional.start()
+        self.addCleanup(optional.stop)
         self.folder = tempfile.TemporaryDirectory()
         self.addCleanup(self.folder.cleanup)
         cwd = os.getcwd()
@@ -146,7 +149,10 @@ class MissingMarketTests(unittest.TestCase):
             if '/trending_pools?' in url or '/tokens/' in url:
                 return {'data': []}
             return {'code': 0}
-        with patch.object(scanner, 'NETWORKS', ('base',)), patch.object(scanner, 'PAGES_PER_NETWORK', 1), patch.object(
+        def collected(collector, item):
+            item['verification'] = {'sellability': {'status': 'LIMITED', 'reason': 'Fixture simulation'}}
+            item['gate_spot'] = {'status': 'UNKNOWN', 'reason': 'Fixture absent listing'}
+        with patch.object(scanner.hourly_evidence, 'collect_safely', side_effect=collected), patch.object(scanner, 'NETWORKS', ('base',)), patch.object(scanner, 'PAGES_PER_NETWORK', 1), patch.object(
                 scanner, 'fetch_json', side_effect=fetch), patch.object(scanner.time, 'sleep'), patch.object(
                 scanner.fundamental_evidence, 'collect', return_value={}), patch.object(
                 scanner.market_corroboration, 'check', return_value={'status': 'UNKNOWN'}), patch.dict(
@@ -156,6 +162,9 @@ class MissingMarketTests(unittest.TestCase):
             report = scanner.main()
         self.assertEqual(report['status'], 'completed')
         self.assertEqual(report['alerts_delivered'], 1)
+        evidence = json.loads(pathlib.Path('evidence_report.json').read_text())[0]
+        self.assertEqual(evidence['verification']['sellability']['status'], 'LIMITED')
+        self.assertEqual(evidence['gate_spot']['status'], 'UNKNOWN')
         self.assertIn('base:' + POOL, scanner.load_state())
         self.assertEqual(json.loads(pathlib.Path('scan_summary.json').read_text())['status'], 'completed')
 
@@ -190,3 +199,4 @@ class MissingMarketTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

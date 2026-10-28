@@ -16,7 +16,8 @@ CURRENT=contextvars.ContextVar('public_provider_session',default=None)
 class ProviderUnavailable(OSError):pass
 
 class Session:
-    def __init__(self,max_requests=1500,max_seconds=1200,clock=time.monotonic,sleeper=time.sleep,transport=None):
+    def __init__(self,max_requests=1500,max_seconds=1200,clock=time.monotonic,sleeper=time.sleep,transport=None,max_request_seconds=15):
+        self.max_request_seconds=max_request_seconds
         self.clock,self.sleep=clock,sleeper
         self.started=clock();self.max_requests=max_requests;self.max_seconds=max_seconds
         self.transport=transport or self._http
@@ -51,7 +52,9 @@ class Session:
         request_headers={'Accept':'application/json','Content-Type':'application/json','User-Agent':'crypto-oracle-validation/1.0'}
         request_headers.update(headers or {})
         try:
-            result=self.transport(url,payload,request_headers,timeout)
+            remaining=self.max_seconds-(self.clock()-self.started)
+            if remaining<=0:skip('Run request/time budget exhausted')
+            result=self.transport(url,payload,request_headers,min(timeout,self.max_request_seconds,remaining))
             if isinstance(result,dict) and isinstance(result.get('error'),dict) and result['error'].get('code') in (-32601,-32004):self.methods.add((host,method))
             if payload is None and host=='sourcify.dev':self.cache[url]=result
             self.events.append(dict(host=host,event='RESPONSE',http_status=200,rpc_method=method))
@@ -78,3 +81,4 @@ class Session:
     def summary(self):
         return dict(requests_attempted=self.requests,max_requests=self.max_requests,max_seconds=self.max_seconds,
                     denied_hosts=self.denied,negative_cached_resources=len(self.missing),events=self.events)
+

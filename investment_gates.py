@@ -2,6 +2,7 @@
 import datetime as dt
 import math
 import os
+import hourly_evidence
 
 def _positive(value):
     if isinstance(value, bool):
@@ -25,30 +26,30 @@ def assess(item, now=None):
     review = item.get("evidence_review") or {}
     if any((review.get(key) or {}).get("status") == "HIGH CONCERN" for key in ("security", "provider_security")):
         risk = "AVOID / HIGH CONCERN"
+    if hourly_evidence.adverse(item):
+        risk = "AVOID / HIGH CONCERN"
     if risk == "AVOID / HIGH CONCERN":
         blockers.append("Critical provider security flag: independently investigate")
     if item.get("token_identity_status") != "Base token from GeckoTerminal pool relationship":
         blockers.append("Exact base-token identity unverified")
     if not str(item.get("security_source") or "").startswith("GoPlus token_security API"):
         blockers.append("Provider security assessment unavailable")
-    # Provider observations are never substituted for independent verification.
-    for field, name in (("sellability_verified", "independent sellability"),
-                        ("liquidity_lock_verified", "LP withdrawal controls"),
-                        ("holder_distribution_verified", "adjusted top holders"),
-                        ("tokenomics_verified", "supply and vesting"),
-                        ("executable_quote_verified", "executable quote"),
-                        ("slippage_verified", "slippage"),
-                        ("entry_risk_reviewed", "technical entry and downside")):
-        # Caller booleans cannot establish independently sourced evidence.
-        blockers.append(name + " not verified")
+    # Report actual observations without promoting partial coverage to safety.
+    findings = hourly_evidence.findings(item)
+    for label in ("Sell simulation", "Holder coverage", "LP screening", "Supply comparison", "Unlock disclosure"):
+        result = findings[label]
+        blockers.append(label + ": " + result["status"] + "; " + result["reason"])
+    if findings["Sell simulation"]["status"] not in ("LIMITED",):
+        blockers.append("independent sellability not verified")
+    blockers.extend(["Complete LP withdrawal authority and adjusted beneficial ownership remain unverified",
+                     "Order-specific executable quote, slippage and downside review remain unverified"])
     # Explicitly preserve every source-bound field, including failures.
     evidence = item.get("fundamental_evidence") or {}
     for field in ("circulating_supply", "total_supply", "max_supply", "market_cap_usd",
                   "fdv_usd", "unlocks", "adjusted_top10_fraction", "adoption",
                   "lp_controls", "independent_security", "execution_quote"):
         record = evidence.get(field) or {}
-        # No independently authenticated verification adapter is configured.
-        blockers.append(field + ": " + ("CONFLICTING" if record.get("status") == "CONFLICTING" else "UNVERIFIED"))
+        blockers.append(field + ": " + ("CONFLICTING" if record.get("status") == "CONFLICTING" else "UNVERIFIED") + "; " + record.get("reason", "No source-bound evidence collected"))
     for field, reviewed in (review.get("supply") or {}).items():
         if reviewed.get("status") == "CONFLICTING":
             blockers.append("Independent " + field + " sources CONFLICTING")
@@ -163,6 +164,7 @@ def assess(item, now=None):
         warnings.append("Quote observation: " + flag)
     return {
         "source_review": review,
+        "live_findings": findings,
         "decision": "AVOID / HIGH CONCERN" if risk == "AVOID / HIGH CONCERN" else "WAIT / VERIFY",
         "evidence": evidence,
         "activity": {"score": item.get("score"), "meaning": "Observed pool activity ONLY; not safety"},
@@ -181,25 +183,25 @@ def telegram_summary(item):
     result = assess(item)
     from fundamental_evidence import scenario_summary
     lines = ["DECISION: " + result["decision"],
-             "EVIDENCE GATES: Activity is NOT safety.",
-             "Security: " + result["security"],
-             "Fundamentals/dilution: " + result["fundamentals"],
-             "Trade readiness: NOT VERIFIED — no automatic BUY",
-             "BLOCKERS: " + "; ".join(result["blockers"][:5])]
-    if len(result["blockers"]) > 5:
-        lines.append(f"Plus {len(result['blockers'])-5} further evidence gaps")
+             "Activity is NOT safety. Security/fundamentals: " + result["security"] + "/" + result["fundamentals"],
+             "Trade readiness: NOT VERIFIED — automatic trading disabled"]
+    lines.append("BLOCKERS: partial findings below do not establish complete safety or execution.")
+    lines.extend(hourly_evidence.telegram_lines(item))
+    lines.append("Pool observed: " + str(item.get("observed_at", "UNKNOWN")))
     if result["warnings"]:
         lines.append("WARNINGS: " + "; ".join(result["warnings"][:3]))
-    lines.append("Supply / unlocks / adjusted holders / adoption / LP controls / execution: UNVERIFIED")
-    lines.append("Pool source: " + str(item.get("source", "UNVERIFIED")) + "; observed: " + str(item.get("observed_at", "UNVERIFIED")))
-    provider = item.get("security_provider_evidence") or {}
-    lines.append("Security: GoPlus provider data, NOT audit; observed: " + str(provider.get("retrieved_utc", "UNVERIFIED")))
     records = result["evidence"]
     if records:
         r = records.get("circulating_supply") or {}
-        lines.append("Fundamentals: " + str(r.get("provider", "UNVERIFIED")) + "; retrieved: " + str(r.get("observed_at", "UNVERIFIED")))
-        lines.append("Reported circulating / max supply: " + str(r.get("value", "UNVERIFIED")) + " / " + str((records.get("max_supply") or {}).get("value", "UNVERIFIED")) + " (UNVERIFIED)")
-    lines.append("Offline source review: " + str(item.get("research_record_status", "UNVERIFIED")))
+        lines.append("Reported circulating/max supply: " + str(r.get("value")) + "/" +
+                     str((records.get("max_supply") or {}).get("value")) + " (provider estimates, UNVERIFIED)")
+        lines.append("Fundamentals: " + str(r.get("provider", "UNKNOWN")) + "; retrieved: " + str(r.get("observed_at", "UNKNOWN")))
+    lines.append("Remaining: complete LP controls, beneficial ownership, supply/vesting, authority review and order-specific execution require verification.")
+    lines.append("Every blocker, source response and timestamp: evidence_report.json in this run's diagnostics artifact.")
+    repo, run = os.environ.get("GITHUB_REPOSITORY"), os.environ.get("GITHUB_RUN_ID")
+    if repo and run:
+        lines.append("Full evidence: https://github.com/" + repo + "/actions/runs/" + run)
     lines.append(scenario_summary())
     return "\n".join(lines)
+
 

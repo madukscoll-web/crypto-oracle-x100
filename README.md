@@ -44,3 +44,27 @@ exact holder identity, and its own provenance. Quotes require quote token, ID,
 block, kind EXECUTABLE, expiry, bid/ask, order/depth USD, both-direction amounts,
 fees USD and slippage percent. These requirements validate observations; provider
 authenticity, RPC simulation and independent audits remain separate requirements.
+
+
+## Hourly live evidence integration
+
+The production scanner now runs a bounded read-only enrichment stage after basic
+market screening. A shared budget permits at most three candidates, 90 requests
+and 60 seconds, with five-second request timeouts. Unsupported networks, missing
+configuration, API denial and candidates beyond the budget remain explicit.
+The hourly schedule and Telegram credentials are unchanged.
+
+The stage reuses exact-pool Honeypot/GoPlus checks, pinned on-chain pool/holder
+observations, supply comparison, registry unlock disclosures and configured
+0x/Kyber quote adapters. Gate public Spot metadata and books are matched by exact
+network/contract, never symbol alone. Gate snapshots are separate from DEX
+execution and do not prove future fills, LP safety or beneficial ownership.
+No quote credential, taker address or funding/order size is invented; missing
+configuration is reported. Complete verification and automatic trading remain
+disabled. This stage does not perform an independent contract audit.
+
+Telegram shows identity first and per-check findings. Full blocker reasons, raw
+provider observations, timestamps and Gate evidence are preserved in
+`evidence_report.json` under the workflow's diagnostics artifact; shared budget
+and provider failures are in `scan_summary.json`. A successful workflow means
+collection completed, not that any candidate is safe or ready to trade.

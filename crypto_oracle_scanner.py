@@ -21,6 +21,7 @@ import fundamental_evidence
 import evidence_checks
 import research_records
 import market_corroboration
+import hourly_evidence
 from oracle_http import get_json
 from telegram_notify import send_message
 
@@ -739,6 +740,8 @@ def send_telegram(item):
     message = (
         "🔎 CRYPTO-ORACLE Z — UNVERIFIED RESEARCH LEAD\n"
         f"FINAL DECISION: {decision}\n"
+        f"Token: {item.get('token_symbol', 'UNKNOWN')} | Network: {item['network']}\n"
+        f"Contract: {item.get('token_address', 'UNKNOWN')}\n"
         f"{investment_gates.telegram_summary(item)}\n"
         f"Network: {item['network']}\n"
         f"Pool: {item['name']}\n"
@@ -891,6 +894,7 @@ def main():
     setup_counts = {}
     evidence_reports = []
     entry_counts = {}
+    hourly_collector = hourly_evidence.HourlyEvidence()
     for item in selected:
         enrich(item)
         item["fundamental_evidence"] = fundamental_evidence.collect(item, lambda url: get_json(url, headers=HEADERS, retries=0, timeout=5))
@@ -898,6 +902,10 @@ def main():
         item["research_records"] = research_records.combine(item, item["research_records"])
         item["evidence_review"] = evidence_checks.review(item)
         item["market_corroboration"] = market_corroboration.check(item, fetch_json)
+        hourly_evidence.collect_safely(hourly_collector, item)
+        if hourly_evidence.adverse(item):
+            item["risk_category"] = "AVOID / HIGH CONCERN"
+            item["risk_reasons"].append("Adverse independent evidence; inspect detailed findings")
         evidence_reports.append({"network": item["network"], "pool": item["address"],
                                  "contract": item.get("token_address"),
                                  "security": item.get("security_provider_evidence"),
@@ -911,6 +919,11 @@ def main():
                                                   "liquidity", "volume", "buy_share", "score", "age_hours",
                                                   "change_h1", "change_h24", "base_token_price_usd")}},
                                  "source_review": item["evidence_review"],
+                                 "verification": item.get("verification"),
+                                 "hourly_evidence": item.get("hourly_evidence"),
+                                 "gate_spot": item.get("gate_spot"),
+                                 "gate_provider_evidence": item.get("gate_provider_evidence"),
+                                 "gate_execution_research": item.get("gate_execution_research"),
                                  "assessment": investment_gates.assess(item)})
         risk_counts[item["risk_category"]] = risk_counts.get(item["risk_category"], 0) + 1
         setup = setup_assessment(item)[0]
@@ -978,6 +991,7 @@ def main():
     report = {"status": "failed" if errors else "completed",
               "observations": total_checked, "candidates": len(candidates),
               "alerts_delivered": delivered, "successful_feeds": successful_feeds,
+              "hourly_evidence": hourly_collector.summary(),
               "warnings": warnings, "errors": errors,
               "completed_at": dt.datetime.now(dt.timezone.utc).isoformat()}
     pathlib.Path("scan_summary.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
@@ -1009,3 +1023,4 @@ def cli():
 
 if __name__ == "__main__":
     raise SystemExit(cli())
+
