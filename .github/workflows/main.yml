@@ -63,7 +63,8 @@ jobs:
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             if [ -f reported_pools.json ]; then git add reported_pools.json; fi
             if [ -f watchlist_state.json ]; then git add watchlist_state.json; fi
-            if [ -f signal_history.json ] || [ -f gate_paper_history.json ]; then git add signal_history.json; fi
+            if [ -f signal_history.json ]; then git add signal_history.json; fi
+            if [ -f gate_paper_history.json ]; then git add gate_paper_history.json; fi
             if ! git diff --cached --quiet; then
               git commit -m "Update reported pool IDs [skip ci]"
               # Another commit may arrive while the scanner runs.
