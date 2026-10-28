@@ -148,9 +148,11 @@ def strategy(pair, raw_book, candles, now):
     notional = float(units*limit)
     for field, value, lower in [('min_base_amount', float(units), True), ('min_quote_amount', notional, True),
                                ('max_base_amount', float(units), False), ('max_quote_amount', notional, False)]:
-        if field not in pair:
-            raise ValueError('Exchange amount limits missing')
-        if pair[field] is not None:
+        if field not in pair and lower:
+            raise ValueError('Exchange minimum amount limits missing')
+        # Current public responses can omit optional maximum fields. Preserve
+        # that limitation for manual review; never assert a missing limit is zero.
+        if pair.get(field) is not None:
             threshold = number(pair[field])
             if (lower and value < threshold) or (not lower and threshold > 0 and value > threshold):
                 raise ValueError('Paper size violates exchange amount limits')
@@ -173,6 +175,7 @@ def strategy(pair, raw_book, candles, now):
                 fee_allowance_each_side=POLICY['fee_allowance_each_side'],
                 round_trip_cost_allowance_fraction=allowances,
                 fees_scope='Policy allowance, NOT authenticated account fees; verify before any manual order',
+                unexposed_maximum_limits=[f for f in ('max_base_amount','max_quote_amount') if f not in pair],
                 expires_at=dt.datetime.fromtimestamp(expiry,dt.timezone.utc).isoformat(),
                 candle_at=candle_at, book=book,
                 invalidation_rule='Cancel on expiry, breakout failure, changed evidence or costs above allowance; stop fill not guaranteed')
@@ -264,7 +267,7 @@ def format_alert(result):
                   '2R arithmetic exit reference: '+str(plan['take_profit_reference_usdt'])+' USDT (not a prediction)',
                   'Paper size: '+str(plan['paper_notional_usdt'])+' USDT / '+plan['paper_units']+' tokens',
                   'Planned paper loss including allowances: '+str(plan['planned_paper_loss_usdt'])+' USDT; entire allocation can be lost',
-                  'Expires: '+plan['expires_at'], 'Account fees/eligibility and fresh depth must be checked manually']
+                  'Expires: '+plan['expires_at'], 'Account fees/eligibility, unexposed maximum limits and fresh depth must be checked manually']
     lines += ['Blockers: '+'; '.join(result['blockers'])] if result['blockers'] else []
     lines += result['limitations']
     return '\n'.join(lines)

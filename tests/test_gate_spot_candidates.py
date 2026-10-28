@@ -211,3 +211,14 @@ class PaperTrackingTests(unittest.TestCase):
 
     def test_corrupt_state_is_rejected(self):
         with self.assertRaises(ValueError):g.process(dict(candidates=[]),dict(version=2,signals={}))
+
+class LiveSchemaTests(unittest.TestCase):
+    def test_omitted_optional_maximum_is_disclosed_not_false_zero(self):
+        d=data();del d['pair']['max_base_amount']
+        r=scanner(d).assess(dict(network='eth',token_address=TOKEN),NOW)
+        self.assertEqual(r['classification'],g.LABEL,r['blockers'])
+        self.assertIn('max_base_amount',r['plan']['unexposed_maximum_limits'])
+    def test_missing_minimum_still_blocks(self):
+        d=data();del d['pair']['min_quote_amount']
+        r=scanner(d).assess(dict(network='eth',token_address=TOKEN),NOW)
+        self.assertNotEqual(r['classification'],g.LABEL)

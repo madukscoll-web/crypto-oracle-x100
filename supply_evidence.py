@@ -75,7 +75,14 @@ def collect(item,fetch,rpc=None):
             observations['coingecko']=dict(url=url,raw=raw,metrics=metrics)
             # Rounding tolerance is for diagnostics only, never a verification pass.
             if Decimal(metrics['relative_total_divergence'])>Decimal('.001'):
-                conflicts.append('CoinGecko total differs from gross on-chain supply by more than 0.1%; burn/circulation methodology unresolved')
+                try:
+                    sinks=sink_reconciliation(metrics['provider_total_tokens'],total,decimals,
+                        {owner:rpc.balance(token,owner) for owner in (ZERO,DEAD)})
+                    metrics.update(sinks)
+                except (ValueError,TypeError,AttributeError,OSError,KeyError):
+                    sinks={}
+                if not sinks.get('provider_total_matches_net_of_known_sinks'):
+                    conflicts.append('CoinGecko total differs from gross on-chain supply by more than 0.1%; burn/circulation methodology unresolved')
         except (KeyError,ValueError,TypeError,OSError,OverflowError):observations['coingecko']=dict(status='UNKNOWN',reason='Exact-contract current supply unavailable, stale or invalid')
         rpc.unchanged()
         return observation('supply_comparison',rpc.url,dict(block=block,total_supply_base_units=str(total),decimals=decimals,

@@ -48,7 +48,7 @@ eligibility and underlying investment/custody risk remain for manual assessment.
   or NGN budget. Estimated losses include a 0.5% fee allowance and 0.2% slippage
   allowance per side, plus the observed spread. Actual account fees are unknown and must be checked.
 - The take-profit reference is arithmetic 2R after assumed costs, not a price
-  forecast. Minimum amounts and quantity/price precision must permit the size.
+  forecast. Minimum amounts, exposed maximum amounts and quantity/price precision must permit the size. Unexposed optional maxima are explicitly listed for manual confirmation; they are not treated as zero or proof of unlimited size.
 - Signals expire with the 30-second book snapshot and are not sent after expiry.
   Expiry, failed breakout, new adverse evidence or higher costs cancels the setup.
   Stops do not guarantee execution or cap the actual loss.
