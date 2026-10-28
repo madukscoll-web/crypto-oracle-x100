@@ -81,3 +81,5 @@ The default `gate_token_reviews.json` has no approved records. This is explicitl
 reported; fixture success is not a live opportunity. Actual source-backed token
 reviews and live endpoint validation are required before live candidate delivery.
 Run `python gate_spot_candidates.py` for a no-notification diagnostic report.
+
+Gate catalog-first research and recorded live results are documented in [GATE_SPOT_DISCOVERY.md](GATE_SPOT_DISCOVERY.md). Research queues do not grant token approval.

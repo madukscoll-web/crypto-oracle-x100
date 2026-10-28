@@ -38,7 +38,8 @@ def collect(asset,fetch,provider_supply=None):
         return dict(status='NOT_SUPPORTED',reason='No registered issuer supply adapter for this exact asset')
     result=dict(status='UNKNOWN',source_url=URL,reference_url=REFERENCE,network='eth',contract=LINK,
                 retrieved_at=dt.datetime.now(dt.timezone.utc).isoformat(),provider_updated_at=None,
-                freshness_scope='Retrieval time only; issuer endpoint provides no observation timestamp')
+                freshness_scope='Retrieval time only; issuer endpoint provides no observation timestamp',
+                data_origin_independence_established=False)
     try:
         raw=fetch(URL);result['raw']=raw
         result['response_sha256']=hashlib.sha256(json.dumps(raw,sort_keys=True,separators=(',',':')).encode()).hexdigest()
@@ -50,9 +51,9 @@ def collect(asset,fetch,provider_supply=None):
                 other=Decimal(str(supplied));primary=Decimal(result['metrics'][field])
                 if not other.is_finite() or other<=0:raise ValueError('Invalid provider measurement')
                 if abs(other-primary)/primary>Decimal('.01'):
-                    result['status']='CONFLICTING';result['reason']='Issuer and independent provider supply differ by more than 1%';return result
+                    result['status']='CONFLICTING';result['reason']='Issuer and separately retrieved provider supply differ by more than 1%';return result
             result['status']='CORROBORATED_DISCLOSURE'
-            result['reason']='Issuer wallet arithmetic and provider estimates agree within 1%; independent balances, unlock coverage and authority remain unverified'
+            result['reason']='Issuer wallet arithmetic and provider estimates agree within 1%; origin independence, on-chain balances, unlock coverage and authority remain unverified'
     except (OSError,ValueError,TypeError,KeyError,AttributeError,ArithmeticError) as exc:
         result['status']='UNKNOWN';result['reason']='Issuer disclosure unavailable/invalid: '+type(exc).__name__
     return result

@@ -15,6 +15,7 @@ class PrimarySupplyTests(unittest.TestCase):
         self.assertFalse(r['metrics']['independent_onchain_balances_verified'])
         self.assertFalse(r['metrics']['complete_unlock_coverage_verified'])
         self.assertIsNone(r['provider_updated_at'])
+        self.assertFalse(r['data_origin_independence_established'])
     def test_disagreement_is_preserved(self):
         r=p.collect(self.asset(),lambda _:self.raw(),dict(circulating=700000000,total=1000000000))
         self.assertEqual(r['status'],'CONFLICTING')
