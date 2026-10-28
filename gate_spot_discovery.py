@@ -16,6 +16,7 @@ from gate_spot_research import PublicGate
 from gate_spot_candidates import strategy
 from provider_session import Session
 import verification
+import primary_supply
 
 PLATFORMS={'eth':'ethereum','base':'base','bsc':'binance-smart-chain'}
 # Scope exclusions for discovery only, never an identity mapping or safety claim.
@@ -130,6 +131,9 @@ def assess(gate,asset,fetch):
         except (OSError,ValueError,TypeError,KeyError,AttributeError,OverflowError) as exc:
             result['evidence']['supply_diagnostic']=dict(error_type=type(exc).__name__,http_status=getattr(exc,'code',None),reason=str(exc) if type(exc)is ValueError else 'Provider unavailable or circuit breaker active')
             result['blockers'].append('Exact-contract fresh supply unavailable/invalid: '+type(exc).__name__+((' HTTP '+str(exc.code)) if isinstance(exc,urllib.error.HTTPError) else ''))
+        result['evidence']['issuer_supply']=primary_supply.collect(asset,fetch,result['evidence'].get('supply'))
+        if result['evidence']['issuer_supply'].get('status')=='CONFLICTING':
+            result['blockers'].append('Issuer/provider supply conflict')
         pair=eligibility['raw']['pair'];pair_id=eligibility['pair_id']
         try:
             candles=gate.get('/spot/candlesticks',dict(currency_pair=pair_id,interval='5m',limit=30))
@@ -150,7 +154,7 @@ def summary(candidate):
     return dict(symbol=candidate['symbol'],network=candidate['network'],contract=candidate['token_address'],
         spot=(evidence.get('gate_identity')or{}).get('status'),security=security.get('status','UNKNOWN'),
         missing_security_fields=security.get('missing_fields'),supply_ratio=supply.get('ratio'),
-        supply_diagnostic=evidence.get('supply_diagnostic'),
+        supply_diagnostic=evidence.get('supply_diagnostic'),issuer_supply_status=evidence.get('issuer_supply',{}).get('status'),
         market_setup_present=candidate['market_setup']is not None,
         classification=candidate['classification'],buy_authorized=False,blockers=candidate['blockers'])
 
