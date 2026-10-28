@@ -127,3 +127,37 @@ class AdverseLiveEvidenceTests(unittest.TestCase):
         report=evidence_audit.audit(dict(verification=dict(supply_comparison=dict(status='CONFLICTING'))))
         self.assertIn('independent_supply_comparison',report['failures'])
         self.assertFalse(report['trade_ready'])
+
+
+class SinkReconciliationTests(unittest.TestCase):
+    def test_net_supply_match_is_not_circulating_or_burn_verification(self):
+        from supply_evidence import sink_reconciliation
+        from onchain import ZERO,DEAD
+        r=sink_reconciliation('895',1000,0,{ZERO:0,DEAD:105})
+        self.assertTrue(r['provider_total_matches_net_of_known_sinks'])
+        self.assertFalse(r['burn_authority_or_circulating_supply_verified'])
+    def test_mismatch_missing_or_impossible_sink_balances_do_not_reconcile(self):
+        from supply_evidence import sink_reconciliation
+        from onchain import ZERO,DEAD
+        self.assertFalse(sink_reconciliation('800',1000,0,{ZERO:0,DEAD:105})['provider_total_matches_net_of_known_sinks'])
+        for bad in ({DEAD:105},{ZERO:True,DEAD:105},{ZERO:800,DEAD:800}):
+            with self.assertRaises(ValueError):sink_reconciliation('895',1000,0,bad)
+
+class SinkCollectorIntegrationTests(unittest.TestCase):
+    def test_collector_reads_pinned_sink_balances_before_reconciling(self):
+        import supply_evidence
+        from onchain import ZERO,DEAD
+        class Rpc:
+            url='https://rpc.example';calls=[]
+            def __init__(self):self.balances=[];self.checked=False
+            def snapshot(self):return {'number':'0x1','hash':'0x'+'1'*64}
+            def read(self,token,selector):return '0x'+format(1000 if selector=='18160ddd' else 0,'064x')
+            def balance(self,token,owner):self.balances.append(owner);return 105 if owner==DEAD else 0
+            def unchanged(self):self.checked=True
+        rpc=Rpc()
+        now=dt.datetime.now(dt.timezone.utc).isoformat()
+        raw=dict(platforms={'binance-smart-chain':A},last_updated=now,market_data=dict(total_supply=895,circulating_supply=800,max_supply=1000))
+        result=supply_evidence.collect(dict(network='bsc',token_address=A),lambda _:raw,rpc=rpc)
+        self.assertEqual(rpc.balances,[ZERO,DEAD]);self.assertTrue(rpc.checked)
+        self.assertEqual(result['status'],'LIMITED')
+        self.assertTrue(result['raw']['observations']['coingecko']['metrics']['provider_total_matches_net_of_known_sinks'])

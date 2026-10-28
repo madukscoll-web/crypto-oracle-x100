@@ -1,0 +1,106 @@
+{
+  "version": 1,
+  "observed_at": "2026-10-28T21:16:23.875149+00:00",
+  "source_run": "https://github.com/madukscoll-web/crypto-oracle-x100/actions/runs/40770501663",
+  "purpose": "Research queue only; these are not token approvals or active signals",
+  "tokens": [
+    {
+      "symbol": "QUID",
+      "network": "base",
+      "contract": "0x1a44233fae8d50f1aeb3a5d58dd426ff4814cb53",
+      "gate_spot_status": "UNKNOWN",
+      "circulating_supply_provider_estimate": 143157197.0,
+      "max_supply_provider_estimate": 1000000000.0,
+      "max_to_circulating_ratio": 6.985328163417449,
+      "status": "NOT_APPROVED",
+      "required_review": [
+        "Current exact-contract Spot eligibility",
+        "Primary/independent circulating and vesting evidence",
+        "Classify holder addresses before adjusted concentration",
+        "Resolve simulator/authority and supply-definition gaps"
+      ]
+    },
+    {
+      "symbol": "XDP",
+      "network": "base",
+      "contract": "0x07b3d902783c3c12b077508c3b5c00113d1291d0",
+      "gate_spot_status": "UNKNOWN",
+      "circulating_supply_provider_estimate": 1000000000.0,
+      "max_supply_provider_estimate": 10000000000.0,
+      "max_to_circulating_ratio": 10.0,
+      "status": "NOT_APPROVED",
+      "required_review": [
+        "Current exact-contract Spot eligibility",
+        "Primary/independent circulating and vesting evidence",
+        "Classify holder addresses before adjusted concentration",
+        "Resolve simulator/authority and supply-definition gaps"
+      ]
+    },
+    {
+      "symbol": "GENIUS",
+      "network": "bsc",
+      "contract": "0x1f12b85aac097e43aa1555b2881e98a51090e9a6",
+      "gate_spot_status": "CONFIRMED_SPOT",
+      "circulating_supply_provider_estimate": 335377059.0,
+      "max_supply_provider_estimate": 1000000000.0,
+      "max_to_circulating_ratio": 2.9817185557703874,
+      "status": "NOT_APPROVED",
+      "required_review": [
+        "Current exact-contract Spot eligibility",
+        "Primary/independent circulating and vesting evidence",
+        "Classify holder addresses before adjusted concentration",
+        "Resolve simulator/authority and supply-definition gaps"
+      ]
+    }
+  ],
+  "broader_research_run": "https://github.com/madukscoll-web/crypto-oracle-x100/actions/runs/40773675774",
+  "research_priorities": [
+    {
+      "symbol": "LINK",
+      "network": "eth",
+      "contract": "0x514910771af9ca656af840dff83e8264ecf986ca",
+      "status": "NOT_APPROVED",
+      "findings": [
+        "Exact Gate Spot identity confirmed",
+        "Preliminary provider flags clear",
+        "Issuer supply arithmetic agrees with provider estimate; source-origin independence not established",
+        "No qualifying entry setup observed",
+        "All 33 issuer-disclosed wallet balances and circulation arithmetic matched pinned blockchain reads",
+        "Exact deployed runtime/source matched scoped technical review; not an independent audit",
+        "Conditional per-address concentration upper bound 34.11%; provider ranking and beneficial ownership remain unverified"
+      ],
+      "remaining": [
+        "Complete holder ranking, exclusions and beneficial-ownership classification",
+        "Source-backed dated 30-day release coverage and treasury-control assessment",
+        "Fresh qualifying strategy conditions"
+      ],
+      "primary_sources": [
+        "https://chain.link/circulating-supply",
+        "https://supply.chain.link/supply"
+      ]
+    },
+    {
+      "symbol": "AKE",
+      "network": "bsc",
+      "contract": "0x2c3a8ee94ddd97244a93bc48298f97d2c412f7db",
+      "status": "NOT_APPROVED",
+      "findings": [
+        "Exact Gate Spot identity confirmed",
+        "Preliminary provider flags clear",
+        "Provider maximum/circulating ratio approximately 4.387",
+        "No qualifying entry setup observed",
+        "Ten provider-listed holder balances read at a pinned block; approximately 45.42% of gross supply, without economic classification",
+        "Exact runtime/source unavailable in this check; authority assessment remains unknown"
+      ],
+      "remaining": [
+        "Complete dated release and wallet-allocation review",
+        "Adjusted holder concentration and authority assessment",
+        "Fresh qualifying strategy conditions"
+      ],
+      "primary_sources": [
+        "https://akedo-1.gitbook.io/akedo-whitepaper/tokenomics"
+      ]
+    }
+  ],
+  "focused_review_run": "https://github.com/madukscoll-web/crypto-oracle-x100/actions/runs/40775978244"
+}

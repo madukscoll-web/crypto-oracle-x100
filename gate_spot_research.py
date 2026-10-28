@@ -29,7 +29,7 @@ class PublicGate:
     def __init__(self,fetch):self.fetch=fetch;self.evidence=[]
     def get(self,path,query=None):
         # No arbitrary URLs, private account methods, order requests or mutation.
-        if not (path in ('/spot/currencies','/spot/currency_pairs','/spot/order_book','/spot/candlesticks','/wallet/currency_chains') or re.fullmatch(r'/spot/currency_pairs/[A-Z0-9_.-]+_[A-Z0-9_.-]+',path)):
+        if not (path in ('/spot/currencies','/spot/currency_pairs','/spot/tickers','/spot/order_book','/spot/candlesticks','/wallet/currency_chains') or re.fullmatch(r'/spot/currency_pairs/[A-Z0-9_.-]+_[A-Z0-9_.-]+',path)):
             raise ValueError('Outside public read-only research endpoints')
         url=BASE+path+('?' +urlencode(query) if query else '')
         raw=self.fetch(url);self.evidence.append(dict(url=url,retrieved_at=dt.datetime.now(dt.timezone.utc).isoformat(),provider_timestamp='UNKNOWN unless supplied in raw response',raw=raw));return raw
@@ -187,3 +187,4 @@ def analyze_candles(raw,now):
             support=str(min(x[4] for x in bars)),resistance=str(max(x[3] for x in bars)),
             mean_quote_volume=str(sum(x[1] for x in bars)/len(bars)),basis='Observed 21-candle range; not predicted support/targets or a confirmed retest')
     except (ValueError,KeyError,TypeError,InvalidOperation,IndexError):return dict(status='UNKNOWN',reason='Closed candle history insufficient, stale, ambiguous or malformed')
+

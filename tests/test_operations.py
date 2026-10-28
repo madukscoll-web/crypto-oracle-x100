@@ -111,6 +111,9 @@ class HttpTests(unittest.TestCase):
 
 class ScanOperationTests(unittest.TestCase):
     def setUp(self):
+        optional = patch.object(scanner.hourly_evidence, "collect_safely")
+        optional.start()
+        self.addCleanup(optional.stop)
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         previous = os.getcwd()
@@ -176,3 +179,4 @@ class ScanOperationTests(unittest.TestCase):
     def test_malformed_corroboration_remains_unknown(self):
         result = market_corroboration.check({'network': 'base', 'address': '0xpool'}, lambda _: {'pairs': [None]})
         self.assertEqual(result['status'], 'UNKNOWN')
+

@@ -77,3 +77,15 @@ class PoolBindingTests(unittest.TestCase):
         self.assertEqual(honeypot(raw,TOKEN,1,'0xpool')[0],'LIMITED')
         self.assertEqual(honeypot(raw,TOKEN,56,'0xpool')[0],'UNKNOWN')
         self.assertEqual(honeypot(raw,TOKEN,1,'0xother')[0],'UNKNOWN')
+
+
+class SimulationInfrastructureTests(unittest.TestCase):
+    def test_target_code_error_is_conflicting_not_confirmed_honeypot(self):
+        raw=dict(token=dict(address=TOKEN),simulationSuccess=True,
+                 honeypotResult=dict(isHoneypot=True,honeypotReason='execution reverted: Target contract does not contain code'))
+        self.assertEqual(honeypot(raw,TOKEN)[0],'CONFLICTING')
+        self.assertEqual(honeypot(raw,'0xwrong')[0],'UNKNOWN')
+    def test_transfer_restriction_still_fails(self):
+        raw=dict(token=dict(address=TOKEN),simulationSuccess=True,
+                 honeypotResult=dict(isHoneypot=True,honeypotReason='execution reverted: sell forbidden'))
+        self.assertEqual(honeypot(raw,TOKEN)[0],'FAIL')

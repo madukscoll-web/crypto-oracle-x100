@@ -6,6 +6,7 @@ RPC contract reverts do not disable a healthy RPC host.
 """
 import contextvars
 import json
+import math
 import time
 import urllib.error
 import urllib.parse
@@ -16,7 +17,11 @@ CURRENT=contextvars.ContextVar('public_provider_session',default=None)
 class ProviderUnavailable(OSError):pass
 
 class Session:
-    def __init__(self,max_requests=1500,max_seconds=1200,clock=time.monotonic,sleeper=time.sleep,transport=None):
+    def __init__(self,max_requests=1500,max_seconds=1200,clock=time.monotonic,sleeper=time.sleep,transport=None,max_request_seconds=15,host_intervals=None):
+        self.host_intervals=dict(host_intervals or {})
+        if any(isinstance(v,bool) or not isinstance(v,(int,float)) or not math.isfinite(v) or not 0.15<=v<=60 for v in self.host_intervals.values()):
+            raise ValueError("Invalid provider pacing interval")
+        self.max_request_seconds=max_request_seconds
         self.clock,self.sleep=clock,sleeper
         self.started=clock();self.max_requests=max_requests;self.max_seconds=max_seconds
         self.transport=transport or self._http
@@ -45,13 +50,17 @@ class Session:
             self.events.append(dict(host=host,event='CACHE_HIT',reason='Sourcify source reused; callers still compare fresh RPC runtime'))
             return self.cache[url]
         interval=2.2 if host in ('api.geckoterminal.com','api.gopluslabs.io','api.coingecko.com') else .15
+        interval=max(interval,self.host_intervals.get(host,interval))
         pause=interval-(now-self.last.get(host,-100))
+        if pause>0 and self.clock()-self.started+pause>=self.max_seconds:skip('Provider pacing would exceed run budget')
         if pause>0:self.sleep(pause)
         self.last[host]=self.clock();self.requests+=1
         request_headers={'Accept':'application/json','Content-Type':'application/json','User-Agent':'crypto-oracle-validation/1.0'}
         request_headers.update(headers or {})
         try:
-            result=self.transport(url,payload,request_headers,timeout)
+            remaining=self.max_seconds-(self.clock()-self.started)
+            if remaining<=0:skip('Run request/time budget exhausted')
+            result=self.transport(url,payload,request_headers,min(timeout,self.max_request_seconds,remaining))
             if isinstance(result,dict) and isinstance(result.get('error'),dict) and result['error'].get('code') in (-32601,-32004):self.methods.add((host,method))
             if payload is None and host=='sourcify.dev':self.cache[url]=result
             self.events.append(dict(host=host,event='RESPONSE',http_status=200,rpc_method=method))
@@ -78,3 +87,4 @@ class Session:
     def summary(self):
         return dict(requests_attempted=self.requests,max_requests=self.max_requests,max_seconds=self.max_seconds,
                     denied_hosts=self.denied,negative_cached_resources=len(self.missing),events=self.events)
+

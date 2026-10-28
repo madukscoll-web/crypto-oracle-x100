@@ -6,7 +6,7 @@ legitimately differ: report conflicts rather than silently choosing one.
 """
 import datetime as dt
 from decimal import Decimal,InvalidOperation
-from onchain import Rpc,address,uint
+from onchain import Rpc,address,uint,ZERO,DEAD
 from verification import observation
 
 PLATFORMS={'eth':'ethereum','base':'base','bsc':'binance-smart-chain'}
@@ -36,6 +36,20 @@ def compare(coingecko,rpc_total,decimals,platform,token,now):
                 definitions_resolved=False,complete_vesting_and_mint_coverage=False)
 
 
+def sink_reconciliation(provider_total,total,decimals,balances):
+    """Compare definitions, not safety: a sink balance is not a burn audit."""
+    if set(balances)!={ZERO,DEAD} or any(type(x) is not int or not 0<=x<=total for x in balances.values()):
+        raise ValueError('Pinned known-sink balances incomplete or invalid')
+    sink_total=sum(balances.values())
+    if sink_total>total:raise ValueError('Sink balances exceed gross total')
+    net=Decimal(total-sink_total)/Decimal(10**decimals)
+    provider=nonnegative(provider_total)
+    match=net>0 and abs(provider-net)/net<=Decimal('.001')
+    return dict(known_sink_balances_base_units={k:str(v) for k,v in balances.items()},
+        observed_net_of_known_sinks_tokens=str(net),provider_total_matches_net_of_known_sinks=match,
+        burn_authority_or_circulating_supply_verified=False)
+
+
 def collect(item,fetch,rpc=None):
     observations={}
     try:
@@ -61,11 +75,19 @@ def collect(item,fetch,rpc=None):
             observations['coingecko']=dict(url=url,raw=raw,metrics=metrics)
             # Rounding tolerance is for diagnostics only, never a verification pass.
             if Decimal(metrics['relative_total_divergence'])>Decimal('.001'):
-                conflicts.append('CoinGecko total differs from gross on-chain supply by more than 0.1%; burn/circulation methodology unresolved')
+                try:
+                    sinks=sink_reconciliation(metrics['provider_total_tokens'],total,decimals,
+                        {owner:rpc.balance(token,owner) for owner in (ZERO,DEAD)})
+                    metrics.update(sinks)
+                except (ValueError,TypeError,AttributeError,OSError,KeyError):
+                    sinks={}
+                if not sinks.get('provider_total_matches_net_of_known_sinks'):
+                    conflicts.append('CoinGecko total differs from gross on-chain supply by more than 0.1%; burn/circulation methodology unresolved')
         except (KeyError,ValueError,TypeError,OSError,OverflowError):observations['coingecko']=dict(status='UNKNOWN',reason='Exact-contract current supply unavailable, stale or invalid')
         rpc.unchanged()
         return observation('supply_comparison',rpc.url,dict(block=block,total_supply_base_units=str(total),decimals=decimals,
                     observations=observations,conflicts=conflicts,calls=rpc.calls),'CONFLICTING' if conflicts else 'LIMITED',
-                    '; '.join(conflicts) if conflicts else 'Current supply observations only; complete circulating ownership, future unlocks and mint authority remain unverified')
+                    '; '.join(conflicts) if conflicts else ('Provider total aligns with pinned gross supply minus known-sink balances; burn/circulation definitions remain unverified' if ((observations.get('coingecko') or {}).get('metrics') or {}).get('provider_total_matches_net_of_known_sinks') else 'Current supply observations only; complete circulating ownership, future unlocks and mint authority remain unverified'))
     except (KeyError,ValueError,TypeError,AttributeError,OSError,OverflowError):
         return observation('supply_comparison','',observations or None,'UNKNOWN','Pinned supply/units or independent evidence unavailable')
+
