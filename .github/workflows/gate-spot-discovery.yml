@@ -1,0 +1,36 @@
+name: Gate catalog-first live discovery (research only)
+on:
+  push:
+    branches: [repair/hourly-evidence-and-gate]
+    paths:
+      - gate_spot_discovery.py
+      - gate_spot_research.py
+      - .github/workflows/gate-spot-discovery.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile and test
+        run: |
+          python -m compileall -q *.py tests
+          python -m unittest discover -s tests -v
+      - name: Discover and assess actual Gate Spot assets without orders or notifications
+        run: python -u gate_spot_discovery.py
+      - name: Retain raw and partial research evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-spot-discovery-${{ github.run_id }}
+          path: gate_spot_discovery_report.json
+          retention-days: 7
+          if-no-files-found: warn
