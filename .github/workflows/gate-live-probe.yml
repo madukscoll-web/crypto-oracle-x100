@@ -1,0 +1,38 @@
+name: Gate Spot live evidence probe (no orders)
+
+on:
+  push:
+    branches: [repair/hourly-evidence-and-gate]
+    paths:
+      - gate_live_probe.py
+      - .github/workflows/gate-live-probe.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile and run offline regressions
+        run: |
+          python -m compileall -q *.py tests
+          python -m unittest discover -s tests -v
+      - name: Collect live evidence without secrets, state writes or Telegram
+        run: python -u gate_live_probe.py
+      - name: Retain raw evidence and partial diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-live-probe-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: gate_live_probe_report.json
