@@ -90,6 +90,9 @@ def honeypot(raw, token, chain=None, pair=None):
         if pair is not None and str(returned_pair).lower() != pair.lower():
             return 'UNKNOWN', 'Independent simulation used a different or unverified pool'
         if raw['honeypotResult']['isHoneypot'] is True:
+            reason = str(raw['honeypotResult'].get('honeypotReason', '')).lower()
+            if 'target contract does not contain code' in reason or 'router not found' in reason:
+                return 'CONFLICTING', 'Provider honeypot verdict conflicts with simulator target/router failure; sellability unresolved'
             return 'FAIL', 'Independent provider reports honeypot'
         if raw['simulationSuccess'] is not True or raw['honeypotResult']['isHoneypot'] is not False:
             return 'UNKNOWN', 'Simulation unsuccessful or incomplete'
@@ -183,3 +186,4 @@ def collect(item, fetch):
     report['execution'] = observation('0x', DOCS['quote'], None, 'UNKNOWN',
         'Executable two-way size-specific quote, taker address, API credential, gas and allowance simulation not configured')
     return report
+

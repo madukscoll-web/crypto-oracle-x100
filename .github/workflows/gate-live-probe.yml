@@ -5,6 +5,8 @@ on:
     branches: [repair/hourly-evidence-and-gate]
     paths:
       - gate_live_probe.py
+      - verification.py
+      - supply_evidence.py
       - .github/workflows/gate-live-probe.yml
   workflow_dispatch:
 

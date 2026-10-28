@@ -127,3 +127,18 @@ class AdverseLiveEvidenceTests(unittest.TestCase):
         report=evidence_audit.audit(dict(verification=dict(supply_comparison=dict(status='CONFLICTING'))))
         self.assertIn('independent_supply_comparison',report['failures'])
         self.assertFalse(report['trade_ready'])
+
+
+class SinkReconciliationTests(unittest.TestCase):
+    def test_net_supply_match_is_not_circulating_or_burn_verification(self):
+        from supply_evidence import sink_reconciliation
+        from onchain import ZERO,DEAD
+        r=sink_reconciliation('895',1000,0,{ZERO:0,DEAD:105})
+        self.assertTrue(r['provider_total_matches_net_of_known_sinks'])
+        self.assertFalse(r['burn_authority_or_circulating_supply_verified'])
+    def test_mismatch_missing_or_impossible_sink_balances_do_not_reconcile(self):
+        from supply_evidence import sink_reconciliation
+        from onchain import ZERO,DEAD
+        self.assertFalse(sink_reconciliation('800',1000,0,{ZERO:0,DEAD:105})['provider_total_matches_net_of_known_sinks'])
+        for bad in ({DEAD:105},{ZERO:True,DEAD:105},{ZERO:800,DEAD:800}):
+            with self.assertRaises(ValueError):sink_reconciliation('895',1000,0,bad)
