@@ -68,3 +68,16 @@ provider observations, timestamps and Gate evidence are preserved in
 `evidence_report.json` under the workflow's diagnostics artifact; shared budget
 and provider failures are in `scan_summary.json`. A successful workflow means
 collection completed, not that any candidate is safe or ready to trade.
+
+## Gate Spot paper BUY candidates
+
+The hourly scanner also runs the independent strategy in
+`gate_spot_candidates.py`. See [GATE_CANDIDATE_STRATEGY.md](GATE_CANDIDATE_STRATEGY.md)
+for exact admission rules, paper sizing, source-review requirements, cost
+assumptions, expiry, delivery deduplication and forward-observation limitations.
+The qualifying label is **BUY CANDIDATE — MANUAL REVIEW**, never VERIFIED BUY.
+
+The default `gate_token_reviews.json` has no approved records. This is explicitly
+reported; fixture success is not a live opportunity. Actual source-backed token
+reviews and live endpoint validation are required before live candidate delivery.
+Run `python gate_spot_candidates.py` for a no-notification diagnostic report.

@@ -22,6 +22,7 @@ import evidence_checks
 import research_records
 import market_corroboration
 import hourly_evidence
+import gate_spot_candidates
 from oracle_http import get_json
 from telegram_notify import send_message
 
@@ -959,6 +960,16 @@ def main():
         else:
             delivered_existing += 1
         time.sleep(1)
+    # Gate-only strategy has its own evidence, report, paper history and label.
+    # Optional failure never changes the DEX decision or interrupts its delivery.
+    gate_report = {}
+    try:
+        gate_report = gate_spot_candidates.hourly(send_message)
+        warnings.extend("Gate paper strategy: " + error for error in gate_report.get("errors", []))
+        warnings.extend("Gate paper notification failed" for event in gate_report.get("delivery_events", [])
+                        if event.get("status") == "DELIVERY_FAILED")
+    except Exception as exc:
+        warnings.append("Gate paper stage unavailable: " + type(exc).__name__)
     save_watchlist(watchlist)
     signal_tracker.save(history)
     print(f"Tracked pool histories: {len(history)}", flush=True)
@@ -992,6 +1003,7 @@ def main():
               "observations": total_checked, "candidates": len(candidates),
               "alerts_delivered": delivered, "successful_feeds": successful_feeds,
               "hourly_evidence": hourly_collector.summary(),
+              "gate_paper_candidates": sum(c.get("classification") == gate_spot_candidates.LABEL for c in gate_report.get("candidates", [])),
               "warnings": warnings, "errors": errors,
               "completed_at": dt.datetime.now(dt.timezone.utc).isoformat()}
     pathlib.Path("scan_summary.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")

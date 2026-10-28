@@ -162,6 +162,9 @@ class MissingMarketTests(unittest.TestCase):
             report = scanner.main()
         self.assertEqual(report['status'], 'completed')
         self.assertEqual(report['alerts_delivered'], 1)
+        self.assertEqual(report['gate_paper_candidates'], 0)
+        gate_report = json.loads(pathlib.Path('gate_candidate_report.json').read_text())
+        self.assertIn('No documented', gate_report['errors'][0])
         evidence = json.loads(pathlib.Path('evidence_report.json').read_text())[0]
         self.assertEqual(evidence['verification']['sellability']['status'], 'LIMITED')
         self.assertEqual(evidence['gate_spot']['status'], 'UNKNOWN')
