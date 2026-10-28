@@ -69,3 +69,24 @@ class DiscoveryTests(unittest.TestCase):
         self.assertFalse(result['buy_authorized'])
         self.assertNotIn('BUY CANDIDATE',result['classification'])
         self.assertTrue(any('review not completed'in x for x in result['blockers']))
+
+class DiscoveryScopeTests(unittest.TestCase):
+    def test_native_representations_and_issuer_categories_do_not_enter_utility_cohort(self):
+        c,p,t=universe();c[0]['category']=['stocks']
+        selected,coverage=d.select(c,p,t,NOW)
+        self.assertNotIn('T0',[x['symbol']for x in selected])
+        for code in ('BTC','ETH','BNB','SOL'):
+            c,p,t=universe(1);c[0]['currency']=code;p[0].update(base=code,id=code+'_USDT');t[0]['currency_pair']=code+'_USDT'
+            self.assertEqual(d.select(c,p,t,NOW)[0],[])
+
+    def test_supplied_interval_cannot_shorten_default_or_overrun_time_budget(self):
+        from provider_session import Session,ProviderUnavailable
+        now=[0];waits=[]
+        def sleep(t):waits.append(t);now[0]+=t
+        session=Session(max_seconds=20,clock=lambda:now[0],sleeper=sleep,transport=lambda *args:{},host_intervals={'api.coingecko.com':8})
+        session.get('https://api.coingecko.com/a');session.get('https://api.coingecko.com/b')
+        self.assertEqual(waits,[8]);now[0]=15
+        session.last['api.coingecko.com']=15
+        with self.assertRaises(ProviderUnavailable):session.get('https://api.coingecko.com/c')
+        self.assertEqual(waits,[8])
+        with self.assertRaises(ValueError):Session(host_intervals={'api.coingecko.com':float('nan')})

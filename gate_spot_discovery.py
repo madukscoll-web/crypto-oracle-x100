@@ -8,6 +8,7 @@ import datetime as dt
 import json
 import math
 import pathlib
+import urllib.error
 from collections import Counter
 
 from asset_identity import GATE_CHAINS, key
@@ -18,7 +19,7 @@ import verification
 
 PLATFORMS={'eth':'ethereum','base':'base','bsc':'binance-smart-chain'}
 # Scope exclusions for discovery only, never an identity mapping or safety claim.
-REFERENCE_CODES={'USDT','USDC','DAI','USDE','USD1','USDD','FDUSD','TUSD','WETH','WBTC'}
+REFERENCE_CODES={'USDT','USDC','DAI','USDE','USD1','USDD','FDUSD','TUSD','WETH','WBTC','BTC','ETH','BNB','SOL','AVAX','POL'}
 
 
 def number(x):
@@ -51,6 +52,9 @@ def select(currencies,pairs,tickers,now,limit=12):
             currencies_for_symbol=by_currency.get(symbol,[]);prices=by_ticker.get(pair_id,[])
             if len(currencies_for_symbol)!=1 or len(prices)!=1:raise ValueError('Currency/ticker metadata absent or ambiguous')
             currency=currencies_for_symbol[0];ticker=prices[0]
+            categories=currency.get('category') or []
+            if any(x in categories for x in ('stocks','metals','indices','forex','commodities')):
+                raise ValueError('Issuer-backed asset outside ordinary token policy')
             if currency.get('delisted')is not False or currency.get('trade_disabled')is not False:raise ValueError('Currency status unknown/disabled')
             if ticker.get('etf_leverage') not in (None,'','0',0):raise ValueError('Leveraged product excluded')
             volume=number(ticker['quote_volume']);last=number(ticker['last']);bid=number(ticker['highest_bid']);ask=number(ticker['lowest_ask'])
@@ -111,9 +115,10 @@ def assess(gate,asset,fetch):
         except (OSError,ValueError,TypeError,KeyError,AttributeError):
             result['blockers'].append('Exact-contract security provider unavailable/invalid')
         platform=PLATFORMS[asset['network']]
-        url='https://api.coingecko.com/api/v3/coins/'+platform+'/contract/'+asset['token_address']
+        url='https://api.coingecko.com/api/v3/coins/'+platform+'/contract/'+asset['token_address'].lower()
         try:
             raw=fetch(url)
+            result['evidence']['supply_response']=dict(url=url,raw=raw,retrieved_at=utc(),status='UNVALIDATED')
             if key(asset['network'],raw.get('platforms',{}).get(platform))!=asset['asset_key']:raise ValueError('Supply identity mismatch')
             updated=dt.datetime.fromisoformat(raw['last_updated'].replace('Z','+00:00'))
             if updated.tzinfo is None or not 0<=dt.datetime.now(dt.timezone.utc).timestamp()-updated.timestamp()<=3600:raise ValueError('Supply stale/future')
@@ -122,8 +127,9 @@ def assess(gate,asset,fetch):
             ratio=maximum/circ
             result['evidence']['supply']=dict(url=url,raw=raw,status='PROVIDER_ESTIMATE',circulating=circ,total=total,maximum=maximum,ratio=ratio)
             if ratio>5:result['blockers'].append('Maximum/circulating ratio above policy 5: '+str(round(ratio,3)))
-        except (OSError,ValueError,TypeError,KeyError,AttributeError,OverflowError):
-            result['blockers'].append('Exact-contract fresh supply unavailable/invalid')
+        except (OSError,ValueError,TypeError,KeyError,AttributeError,OverflowError) as exc:
+            result['evidence']['supply_diagnostic']=dict(error_type=type(exc).__name__,http_status=getattr(exc,'code',None),reason=str(exc) if type(exc)is ValueError else 'Provider unavailable or circuit breaker active')
+            result['blockers'].append('Exact-contract fresh supply unavailable/invalid: '+type(exc).__name__+((' HTTP '+str(exc.code)) if isinstance(exc,urllib.error.HTTPError) else ''))
         pair=eligibility['raw']['pair'];pair_id=eligibility['pair_id']
         try:
             candles=gate.get('/spot/candlesticks',dict(currency_pair=pair_id,interval='5m',limit=30))
@@ -144,14 +150,20 @@ def summary(candidate):
     return dict(symbol=candidate['symbol'],network=candidate['network'],contract=candidate['token_address'],
         spot=(evidence.get('gate_identity')or{}).get('status'),security=security.get('status','UNKNOWN'),
         missing_security_fields=security.get('missing_fields'),supply_ratio=supply.get('ratio'),
+        supply_diagnostic=evidence.get('supply_diagnostic'),
         market_setup_present=candidate['market_setup']is not None,
         classification=candidate['classification'],buy_authorized=False,blockers=candidate['blockers'])
 
 
 def run(fetch=None,limit=12,checkpoint=None):
     if fetch is None:
-        with Session(max_requests=250,max_seconds=240,max_request_seconds=5) as session:
-            report=run(session.get,limit,checkpoint);report['provider_session']=session.summary();return report
+        with Session(max_requests=250,max_seconds=240,max_request_seconds=5,host_intervals={'api.coingecko.com':8}) as session:
+            def fetch_recover(url):
+                try:return session.get(url)
+                except urllib.error.HTTPError as exc:
+                    if exc.code==429 and session.wait_ready(url):return session.get(url)
+                    raise
+            report=run(fetch_recover,limit,checkpoint);report['provider_session']=session.summary();return report
     report=dict(started_at=utc(),scope='Bounded Gate catalog-first supported EVM cohort; not exhaustive',
                 buy_authorized=False,automated_trading_enabled=False,candidates=[],errors=[])
     gate=PublicGate(fetch)
