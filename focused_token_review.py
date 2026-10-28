@@ -9,6 +9,8 @@ from onchain import Rpc, address, uint
 from provider_session import Session
 import primary_supply
 import contract_sources
+import scoped_authority_review
+import holder_bounds
 
 TOKENS=(dict(symbol='LINK',network='eth',token_address=primary_supply.LINK),
         dict(symbol='AKE',network='bsc',token_address='0x2c3a8ee94ddd97244a93bc48298f97d2c412f7db'))
@@ -93,6 +95,11 @@ def review(asset,fetch):
             result['evidence']['issuer_wallet_pinning']=disclosure_balances(issuer['raw'],rpc,token)
         labels=(issuer.get('metrics')or{}).get('disclosed_noncirculating_wallets')or[]
         result['evidence']['holders']=holders_at_block(info,rpc,token,labels)
+        if 'issuer_wallet_pinning'in result['evidence']:
+            try:
+                result['evidence']['holder_bound']=holder_bounds.estimate(result['evidence']['holders']['holders'],result['evidence']['issuer_wallet_pinning']['pinned_circulating_by_issuer_definition_base_units'],labels)
+            except (ValueError,KeyError,TypeError):
+                result['evidence']['holder_bound']=dict(status='UNKNOWN',reason='Complete ranked observations or consistent exclusions unavailable')
         try:
             result['evidence']['owner_observation']=dict(raw=rpc.read(token,'8da5cb5b'),
                 limitation='Optional owner() response only; roles, proxy admin and other authorities remain unreviewed')
@@ -103,12 +110,13 @@ def review(asset,fetch):
         result['evidence']['rpc_calls']=rpc.calls
     except (OSError,ValueError,KeyError,TypeError,AttributeError,ArithmeticError) as exc:
         # Discard provisional evidence if the snapshot is incomplete/reorganized.
-        for name in ('issuer_wallet_pinning','holders','owner_observation'):
+        for name in ('issuer_wallet_pinning','holders','owner_observation','holder_bound'):
             result['evidence'].pop(name,None)
         result['errors'].append('Pinned wallet review incomplete: '+type(exc).__name__)
     source=contract_sources.collect(asset,fetch)
     result['evidence']['source']=source
     result['evidence']['authority_surface']=authority_surface(source)
+    result['evidence']['scoped_authority_review']=scoped_authority_review.assess(asset,source)
     result['remaining']=['Complete economic holder classification and beneficial ownership',
         'Complete authority/modifier/proxy review rather than ABI names alone',
         'Source-backed dated 30-day release coverage; annual rates are not monthly schedules',
@@ -123,7 +131,7 @@ def summary(result):
                 issuer_circulation_exact_match=pin.get('exact_circulation_match'),
                 listed_holders_pinned=len(h.get('holders',[])),listed_fraction_of_gross_supply=h.get('listed_fraction_of_gross_supply'),
                 issuer_label_matches=h.get('issuer_label_matches'),source_status=e.get('source',{}).get('status'),
-                authority_inventory=e.get('authority_surface'),errors=result['errors'],remaining=result['remaining'])
+                authority_inventory=e.get('authority_surface'),scoped_authority_review=e.get('scoped_authority_review',{}).get('status'),holder_bound=e.get('holder_bound'),errors=result['errors'],remaining=result['remaining'])
 
 
 def run(fetch=None,checkpoint=None):
