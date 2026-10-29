@@ -730,6 +730,22 @@ def setup_assessment(item):
     return "WAIT", "Market setup not strong enough"
 
 
+def telegram_eligible(item):
+    """Fail closed: DEX research leads are silent unless independently trade-ready.
+
+    This predicate does not change discovery, classification or audit evidence.
+    Gate Spot paper candidates have a separate reviewed notification path.
+    """
+    try:
+        import evidence_audit
+        decision, _ = decision_summary(item)
+        return (decision == "BUY CANDIDATE — REVIEW ENTRY"
+                and evidence_audit.audit(item).get("trade_ready") is True
+                and validate_execution_evidence(item) is True)
+    except (ValueError, TypeError, KeyError, AttributeError, OSError):
+        return False
+
+
 def send_telegram(item):
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
     chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
@@ -941,6 +957,11 @@ def main():
             save_watchlist(watchlist)
             continue
         item["setup_transition"] = transition or "INITIAL DISCOVERY"
+        if not telegram_eligible(item):
+            # Retain research and audit artifacts, but never notify rejected or
+            # incomplete tokens. Do not mark a silent token as delivered.
+            save_watchlist(watchlist)
+            continue
         try:
             send_telegram(item)
         except (urllib.error.URLError, ValueError, RuntimeError, TimeoutError, OSError) as exc:

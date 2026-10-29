@@ -86,19 +86,12 @@ jobs:
               exit 1
             fi
           fi
-      - name: Send Telegram hourly completion summary
-        id: summary
-        if: success()
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python telegram_notify.py completion
       - name: Notify Telegram when workflow fails
         if: failure()
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          FAILED_STAGES: compile=${{ steps.compile.outcome }}, tests=${{ steps.tests.outcome }}, config=${{ steps.telegram_config.outcome }}, scan=${{ steps.scan.outcome }}, state=${{ steps.state.outcome }}, summary=${{ steps.summary.outcome }}
+          FAILED_STAGES: compile=${{ steps.compile.outcome }}, tests=${{ steps.tests.outcome }}, config=${{ steps.telegram_config.outcome }}, scan=${{ steps.scan.outcome }}, state=${{ steps.state.outcome }}
         run: python telegram_notify.py failure
       - name: Retain scan diagnostics and state snapshot
         if: always()

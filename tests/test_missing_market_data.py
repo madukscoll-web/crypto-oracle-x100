@@ -161,14 +161,14 @@ class MissingMarketTests(unittest.TestCase):
                     json.dumps(dict(ok=True, result={'message_id': 1})))):
             report = scanner.main()
         self.assertEqual(report['status'], 'completed')
-        self.assertEqual(report['alerts_delivered'], 1)
+        self.assertEqual(report['alerts_delivered'], 0)
         self.assertEqual(report['gate_paper_candidates'], 0)
         gate_report = json.loads(pathlib.Path('gate_candidate_report.json').read_text())
         self.assertIn('No documented', gate_report['errors'][0])
         evidence = json.loads(pathlib.Path('evidence_report.json').read_text())[0]
         self.assertEqual(evidence['verification']['sellability']['status'], 'LIMITED')
         self.assertEqual(evidence['gate_spot']['status'], 'UNKNOWN')
-        self.assertIn('base:' + POOL, scanner.load_state())
+        self.assertNotIn('base:' + POOL, scanner.load_state())
         self.assertEqual(json.loads(pathlib.Path('scan_summary.json').read_text())['status'], 'completed')
 
     def test_unexpected_scanner_error_is_nonzero_and_failure_alert_is_deliverable(self):
