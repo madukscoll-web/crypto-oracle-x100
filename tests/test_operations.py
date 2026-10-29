@@ -167,7 +167,7 @@ class ScanOperationTests(unittest.TestCase):
         scanner.save_state({item['key']})
         original = {'setup': 'WAIT', 'observed_at': '2026-01-01', 'network': 'base', 'pool_address': '0xpool'}
         scanner.save_watchlist({item['key']: original})
-        with patch.object(scanner, 'fetch_json', side_effect=[{'data': []}, {'data': []}, {'data': {}}]), patch.object(scanner, 'inspect', return_value=item), patch.object(scanner, 'enrich'), patch.object(scanner.market_corroboration, 'check', return_value={'status': 'UNKNOWN'}), patch.object(scanner, 'send_telegram', side_effect=telegram.NotificationError('test failure')):
+        with patch.object(scanner, 'fetch_json', side_effect=[{'data': []}, {'data': []}, {'data': {}}]), patch.object(scanner, 'inspect', return_value=item), patch.object(scanner, 'enrich'), patch.object(scanner.market_corroboration, 'check', return_value={'status': 'UNKNOWN'}), patch.object(scanner, 'send_telegram', side_effect=telegram.NotificationError('test failure')), patch.object(scanner, 'telegram_eligible', return_value=True):
             with self.assertRaises(SystemExit):
                 scanner.main()
         self.assertEqual(scanner.load_watchlist()[item['key']], original)
