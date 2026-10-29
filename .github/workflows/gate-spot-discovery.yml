@@ -7,6 +7,8 @@ on:
       - gate_spot_research.py
       - .github/workflows/gate-spot-discovery.yml
   workflow_dispatch:
+  schedule:
+    - cron: '37 5 * * *'
 permissions:
   contents: read
 jobs:
