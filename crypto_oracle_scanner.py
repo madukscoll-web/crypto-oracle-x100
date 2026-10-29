@@ -953,7 +953,9 @@ def main():
             signal_tracker.record(history, item)
         previous_watch = watchlist.get(item["key"])
         transition = watchlist_transition(item, watchlist)
-        if item["key"] in seen and not transition:
+        if item["key"] in seen:
+            # Already delivered: never repeat the same token just because a
+            # market setup transition occurred on a later hourly scan.
             save_watchlist(watchlist)
             continue
         item["setup_transition"] = transition or "INITIAL DISCOVERY"

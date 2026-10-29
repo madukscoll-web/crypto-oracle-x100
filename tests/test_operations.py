@@ -164,7 +164,9 @@ class ScanOperationTests(unittest.TestCase):
     def test_failed_priority_alert_preserves_transition_for_retry(self):
         from test_signals import sample
         item = sample(pool_class='NEW POOL')
-        scanner.save_state({item['key']})
+        # A previously delivered token is deliberately deduplicated; test
+        # delivery failure retry for an eligible token not yet delivered.
+        scanner.save_state(set())
         original = {'setup': 'WAIT', 'observed_at': '2026-01-01', 'network': 'base', 'pool_address': '0xpool'}
         scanner.save_watchlist({item['key']: original})
         with patch.object(scanner, 'fetch_json', side_effect=[{'data': []}, {'data': []}, {'data': {}}]), patch.object(scanner, 'inspect', return_value=item), patch.object(scanner, 'enrich'), patch.object(scanner.market_corroboration, 'check', return_value={'status': 'UNKNOWN'}), patch.object(scanner, 'send_telegram', side_effect=telegram.NotificationError('test failure')), patch.object(scanner, 'telegram_eligible', return_value=True):
