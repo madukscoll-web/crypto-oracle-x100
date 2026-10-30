@@ -941,6 +941,9 @@ def main():
         if hourly_evidence.adverse(item):
             item["risk_category"] = "AVOID / HIGH CONCERN"
             item["risk_reasons"].append("Adverse independent evidence; inspect detailed findings")
+        coverage = evidence_coverage.summary(item)
+        print("Evidence coverage " + item["key"] + ": " +
+              json.dumps({name: row["status"] for name, row in coverage.items()}, sort_keys=True), flush=True)
         evidence_reports.append({"network": item["network"], "pool": item["address"],
                                  "contract": item.get("token_address"),
                                  "security": item.get("security_provider_evidence"),
@@ -956,7 +959,7 @@ def main():
                                  "source_review": item["evidence_review"],
                                  "verification": item.get("verification"),
                                  "hourly_evidence": item.get("hourly_evidence"),
-                                 "verification_coverage": evidence_coverage.summary(item),
+                                 "verification_coverage": coverage,
                                  "gate_spot": item.get("gate_spot"),
                                  "gate_provider_evidence": item.get("gate_provider_evidence"),
                                  "gate_execution_research": item.get("gate_execution_research"),
