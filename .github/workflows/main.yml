@@ -5,6 +5,9 @@ on:
   push:
     branches: [main]
     paths:
+      - .github/workflows/main.yml
+      - multichain_live_research.py
+      - multichain_research_audit.py
       - crypto_oracle_scanner.py
       - hourly_evidence.py
       - evidence_coverage.py
@@ -65,6 +68,25 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python -u crypto_oracle_scanner.py
+      - name: Run bounded multichain discovery audit
+        id: multichain
+        continue-on-error: true
+        timeout-minutes: 4
+        run: |
+          python -u multichain_live_research.py --limit 12 --output multichain_research_report.json
+          python - <<'PY'
+          import json
+          with open('multichain_research_report.json', encoding='utf-8') as source:
+              report = json.load(source)
+          audit = report['coverage_audit']
+          assert audit['scope'] == 'DISCOVERY_ONLY'
+          assert audit['selected_total'] == len(report['selected'])
+          assert audit['verified_buy_count'] == 0
+          assert audit['buy_authorized'] is False
+          assert audit['telegram_eligible'] is False
+          assert report['orders_allowed'] is False
+          print('Read-only multichain coverage:', json.dumps(audit, sort_keys=True))
+          PY
       - name: Save scanner state
         id: state
         if: always() && steps.scan.outcome != 'skipped'
@@ -112,6 +134,7 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
           path: |
+            multichain_research_report.json
             scan_summary.json
             evidence_report.json
             gate_candidate_report.json
