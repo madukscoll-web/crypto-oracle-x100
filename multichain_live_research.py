@@ -10,6 +10,7 @@ from discovery_adapters import ADAPTERS, deduplicate
 from multichain_candidate_rotation import rotate
 from provider_session import Session
 from global_discovery import EvidenceFetch
+from multichain_research_audit import audit
 
 def run(limit=12, cursor=0, fetch=None, adapters=ADAPTERS):
     if not 1 <= limit <= 100:
@@ -27,7 +28,7 @@ def run(limit=12, cursor=0, fetch=None, adapters=ADAPTERS):
             failures.append({"network": adapter.network, "error_type": type(exc).__name__})
     assets = deduplicate(rows)
     selection = rotate(assets, per_run=limit, cursor=cursor)
-    return {"observed_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+    report = {"observed_at": dt.datetime.now(dt.timezone.utc).isoformat(),
             "mode": "READ_ONLY_RESEARCH", "orders_allowed": False,
             "buy_authorized": False, "telegram_transmission": False,
             "observed_pools": len(rows), "unique_tokens": len(assets),
@@ -36,6 +37,8 @@ def run(limit=12, cursor=0, fetch=None, adapters=ADAPTERS):
                          for a in selection["selected"]],
             "next_cursor": selection["next_cursor"],
             "deferred": selection["deferred"], "failures": failures}
+    report["coverage_audit"] = audit(report)
+    return report
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
