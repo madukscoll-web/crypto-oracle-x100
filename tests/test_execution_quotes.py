@@ -26,7 +26,7 @@ class QuoteTests(unittest.TestCase):
     def test_missing_config_does_not_call_provider(self):
         def forbidden(*args):
             self.fail('Unexpected network call')
-        self.assertEqual(collect({}, {}, forbidden)['status'], 'UNKNOWN')
+        self.assertEqual(collect({}, {}, forbidden)['status'], 'UNSUPPORTED')
 
     def test_malformed_or_failed_quote_never_verifies(self):
         for raw in ({}, {'liquidityAvailable': False}, {'liquidityAvailable': True}):

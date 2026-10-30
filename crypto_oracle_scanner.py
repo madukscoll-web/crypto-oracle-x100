@@ -21,6 +21,7 @@ import fundamental_evidence
 import evidence_checks
 import research_records
 import market_corroboration
+import evidence_coverage
 import hourly_evidence
 import gate_spot_candidates
 from oracle_http import get_json
@@ -155,6 +156,7 @@ def inspect(pool, network, mode="new_pools"):
     safe_address = urllib.parse.quote(address, safe="")
     return {
         "key": f"{network}:{address}",
+        "discovery_token_hint": (((pool.get("relationships") or {}).get("base_token") or {}).get("data") or {}).get("id", ""),
         "network": network,
         "address": address,
         "name": name,
@@ -666,7 +668,10 @@ def watchlist_transition(item, watchlist):
     key = item["key"]
     setup, _ = setup_assessment(item)
     previous = watchlist.get(key, {}).get("setup")
-    watchlist[key] = {"setup": setup, "observed_at": item["observed_at"],
+    checked_at = watchlist.get(key, {}).get("evidence_checked_at", "")
+    if (item.get("hourly_evidence") or {}).get("status") == "COLLECTED":
+        checked_at = item["observed_at"]
+    watchlist[key] = {"evidence_checked_at": checked_at, "setup": setup, "observed_at": item["observed_at"],
                       "score": item["score"], "network": item["network"],
                       "pool_address": item["address"]}
     if setup == "PRIORITY VERIFY" and previous != "PRIORITY VERIFY":
@@ -728,6 +733,18 @@ def setup_assessment(item):
     if score >= 60 and liq >= 100_000 and price_evidence(item)[0]:
         return "WATCH SETUP", "Activity merits tracking; not a verified buy"
     return "WAIT", "Market setup not strong enough"
+
+
+def token_alert_key(item):
+    """Chain-bound token deduplication also covers alternate pools."""
+    network, token = item.get('network'), item.get('token_address')
+    if not network or not token:
+        return None
+    return 'token:' + network + ':' + (token if network == 'solana' else token.lower())
+
+
+def already_alerted(item, seen):
+    return item['key'] in seen or token_alert_key(item) in seen
 
 
 def telegram_eligible(item):
@@ -860,16 +877,16 @@ def main():
     )
     new_unseen = [item for item in new_candidates if item["key"] not in seen]
     existing_unseen = [item for item in existing_candidates if item["key"] not in seen]
-    # ceil(70%) ensures at least seven new slots when the limit is ten.
-    new_reserved = (MAX_ALERTS_PER_RUN * 7 + 9) // 10
-    existing_reserved = MAX_ALERTS_PER_RUN - new_reserved
-    # Spare existing slots may go to new pools, but spare new slots do NOT go
-    # to existing pools: preserve the user's explicit new-pool priority.
+    # Verification capacity is separate from the Telegram delivery limit.
+    # Prefer new pools, and use spare research slots when that feed is empty.
+    evidence_slots = 6
+    new_reserved = (evidence_slots * 7 + 9) // 10
+    new_unseen = hourly_evidence.rotate(new_unseen, watchlist)
+    existing_unseen = hourly_evidence.rotate(existing_unseen, watchlist)
     selected_new = new_unseen[:new_reserved]
-    selected_existing = existing_unseen[:existing_reserved]
-    remaining = MAX_ALERTS_PER_RUN - len(selected_new) - len(selected_existing)
-    if remaining:
-        selected_new.extend(new_unseen[len(selected_new):len(selected_new) + remaining])
+    selected_existing = existing_unseen[:evidence_slots - len(selected_new)]
+    remaining = evidence_slots - len(selected_new) - len(selected_existing)
+    selected_new.extend(new_unseen[len(selected_new):len(selected_new) + remaining])
     selected = selected_new + selected_existing
     # Fetch tracked pools directly, including those absent from discovery feeds.
     # Bound requests to avoid exceeding the public API rate limit.
@@ -897,6 +914,7 @@ def main():
         finally:
             time.sleep(REQUEST_DELAY_SECONDS)
     selected.extend(revisits)
+    selected = hourly_evidence.rotate(selected, watchlist)[:evidence_slots]
     print(
         f"Qualified candidates: NEW POOL={len(new_candidates)}, "
         f"EXISTING POOL={len(existing_candidates)}; "
@@ -923,6 +941,9 @@ def main():
         if hourly_evidence.adverse(item):
             item["risk_category"] = "AVOID / HIGH CONCERN"
             item["risk_reasons"].append("Adverse independent evidence; inspect detailed findings")
+        coverage = evidence_coverage.summary(item)
+        print("Evidence coverage " + item["key"] + ": " +
+              json.dumps({name: row["status"] for name, row in coverage.items()}, sort_keys=True), flush=True)
         evidence_reports.append({"network": item["network"], "pool": item["address"],
                                  "contract": item.get("token_address"),
                                  "security": item.get("security_provider_evidence"),
@@ -938,6 +959,7 @@ def main():
                                  "source_review": item["evidence_review"],
                                  "verification": item.get("verification"),
                                  "hourly_evidence": item.get("hourly_evidence"),
+                                 "verification_coverage": coverage,
                                  "gate_spot": item.get("gate_spot"),
                                  "gate_provider_evidence": item.get("gate_provider_evidence"),
                                  "gate_execution_research": item.get("gate_execution_research"),
@@ -953,13 +975,13 @@ def main():
             signal_tracker.record(history, item)
         previous_watch = watchlist.get(item["key"])
         transition = watchlist_transition(item, watchlist)
-        if item["key"] in seen:
+        if already_alerted(item, seen):
             # Already delivered: never repeat the same token just because a
             # market setup transition occurred on a later hourly scan.
             save_watchlist(watchlist)
             continue
         item["setup_transition"] = transition or "INITIAL DISCOVERY"
-        if not telegram_eligible(item):
+        if delivered >= MAX_ALERTS_PER_RUN or not telegram_eligible(item):
             # Retain research and audit artifacts, but never notify rejected or
             # incomplete tokens. Do not mark a silent token as delivered.
             save_watchlist(watchlist)
@@ -975,6 +997,8 @@ def main():
                 watchlist[item["key"]] = previous_watch
             continue
         seen.add(item["key"])
+        if token_alert_key(item):
+            seen.add(token_alert_key(item))
         save_state(seen)
         save_watchlist(watchlist)
         delivered += 1

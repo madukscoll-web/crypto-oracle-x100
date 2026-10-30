@@ -37,9 +37,11 @@ class VerificationTests(unittest.TestCase):
         def offline(url):
             raise OSError('offline')
         result = collect({'network': 'eth', 'token_address': TOKEN, 'address': 'pool'}, offline)
-        self.assertTrue(all(x['status'] == 'UNKNOWN' for x in result.values()))
+        self.assertEqual(result['contract_security']['status'], 'UNKNOWN')
+        self.assertEqual(result['sellability']['status'], 'UNSUPPORTED')
+        self.assertEqual(result['execution']['status'], 'NOT_CHECKED')
         result = collect({'network': 'solana', 'token_address': 'mint'}, offline)
-        self.assertEqual(result['integration']['status'], 'UNKNOWN')
+        self.assertEqual(result['integration']['status'], 'NOT_CHECKED')
 
     def test_risk_includes_costs_and_total_loss_exposure(self):
         result = risk_plan(1000, 10, 9, .01, .005, 1000000)

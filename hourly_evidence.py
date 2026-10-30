@@ -6,6 +6,7 @@ unsupported networks, provider failures and unexamined candidates remain explici
 import json
 import pathlib
 import os
+import evidence_coverage
 import execution_quotes
 import kyber_quotes
 import re
@@ -20,7 +21,7 @@ from provider_session import Session
 
 
 class HourlyEvidence:
-    def __init__(self, max_candidates=3, max_seconds=60, max_requests=90, transport=None):
+    def __init__(self, max_candidates=6, max_seconds=240, max_requests=270, transport=None):
         self.max_candidates = max_candidates
         self.assessed = 0
         self.session = Session(max_requests=max_requests, max_seconds=max_seconds,
@@ -37,11 +38,29 @@ class HourlyEvidence:
         # collectors. Restore any outer context even when a collector fails.
         if self.assessed >= self.max_candidates:
             item['hourly_evidence'] = {'status': 'NOT_CHECKED', 'reason': 'Hourly candidate budget exhausted'}
+            evidence_coverage.complete(item)
             return
         self.assessed += 1
-        with self.session:
+        with self.session, self.session.budget(40, 45):
             item['verification'] = verification.collect(item, self.fetch)
             report = item['verification']
+            if item.get('network') in onchain.RPCS and re.fullmatch(r'0x[0-9a-fA-F]{40}', item.get('token_address', '')):
+                info = ((report.get('contract_security', {}).get('raw') or {}).get('result') or {}).get(item['token_address'].lower(), {})
+                # Exact-pool identity and holder balance observations; no LP
+                # control or beneficial-owner verification is inferred.
+                report['supply_comparison'] = supply_evidence.collect(item, self.fetch)
+                report['onchain'] = onchain.collect(item, (info.get('holders') or [])[:8],
+                    lock_descriptors=self.registry.get('lp_locks', {}).get(item['network'] + ':' + item['address'].lower(), []))
+            report['unlocks'] = token_unlocks.collect(item, self.registry)
+            report['execution'] = execution_quotes.collect(item, os.environ)
+            if item.get('network') in kyber_quotes.CHAINS:
+                report['kyber'] = kyber_quotes.collect(item, os.environ)
+            else:
+                report['kyber'] = verification.observation('kyber', '', None, 'UNSUPPORTED', 'EVM route adapter unsupported on network')
+            if 'onchain' not in report:
+                report['onchain'] = verification.observation('policy', '', None, 'UNSUPPORTED', 'No reviewed on-chain pool/holder adapter for network')
+            if 'supply_comparison' not in report:
+                report['supply_comparison'] = verification.observation('policy', '', None, 'UNSUPPORTED', 'No reviewed independent supply comparison adapter for network')
             # Reuse one catalog per run, never join by ticker alone.
             if not self.catalog_attempted:
                 self.catalog_attempted = True
@@ -58,16 +77,7 @@ class HourlyEvidence:
                 item['gate_spot'] = dict(status='UNKNOWN', reason='Unsupported exact chain/contract identity')
             item['gate_execution_research'] = self.gate.research(item['gate_spot'])
             item['gate_provider_evidence'] = self.gate.evidence[gate_start:]
-            if item.get('network') in onchain.RPCS and re.fullmatch(r'0x[0-9a-fA-F]{40}', item.get('token_address', '')):
-                info = ((report.get('contract_security', {}).get('raw') or {}).get('result') or {}).get(item['token_address'].lower(), {})
-                # Exact-pool identity and holder balance observations; no LP
-                # control or beneficial-owner verification is inferred.
-                report['onchain'] = onchain.collect(item, info.get('holders') or [],
-                    lock_descriptors=self.registry.get('lp_locks', {}).get(item['network'] + ':' + item['address'].lower(), []))
-                report['supply_comparison'] = supply_evidence.collect(item, self.fetch)
-            report['unlocks'] = token_unlocks.collect(item, self.registry)
-            report['execution'] = execution_quotes.collect(item, os.environ)
-            report['kyber'] = kyber_quotes.collect(item, os.environ)
+            evidence_coverage.complete(item)
             item['hourly_evidence'] = dict(status='COLLECTED', reason='Read-only observations; complete safety and execution remain unverified')
 
     def summary(self):
@@ -81,6 +91,7 @@ def collect_safely(collector, item):
     except Exception as exc:
         # Never expose exception text, credential-bearing URLs or raw bodies.
         item['hourly_evidence'] = dict(status='ERROR', reason='Optional collector failed: ' + type(exc).__name__)
+    evidence_coverage.complete(item)
 
 
 def findings(item):
@@ -109,7 +120,7 @@ def findings(item):
 
 def adverse(item):
     report = item.get('verification') or {}
-    return any((report.get(k) or {}).get('status') in ('FAIL', 'HIGH CONCERN', 'CONFLICTING')
+    return any((report.get(k) or {}).get('status') in ('FAIL', 'FAILED', 'HIGH CONCERN', 'CONFLICTING')
                for k in ('contract_security', 'sellability', 'tokenomics', 'supply_comparison'))
 
 
@@ -126,3 +137,24 @@ def telegram_lines(item):
                      str(book.get('buy_depth_sufficient')) + '/' + str(book.get('sell_depth_sufficient')) +
                      '; not a DEX quote or guaranteed fill')
     return lines
+
+
+def rotate(items, watchlist):
+    """Least recently checked exact tokens first; pool duplicates share a slot.
+
+    Persisted observation times advance even for silent WAIT results. Stable
+    score ordering breaks ties without making highest-ranked tokens permanent.
+    """
+    ordered = sorted(items, key=lambda x: (
+        watchlist.get(x['key'], {}).get('evidence_checked_at', ''),
+        -x.get('score', 0), x['key']))
+    result, tokens = [], set()
+    for item in ordered:
+        token = item.get('token_address') or item.get('discovery_token_hint')
+        identity = (item.get('network'), token if item.get('network') == 'solana' else str(token).lower())
+        if not token:
+            identity = (item.get('network'), item['key'])
+        if identity not in tokens:
+            tokens.add(identity)
+            result.append(item)
+    return result

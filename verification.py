@@ -8,7 +8,9 @@ import math
 import re
 import urllib.parse
 
-CHAINS = {'eth': 1, 'bsc': 56, 'base': 8453}
+CHAINS = {'eth': 1, 'bsc': 56, 'base': 8453, 'arbitrum': 42161,
+          'polygon_pos': 137, 'avax': 43114, 'optimism': 10}
+SIMULATOR_CHAINS = {'eth', 'bsc', 'base'}
 DOCS = {
     'goplus': 'https://docs.gopluslabs.io/reference/token-security-api',
     'honeypot': 'https://docs.honeypot.is/ishoneypot',
@@ -146,14 +148,23 @@ def risk_plan(equity, entry, invalidation, fees_fraction, slippage_fraction, liq
             'invalidation': invalidation, 'fees_fraction': fees, 'slippage_fraction': slip}
 
 
-def collect(item, fetch):
+def collect(item, fetch, rpc_request=None):
+    from evidence_coverage import unavailable
+    if item.get('network') == 'solana':
+        import solana_evidence
+        from provider_session import CURRENT
+        request = rpc_request or (CURRENT.get().json if CURRENT.get() is not None else None)
+        if request is None:
+            return {name: observation('policy', '', None, 'NOT_CHECKED', 'Solana RPC transport not configured')
+                    for name in ('integration', 'onchain', 'contract_security', 'holders', 'supply_comparison', 'liquidity', 'sellability', 'execution')}
+        return solana_evidence.collect(item, request)
     report = {}
     network, token = item.get('network'), item.get('token_address', '')
     if not re.fullmatch(r'0x[0-9a-fA-F]{40}', token):
-        return {'integration': observation('policy', '', None, 'UNKNOWN', 'Unsupported or invalid EVM token identity')}
+        return {'integration': observation('policy', '', None, 'UNKNOWN', 'Invalid EVM token identity')}
     chain = CHAINS.get(network)
     if not chain:
-        return {'integration': observation('policy', '', None, 'UNKNOWN', 'Independent simulator unsupported on network')}
+        return {'integration': observation('policy', '', None, 'UNSUPPORTED', 'No reviewed verification adapter on network')}
     endpoints = {
         'goplus': f'https://api.gopluslabs.io/api/v1/token_security/{chain}?contract_addresses={token}',
         'honeypot': 'https://api.honeypot.is/v2/IsHoneypot?' + urllib.parse.urlencode({'address': token, 'chainID': chain, 'pair': item['address']}),
@@ -161,8 +172,11 @@ def collect(item, fetch):
     }
     for source, url in endpoints.items():
         try:
+            if source == 'honeypot' and network not in SIMULATOR_CHAINS:
+                report['sellability'] = observation(source, url, None, 'UNSUPPORTED', 'Independent simulator does not support this network')
+                continue
             if source == 'honeypot' and not re.fullmatch(r'0x[0-9a-fA-F]{40}', item['address']):
-                report['sellability'] = observation(source, url, None, 'UNKNOWN', 'Simulator requires a 20-byte pool address; this discovery pool identifier is unsupported')
+                report['sellability'] = observation(source, url, None, 'UNSUPPORTED', 'Simulator requires a 20-byte pool address; this discovery pool identifier is unsupported')
                 continue
             raw = fetch(url)
             if not isinstance(raw, dict):
@@ -181,9 +195,11 @@ def collect(item, fetch):
                 report['entry'] = observation(source, url, raw, analysis['status'], analysis['reason'])
                 report['entry']['analysis'] = analysis
         except (OSError, ValueError, TypeError, KeyError, AttributeError) as exc:
-            report[source] = observation(source, url, None, 'UNKNOWN', 'Provider unavailable or invalid response: ' + type(exc).__name__)
-            report[source]['diagnostic'] = dict(error_type=type(exc).__name__, http_status=getattr(exc, 'code', None))
-    report['execution'] = observation('0x', DOCS['quote'], None, 'UNKNOWN',
+            report[source] = unavailable(source, url, exc)
+            names = {'goplus': ('contract_security', 'holders', 'liquidity', 'tokenomics'), 'honeypot': ('sellability',), 'ohlcv': ('entry',)}[source]
+            for name in names:
+                report[name] = dict(report[source])
+    report['execution'] = observation('0x', DOCS['quote'], None, 'NOT_CHECKED',
         'Executable two-way size-specific quote, taker address, API credential, gas and allowance simulation not configured')
     return report
 

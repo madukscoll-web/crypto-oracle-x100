@@ -47,7 +47,8 @@ class HourlyEvidenceTests(unittest.TestCase):
         h.collect_safely(collector, x)
         self.assertEqual(x['hourly_evidence']['status'], 'COLLECTED')
         self.assertEqual(x['gate_spot']['status'], 'UNKNOWN')
-        self.assertEqual(collector.session.requests, 1)
+        self.assertEqual(collector.session.requests, 2)
+        self.assertEqual(x['verification']['onchain']['status'], 'NOT_CHECKED')
         self.assertIsNone(CURRENT.get())
 
     def test_candidate_budget_is_explicit(self):
