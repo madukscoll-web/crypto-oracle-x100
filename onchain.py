@@ -223,5 +223,8 @@ def collect(item, provider_rows=(), rpc=None, lock_descriptors=()):
         rpc.unchanged()
         return observation('evm_rpc', rpc.url, dict(block=block, calls=rpc.calls, results=results),
                            'LIMITED', 'Pinned-block independent observations; beneficial ownership and timelock coverage not established')
-    except (KeyError, ValueError, TypeError, OSError, AttributeError, OverflowError):
-        return observation('evm_rpc', getattr(rpc, 'url', ''), dict(calls=getattr(rpc, 'calls', [])), 'UNKNOWN', 'RPC evidence unavailable, stale, malformed or chain/block identity mismatch')
+    except (KeyError, ValueError, TypeError, OSError, AttributeError, OverflowError) as exc:
+        from evidence_coverage import unavailable
+        result = unavailable('evm_rpc', getattr(rpc, 'url', ''), exc)
+        result['raw'] = dict(calls=getattr(rpc, 'calls', []))
+        return result

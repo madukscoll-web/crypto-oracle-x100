@@ -5,6 +5,7 @@ session; 404 stops that resource; 429/5xx open a cooldown. No automatic retries.
 RPC contract reverts do not disable a healthy RPC host.
 """
 import contextvars
+import contextlib
 import json
 import math
 import time
@@ -33,6 +34,17 @@ class Session:
             return json.load(response)
     def __enter__(self):self.token=CURRENT.set(self);return self
     def __exit__(self,*args):CURRENT.reset(self.token)
+    @contextlib.contextmanager
+    def budget(self, seconds, requests):
+        """Reserve the rest of the run for other candidates; never reset totals."""
+        original = self.max_seconds, self.max_requests
+        self.max_seconds = min(self.max_seconds, self.clock() - self.started + seconds)
+        self.max_requests = min(self.max_requests, self.requests + requests)
+        try:
+            yield self
+        finally:
+            self.max_seconds, self.max_requests = original
+
     def get(self,url):return self.json(url)
     def json(self,url,payload=None,headers=None,timeout=15):
         host=urllib.parse.urlsplit(url).hostname

@@ -52,6 +52,10 @@ def build(raw,summary):
 
 def collect(item,env,transport=request,reference_order=None,native_price=None):
     legs=[]
+    if item.get('network') not in CHAINS:
+        return observation('kyber', '', None, 'UNSUPPORTED', 'EVM route adapter unsupported on network')
+    if reference_order is None and (not env.get('ORACLE_FUNDING_TOKEN') or not env.get('ORACLE_ORDER_BASE_UNITS')):
+        return observation('kyber', '', None, 'NOT_CHECKED', 'Explicit funding token and base-unit order size not configured')
     try:
         chain=CHAINS[item['network']];token=address(item['token_address'])
         funding=address((reference_order or {}).get('funding_token') or env.get('ORACLE_FUNDING_TOKEN',''))

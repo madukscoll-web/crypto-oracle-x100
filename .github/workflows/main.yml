@@ -2,6 +2,17 @@ name: CRYPTO-ORACLE X100 Scanner
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - crypto_oracle_scanner.py
+      - hourly_evidence.py
+      - evidence_coverage.py
+      - solana_evidence.py
+      - verification.py
+      - provider_session.py
+      - execution_quotes.py
+      - kyber_quotes.py
   schedule:
     - cron: '7 * * * *'
 

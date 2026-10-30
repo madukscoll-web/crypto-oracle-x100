@@ -56,9 +56,11 @@ def validate(raw, sell, buy, amount):
 
 def collect(item, env, transport=fetch, native_price=None):
     quotes = []
+    if item.get('network') not in CHAINS:
+        return observation('0x', 'https://0x.org/docs/api#tag/Swap', None, 'UNSUPPORTED', '0x EVM adapter unsupported on network')
     key, taker, funding = (env.get(x, '') for x in ('ZEROX_API_KEY', 'ORACLE_TAKER_ADDRESS', 'ORACLE_FUNDING_TOKEN'))
     if not key or not ADDRESS.fullmatch(taker) or not ADDRESS.fullmatch(funding):
-        return observation('0x', 'https://0x.org/docs/api#tag/Swap', None, 'UNKNOWN',
+        return observation('0x', 'https://0x.org/docs/api#tag/Swap', None, 'NOT_CHECKED',
                            'Missing 0x API credential, public taker or funding token; no private key is needed')
     try:
         chain = CHAINS[item['network']]

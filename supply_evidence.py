@@ -88,6 +88,9 @@ def collect(item,fetch,rpc=None):
         return observation('supply_comparison',rpc.url,dict(block=block,total_supply_base_units=str(total),decimals=decimals,
                     observations=observations,conflicts=conflicts,calls=rpc.calls),'CONFLICTING' if conflicts else 'LIMITED',
                     '; '.join(conflicts) if conflicts else ('Provider total aligns with pinned gross supply minus known-sink balances; burn/circulation definitions remain unverified' if ((observations.get('coingecko') or {}).get('metrics') or {}).get('provider_total_matches_net_of_known_sinks') else 'Current supply observations only; complete circulating ownership, future unlocks and mint authority remain unverified'))
-    except (KeyError,ValueError,TypeError,AttributeError,OSError,OverflowError):
-        return observation('supply_comparison','',observations or None,'UNKNOWN','Pinned supply/units or independent evidence unavailable')
+    except (KeyError,ValueError,TypeError,AttributeError,OSError,OverflowError) as exc:
+        from evidence_coverage import unavailable
+        result = unavailable('supply_comparison', getattr(rpc, 'url', ''), exc)
+        result['raw'] = dict(observations=observations, calls=getattr(rpc, 'calls', []))
+        return result
 
