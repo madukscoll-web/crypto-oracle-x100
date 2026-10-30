@@ -24,7 +24,7 @@ class SolanaTests(unittest.TestCase):
         def request(url, payload):
             method = payload['method']
             if method == 'getGenesisHash':
-                result = sol.GENESIS
+                result = '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d'
             elif method == 'getAccountInfo':
                 self.assertEqual(payload['params'][0], MINT)
                 self.assertEqual(payload['params'][1]['commitment'], 'finalized')
@@ -169,3 +169,17 @@ class AdapterBudgetTests(unittest.TestCase):
     def test_unsupported_network_propagates_to_all_complete_gates(self):
         x=dict(network='unknown',verification=dict(integration=dict(status='UNSUPPORTED',reason='No reviewed chain adapter')))
         self.assertTrue(all(row['status']=='UNSUPPORTED' for row in coverage.summary(x).values()))
+
+class SolanaGenesisTests(unittest.TestCase):
+    def test_caip_prefix_is_not_the_full_rpc_genesis_hash(self):
+        from asset_identity import CHAINS
+        expected='5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d'
+        self.assertEqual(sol.GENESIS,expected)
+        self.assertNotEqual(sol.GENESIS,CHAINS['solana'].split(':',1)[1])
+        calls=[]
+        def prefix(url,payload):
+            calls.append(payload)
+            return dict(id=payload['id'],result=CHAINS['solana'].split(':',1)[1])
+        report=sol.collect(item(),prefix)
+        self.assertEqual(report['onchain']['status'],'UNKNOWN')
+        self.assertEqual(len(calls),1)

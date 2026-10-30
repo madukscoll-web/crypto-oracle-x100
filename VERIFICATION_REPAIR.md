@@ -58,7 +58,7 @@ fixed by relabelling provider screening as safety.
 
 ## Validation before PR
 
-Python compilation succeeded; all 386 unit tests passed. `git diff --check`
+Python compilation succeeded; all 387 unit tests passed. `git diff --check`
 passed. Regressions cover unsupported chains/programs, missing credentials,
 provider denials/outages, malformed mint evidence, active authorities, budget
 exhaustion/fairness, persistent rotation, alternate-pool/token deduplication and
@@ -76,3 +76,11 @@ receive provider screening with explicit on-chain coverage limitations. Complete
 independent security, related-wallet beneficial ownership, circulating supply,
 vesting and order-specific execution remain required. Public observations alone
 cannot satisfy those gates. A zero-BUY run is expected when those gates are absent.
+
+## PR live review follow-up
+
+CI run 40991823643 collected live Ethereum screening, sell simulation, pinned
+chain observations and a real supply definition conflict (not a fabricated pass).
+The Solana response exposed a full-genesis-hash versus CAIP-prefix comparison
+bug; corrected the RPC comparison and added an independently pinned regression.
+Final-revision CI and production verification remain required.

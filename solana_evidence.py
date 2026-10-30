@@ -11,7 +11,8 @@ from evidence_coverage import unavailable
 
 URL = 'https://api.mainnet-beta.solana.com'
 TOKEN_PROGRAM = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'
-GENESIS = '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp'
+# RPC returns the full genesis hash; the CAIP chain identifier uses its prefix.
+GENESIS = '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d'
 
 
 def integer(value):
