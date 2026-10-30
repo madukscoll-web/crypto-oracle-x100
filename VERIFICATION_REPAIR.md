@@ -38,10 +38,11 @@ fixed by relabelling provider screening as safety.
   HTTP permission/credential denials and exhausted budgets are NOT_CHECKED;
   attempted but inconclusive/outage responses are UNKNOWN. Security failures
   remain adverse; no automatic trading or relaxed BUY requirements.
-- Six research slots, 240-second / 180-request shared envelope, 40-second /
-  30-request candidate envelope. Prefer new pools but fill spare research slots
+- Six research slots, 240-second / 270-request shared envelope, 40-second /
+  45-request candidate envelope. Prefer new pools but fill spare research slots
   with existing pools. Oldest persisted evidence check rotates first; duplicate
   discovery token hints share a slot. Gate catalog/research follows core checks.
+  Primary supply comparison precedes bounded eight-address EVM holder sampling.
   Exhaustion remains explicit; no claim that every discovered token was checked.
 - Existing incomplete/rejected-alert suppression remains. Confirmed deliveries
   persist both original pool key and chain/token key, preventing repeat signals

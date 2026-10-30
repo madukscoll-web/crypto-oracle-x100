@@ -20,7 +20,7 @@ REFERENCES = [
 
 
 def run():
-    collector = hourly_evidence.HourlyEvidence(max_candidates=2, max_seconds=90, max_requests=60)
+    collector = hourly_evidence.HourlyEvidence(max_candidates=2, max_seconds=90, max_requests=90)
     records = []
     for reference in REFERENCES:
         item = dict(reference)
@@ -34,6 +34,8 @@ def run():
             assert entry['token_address'] == reference['token_address']
         records.append(dict(reference=reference, coverage=coverage, evidence=item['verification']))
         print(reference['network'] + ': ' + json.dumps(coverage, sort_keys=True))
+        if reference['network'] == 'solana':
+            print('Solana public RPC responses: ' + json.dumps(item['verification'].get('onchain', {}).get('raw'), sort_keys=True))
     output = dict(records=records, session=collector.summary(), automated_trading_enabled=False,
                   alerts_sent=0, buy_signals=0)
     path = pathlib.Path('work/hourly_evidence_probe.json')

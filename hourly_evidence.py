@@ -21,7 +21,7 @@ from provider_session import Session
 
 
 class HourlyEvidence:
-    def __init__(self, max_candidates=6, max_seconds=240, max_requests=180, transport=None):
+    def __init__(self, max_candidates=6, max_seconds=240, max_requests=270, transport=None):
         self.max_candidates = max_candidates
         self.assessed = 0
         self.session = Session(max_requests=max_requests, max_seconds=max_seconds,
@@ -41,16 +41,16 @@ class HourlyEvidence:
             evidence_coverage.complete(item)
             return
         self.assessed += 1
-        with self.session, self.session.budget(40, 30):
+        with self.session, self.session.budget(40, 45):
             item['verification'] = verification.collect(item, self.fetch)
             report = item['verification']
             if item.get('network') in onchain.RPCS and re.fullmatch(r'0x[0-9a-fA-F]{40}', item.get('token_address', '')):
                 info = ((report.get('contract_security', {}).get('raw') or {}).get('result') or {}).get(item['token_address'].lower(), {})
                 # Exact-pool identity and holder balance observations; no LP
                 # control or beneficial-owner verification is inferred.
-                report['onchain'] = onchain.collect(item, info.get('holders') or [],
-                    lock_descriptors=self.registry.get('lp_locks', {}).get(item['network'] + ':' + item['address'].lower(), []))
                 report['supply_comparison'] = supply_evidence.collect(item, self.fetch)
+                report['onchain'] = onchain.collect(item, (info.get('holders') or [])[:8],
+                    lock_descriptors=self.registry.get('lp_locks', {}).get(item['network'] + ':' + item['address'].lower(), []))
             report['unlocks'] = token_unlocks.collect(item, self.registry)
             report['execution'] = execution_quotes.collect(item, os.environ)
             if item.get('network') in kyber_quotes.CHAINS:
