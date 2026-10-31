@@ -62,6 +62,15 @@ def append(events,path=PATH):
 def capture(history,items,path=PATH):
     rows=read(path);known={row['event']['pool_key'] for row in rows if row['event']['kind']=='SIGNAL'}
     events=[];version=model_version()
+    items=list(items)
+    current_keys={item.get('key') for item in items}
+    # Seed retained historical signals even when no current candidate matches.
+    # These imports preserve observed prices, but never invent old model features.
+    for pool, observations in history.items():
+        if pool not in current_keys and isinstance(observations,list) and observations:
+            items.append({'key':pool,'network':pool.split(':',1)[0],
+                          'token_address':observations[0].get('token_address'),
+                          'observed_at':None})
     for item in items:
         pool=item.get('key');observations=history.get(pool,[])
         if not observations:continue
