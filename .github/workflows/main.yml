@@ -121,12 +121,6 @@ jobs:
         id: state
         if: always() && steps.scan.outcome != 'skipped'
         run: python workflow_state.py publish
-      - name: Notify Telegram on successful scan completion
-        if: success() && steps.scan.outcome == 'success'
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python telegram_notify.py success
       - name: Notify Telegram when workflow fails
         if: failure()
         env:
