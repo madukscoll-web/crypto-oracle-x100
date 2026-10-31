@@ -12,10 +12,19 @@ def summarize(registry, report):
     summary = {"reviewed_registry_entries": len(tokens), "review_registry_empty": not bool(tokens),
                "review_required": not bool(tokens), "buy_authorized": False,
                "orders_allowed": False, "telegram_eligible": False,
-               "candidate_blocker_counts": {}, "report_available": report is not None}
+               "candidate_blocker_counts": {}, "report_available": report is not None,
+               "pipeline_errors": [], "assessed_candidates": 0,
+               "qualified_paper_candidates": 0}
     if report is not None:
         if not isinstance(report, dict):
             raise ValueError("Gate candidate report must be an object")
+        summary["pipeline_errors"] = [x[:160] for x in report.get("errors", []) if isinstance(x, str)]
+        candidates = report.get("candidates", [])
+        if isinstance(candidates, list):
+            summary["assessed_candidates"] = len(candidates)
+            summary["qualified_paper_candidates"] = sum(
+                isinstance(x, dict) and x.get("classification") == "BUY CANDIDATE — MANUAL REVIEW"
+                for x in candidates)
         counts = Counter()
         def walk(value, depth=0):
             if depth > 5:
@@ -46,7 +55,7 @@ def main():
     report_path = Path(a.report)
     report = json.loads(report_path.read_text(encoding="utf-8")) if report_path.exists() else None
     result = summarize(registry, report)
-    Path(a.output).write_text(json.dumps(result, indent=2, sort_keys=True)+"\n", encoding="utf-8")
+    Path(a.output).write_text(json.dumps(result, indent=2, sort_keys=True)+chr(10), encoding="utf-8")
     print(json.dumps(result, sort_keys=True))
 
 
