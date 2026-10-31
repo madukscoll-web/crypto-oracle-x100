@@ -26,3 +26,22 @@ class StateTests(unittest.TestCase):
         update(state,[self.asset()], '2026-10-31T01:00:00+00:00',2)
         self.assertEqual(len(state['seen']),1)
         self.assertEqual(next(iter(state['seen'].values()))['selections'],2)
+
+class AdversePersistenceTests(unittest.TestCase):
+    def test_secondary_source_adverse_evidence_survives_representative_and_restart(self):
+        from multichain_live_research import run
+        token='0x'+'a'*40;pool='0x'+'b'*40
+        class Feed:
+            network='base';adverse=True
+            def __init__(self,fetch):pass
+            def discover(self):
+                rows=[{'network':'base','token_address':token,'address':pool}]
+                if self.adverse:rows.append({'network':'base','token_address':token,
+                    'persistent_adverse_reasons':['Exact platform/mint program mismatch']})
+                return {'rows':rows,'failures':[],'observations':[]}
+        state={'version':1,'cursor':0,'seen':{}}
+        first=run(fetch=lambda url:{},adapters=(Feed,),state=state)
+        self.assertEqual(first['selected'][0]['assessment']['outcome'],'REJECT')
+        state=json.loads(json.dumps(state));Feed.adverse=False
+        second=run(fetch=lambda url:{},adapters=(Feed,),cursor=state['cursor'],state=state)
+        self.assertEqual(second['selected'][0]['assessment']['outcome'],'REJECT')
