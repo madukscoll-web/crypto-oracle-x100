@@ -1,0 +1,29 @@
+name: Validate Telegram diagnostics and launchpad provenance
+on:
+  pull_request:
+    paths:
+      - 'notification_preflight.py'
+      - 'launchpad_provenance.py'
+      - 'tests/test_notification_preflight.py'
+      - 'tests/test_launchpad_provenance.py'
+      - '.github/workflows/validate-notification-and-provenance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile modules
+        run: python -m compileall -q notification_preflight.py launchpad_provenance.py tests
+      - name: Run focused tests without production credentials
+        run: python -m unittest discover -s tests -p 'test_notification_preflight.py' -v && python -m unittest discover -s tests -p 'test_launchpad_provenance.py' -v
+      - name: Run full offline regression suite
+        run: python -m unittest discover -s tests -v
