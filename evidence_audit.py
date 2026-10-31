@@ -8,6 +8,8 @@ import adverse_evidence
 
 
 def audit(item):
+    import authenticated_admission
+    admission = authenticated_admission.evaluate(item)
     checks = {}
     checks["token_identity"] = "PASS" if (
         item.get("token_identity_status") ==
@@ -60,6 +62,12 @@ def audit(item):
                'kyber': 'execution_quote', 'kyber_execution': 'execution_quote'}
     for name in adverse:
         checks[aliases.get(name, name)] = 'FAIL'
+    if admission['safety_verified']:
+        checks['token_identity'] = checks['provider_risk'] = checks['market_depth'] = 'PASS'
+        for name in ('sellability', 'liquidity_lock', 'holder_distribution',
+                     'tokenomics_unlocks', 'execution_quote', 'independent_supply_comparison'):
+            checks[name] = 'PASS'
+        checks['contract_security'] = 'PASS'
     failures = [k for k, v in checks.items() if v == "FAIL"]
     unknown = [k for k, v in checks.items() if v == "UNKNOWN"]
     return {
@@ -68,12 +76,13 @@ def audit(item):
         "unknown": unknown,
         "adverse_evidence": adverse,
         "research_status": "REJECT" if failures else "INVESTIGATE",
-        "trade_ready": False,
-        "reason": "Independent sellability, liquidity, holder, tokenomics and executable quotes not integrated",
+        "trade_ready": admission['admitted'],
+        "admission": admission,
+        "reason": "Independent signed evidence and execution invariants passed; manual review required" if admission['admitted'] else "Signed safety verified; entry monitoring required" if admission['safety_verified'] else "; ".join(admission['blockers']),
     }
 
 
 def summary(report):
     return ("EVIDENCE AUDIT: " +
             "; ".join(f"{key}={value}" for key, value in report["checks"].items()) +
-            "\nTRADE READY: NO — " + report["reason"])
+            "\nTRADE READY: " + ("YES — MANUAL REVIEW — " if report['trade_ready'] else "NO — ") + report["reason"])

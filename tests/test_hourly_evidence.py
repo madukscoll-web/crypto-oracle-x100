@@ -72,7 +72,7 @@ class HourlyEvidenceTests(unittest.TestCase):
         x = item()
         x['verification'] = dict(sellability=dict(status='FAIL', reason='Honeypot'))
         self.assertTrue(h.adverse(x))
-        self.assertEqual(investment_gates.assess(x)['decision'], 'AVOID / HIGH CONCERN')
+        self.assertEqual(investment_gates.assess(x)['decision'], 'REJECT')
 
     def test_partial_supply_and_lp_cannot_remove_complete_safety_requirements(self):
         x = item()

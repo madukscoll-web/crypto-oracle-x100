@@ -27,9 +27,7 @@ class SilentAlertsTests(unittest.TestCase):
             self.assertFalse(scanner.telegram_eligible({}))
 
     def test_fully_verified_candidate_is_eligible(self):
-        with patch.object(scanner, 'decision_summary', return_value=('BUY CANDIDATE — REVIEW ENTRY', '')), \
-             patch('evidence_audit.audit', return_value={'trade_ready': True}), \
-             patch.object(scanner, 'validate_execution_evidence', return_value=True):
+        with patch('authenticated_admission.evaluate', return_value={'safety_verified': True, 'entry_status':'READY'}):
             self.assertTrue(scanner.telegram_eligible({}))
 
     def test_malformed_evidence_fails_closed(self):

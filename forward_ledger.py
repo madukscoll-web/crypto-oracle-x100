@@ -13,7 +13,8 @@ from asset_identity import key
 
 PATH = pathlib.Path('forward_events.jsonl')
 ZERO = '0'*64
-POLICY_FILES = ('watch_policy.json','canonical_outcomes.py','crypto_oracle_scanner.py','opportunity_alerts.py')
+POLICY_FILES = ('watch_policy.json','canonical_outcomes.py','crypto_oracle_scanner.py','opportunity_alerts.py',
+                'authenticated_admission.py','admission_trust.json','adverse_evidence.py','sequential_simulation.py')
 
 
 def digest(value):
@@ -92,7 +93,7 @@ def capture(history,items,path=PATH):
                 source_revision=None if imported else revision,source_run_id=None if imported else run_id,
                 import_source_revision=revision if imported else None,import_run_id=run_id if imported else None,
                 model_parameters=None if imported else json.loads(pathlib.Path(__file__).with_name('watch_policy.json').read_text()),
-                classification='LEGACY_RESEARCH_SIGNAL' if imported else item.get('canonical_outcome','INSUFFICIENT EVIDENCE'),
+                classification='LEGACY_RESEARCH_SIGNAL' if imported else item.get('canonical_outcome','WAIT/VERIFY'),
                 historical_import=imported,features=None if imported else {k:item.get(k) for k in ('liquidity','volume','buy_share','change_h1','change_h24')},
                 execution_adjusted_return=None,execution_evidence='UNVERIFIED'))
             known.add(pool)

@@ -1,10 +1,11 @@
-"""Five canonical research outcomes. Authorization stays with existing BUY gates."""
+"""Five canonical outcomes; signed admission is the positive evidence authority."""
 import opportunity_alerts
-import evidence_audit
 import adverse_evidence
+import authenticated_admission
 
-OUTCOMES = ('VERIFIED BUY', 'ENTRY WATCH', 'RESEARCH WATCH', 'REJECT', 'INSUFFICIENT EVIDENCE')
-VERSION = 'canonical-outcomes-v1'
+BUY = 'BUY CANDIDATE — MANUAL REVIEW'
+OUTCOMES = (BUY, 'WATCHLIST', 'WAIT/VERIFY', 'REJECT', 'DISCARD')
+VERSION = 'canonical-outcomes-v2'
 
 
 def assess(item, now=None):
@@ -20,19 +21,24 @@ def assess(item, now=None):
                 'reasons':['Evidence structure unavailable: '+type(exc).__name__],
                 'missing_checks':['Classification withheld until evidence schema is supported']}
     label = legacy['classification']
+    admission = authenticated_admission.evaluate(item, now=now)
     if label == 'REJECT':
         outcome = 'REJECT'
-    elif label == 'VERIFIED BUY' and legacy.get('eligible_for_buy') is True and evidence_audit.audit(item)['trade_ready'] is True:
-        outcome = 'VERIFIED BUY'
+    elif admission.get('safety_verified') and not admission['admitted']:
+        outcome = 'WATCHLIST'
+    elif admission['admitted']:
+        outcome = BUY
     elif label in ('HIGH-PRIORITY WATCH', 'ENTRY WATCH'):
-        # Existing ENTRY WATCH only establishes a candle setup. Material gaps
-        # make it RESEARCH WATCH under the stricter canonical policy.
-        outcome = 'ENTRY WATCH' if evidence_audit.audit(item)['trade_ready'] is True and not legacy['missing_checks'] else 'RESEARCH WATCH'
+        # A legacy candle/activity setup cannot substitute for signed safety.
+        outcome = 'WAIT/VERIFY'
+    elif item.get('discovery_eligible') is False and item.get('scan_mode') != 'verification_only':
+        outcome = 'DISCARD'
     else:
-        outcome = 'INSUFFICIENT EVIDENCE'
+        outcome = 'WAIT/VERIFY'
     return {'outcome': outcome, 'policy_version': VERSION,
             'legacy_classification': label, 'reasons': legacy['reasons'],
             'critical_gaps': legacy['missing_checks'],
-            'buy_authorized': outcome == 'VERIFIED BUY',
+            'buy_authorized': outcome == BUY,
             'orders_allowed': False,
-            'entry_watch_policy': 'Reserved for fully verified research with only noncritical entry conditions unmet; no current adapter establishes this'}
+            'admission_bundle_sha256': admission.get('bundle_sha256'),
+            'entry_watch_policy': 'WATCHLIST requires authenticated safety with signed MONITOR entry status'}

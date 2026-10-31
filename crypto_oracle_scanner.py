@@ -471,6 +471,9 @@ def horizon_notes():
 
 def decision_summary(item):
     """Evidence-based action; never turn activity scores into buy advice."""
+    import authenticated_admission
+    if authenticated_admission.evaluate(item)['admitted']:
+        return 'BUY CANDIDATE — REVIEW ENTRY', 'Authenticated independent evidence passed; MANUAL REVIEW required. Automatic trading disabled.'
     risk = item.get("risk_category", "WAIT / VERIFY")
     if any(((item.get("evidence_review") or {}).get(key) or {}).get("status") == "HIGH CONCERN"
            for key in ("security", "provider_security")):
@@ -587,12 +590,9 @@ def decision_summary(item):
 
 
 def validate_execution_evidence(item):
-    """No authenticated execution adapter exists; caller claims cannot authorize.
-
-    evidence_checks.quotes reports source-bound metrics separately. Even valid
-    metrics do not prove authenticity, successful simulation, or sellability.
-    """
-    return False
+    """Fresh signed admission validates order-specific sequential exit evidence."""
+    import authenticated_admission
+    return authenticated_admission.evaluate(item)['admitted']
 
 
 
@@ -747,21 +747,30 @@ def token_alert_key(item):
 
 
 def already_alerted(item, seen):
+    decision_key = decision_alert_key(item)
+    if decision_key:
+        return decision_key in seen
     return item['key'] in seen or token_alert_key(item) in seen
 
 
+def decision_alert_key(item):
+    import authenticated_admission
+    admission = authenticated_admission.evaluate(item)
+    if admission['safety_verified']:
+        return 'decision:' + token_alert_key(item) + ':' + admission['entry_status']
+    return None
+
+
 def telegram_eligible(item):
-    """Fail closed: DEX research leads are silent unless independently trade-ready.
+    """Only fresh authenticated READY or safety-verified MONITOR candidates notify.
 
     This predicate does not change discovery, classification or audit evidence.
     Gate Spot paper candidates have a separate reviewed notification path.
     """
     try:
-        import evidence_audit
-        decision, _ = decision_summary(item)
-        return (decision == "BUY CANDIDATE — REVIEW ENTRY"
-                and evidence_audit.audit(item).get("trade_ready") is True
-                and validate_execution_evidence(item) is True)
+        import authenticated_admission
+        admission = authenticated_admission.evaluate(item)
+        return admission.get('safety_verified') is True and admission.get('entry_status') in ('READY', 'MONITOR')
     except (ValueError, TypeError, KeyError, AttributeError, OSError):
         return False
 
@@ -771,6 +780,12 @@ def send_telegram(item):
     chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
     if not token or not chat_id:
         raise RuntimeError("Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID")
+    canonical = canonical_outcomes.assess(item)
+    if canonical['outcome'] in (canonical_outcomes.BUY, 'WATCHLIST'):
+        import opportunity_alerts
+        # A concise authenticated message preserves every mandatory evidence
+        # result without the legacy 3900-character diagnostics truncation.
+        return send_message(opportunity_alerts.format_admission_alert(item))
     flags = "; ".join(item["flags"]) if item["flags"] else "No additional activity flags triggered"
     decision, summary = decision_summary(item)
     setup, setup_reason = setup_assessment(item)
@@ -993,7 +1008,9 @@ def main():
             save_watchlist(watchlist)
             continue
         try:
-            send_telegram(item)
+            notification_key = decision_alert_key(item)
+            if send_telegram(item) is not True:
+                raise RuntimeError('Telegram delivery unconfirmed')
         except (urllib.error.URLError, ValueError, RuntimeError, TimeoutError, OSError) as exc:
             errors.append(f"Telegram delivery failed for {item['key']}: {type(exc).__name__}")
             # Retry a failed priority-transition alert on the next scan.
@@ -1003,6 +1020,8 @@ def main():
                 watchlist[item["key"]] = previous_watch
             continue
         seen.add(item["key"])
+        if notification_key:
+            seen.add(notification_key)
         if token_alert_key(item):
             seen.add(token_alert_key(item))
         save_state(seen)
