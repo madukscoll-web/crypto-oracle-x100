@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - .github/workflows/main.yml
+      - stonk_launch_discovery.py
       - multichain_live_research.py
       - multichain_research_audit.py
       - crypto_oracle_scanner.py
@@ -87,6 +88,23 @@ jobs:
           assert report['orders_allowed'] is False
           print('Read-only multichain coverage:', json.dumps(audit, sort_keys=True))
           PY
+      - name: Run read-only StonkFun launch audit
+        id: stonk_launches
+        continue-on-error: true
+        timeout-minutes: 2
+        run: |
+          python - <<'PY'
+          import json
+          from stonk_launch_discovery import run
+          result = run()
+          assert result["mode"] == "READ_ONLY_RESEARCH"
+          assert result["orders_allowed"] is False
+          assert result["buy_authorized"] is False
+          assert result["telegram_transmission"] is False
+          with open("stonk_launch_report.json", "w", encoding="utf-8") as output:
+              json.dump(result, output, indent=2)
+          print("StonkFun read-only launches:", result["count"], "invalid:", result["invalid_rows"])
+          PY
       - name: Save scanner state
         id: state
         if: always() && steps.scan.outcome != 'skipped'
@@ -140,6 +158,7 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
           path: |
+            stonk_launch_report.json
             multichain_research_report.json
             scan_summary.json
             evidence_report.json
