@@ -73,7 +73,7 @@ jobs:
         continue-on-error: true
         timeout-minutes: 4
         run: |
-          python -u multichain_live_research.py --limit 12 --output multichain_research_report.json
+          python -u multichain_live_research.py --limit 12 --include-profiles --output multichain_research_report.json
           python - <<'PY'
           import json
           with open('multichain_research_report.json', encoding='utf-8') as source:
