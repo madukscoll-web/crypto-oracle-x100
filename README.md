@@ -102,3 +102,23 @@ instead of deleting prior signals or changing return baselines. The scanner's
 sampled MFE/MAE/drawdown. These are indicative sampled-price statistics, without
 intrahour extremes, execution costs or liquidity adjustments. Already-lost legacy
 samples cannot be reconstructed by this repair. No predictive validation is implied.
+
+## Completion policy and reproducible limits
+
+See [COMPLETION_MATRIX.md](COMPLETION_MATRIX.md) for current evidence and explicit
+external blockers. The hourly discovery audit now stores `research_discovery_state.json`
+for durable feed/candidate rotation, and runs at most three isolated provider
+workers. `--include-launchpads` adds the documented Pump RPC and Raydium LetsBONK
+sources; provenance remains narrower than a security audit. Failed/partial feeds
+are reported in provider health and retained observations.
+
+Scanner and discovery diagnostics include the five-outcome canonical policy.
+Critical gaps retain RESEARCH WATCH/INSUFFICIENT EVIDENCE; existing BUY authorization
+is unchanged. `forward_events.jsonl` is an append-only hash-linked observation and
+model ledger; legacy records are explicitly imports with unknown model lineage.
+It does not invent liquidity-adjusted returns or mature forward outcomes.
+
+`research_validation.py` provides fixed separate meme/utility heuristics and a
+point-in-time, depth/cost-aware walk-forward/holdout protocol. The real cohort is
+empty and reports BLOCKED. Passing synthetic protocol tests is not predictive
+validation, calibration, a historical 100x finding or investment authorization.

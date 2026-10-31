@@ -39,16 +39,23 @@ def read(path=PATH):
 def append(events,path=PATH):
     path=pathlib.Path(path);rows=read(path);ids={row['event_id'] for row in rows}
     previous=rows[-1]['hash'] if rows else ZERO
-    count=0
-    with path.open('a',encoding='utf-8') as stream:
-        for event in events:
-            event=dict(event)
-            event_id=digest(event)
-            if event_id in ids:continue
-            row={'event_id':event_id,'previous_hash':previous,'recorded_at':dt.datetime.now(dt.timezone.utc).isoformat(),'event':event}
-            row['hash']=digest(row);stream.write(json.dumps(row,sort_keys=True,allow_nan=False)+'\n')
-            ids.add(event_id);previous=row['hash'];count+=1
-        stream.flush();os.fsync(stream.fileno())
+    count=0;added=[]
+    for event in events:
+        event=dict(event)
+        event_id=digest(event)
+        if event_id in ids:continue
+        row={'event_id':event_id,'previous_hash':previous,'recorded_at':dt.datetime.now(dt.timezone.utc).isoformat(),'event':event}
+        row['hash']=digest(row);added.append(json.dumps(row,sort_keys=True,allow_nan=False)+'\n')
+        ids.add(event_id);previous=row['hash'];count+=1
+    if added:
+        # Preserve every existing byte, but publish a complete extension atomically.
+        # A killed/interrupted writer cannot expose a partial JSON event.
+        prefix=path.read_bytes() if path.exists() else b''
+        temp=path.with_suffix(path.suffix+'.tmp')
+        with temp.open('wb') as stream:
+            stream.write(prefix);stream.write(''.join(added).encode())
+            stream.flush();os.fsync(stream.fileno())
+        temp.replace(path)
     return count
 
 

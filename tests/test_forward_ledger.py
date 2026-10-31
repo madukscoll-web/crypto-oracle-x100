@@ -20,3 +20,15 @@ class LedgerTests(unittest.TestCase):
             result=capture(history,[item],path);row=read(path)[0]['event']
             self.assertEqual(row['model_version'],'LEGACY_UNKNOWN');self.assertIsNone(row['features'])
             self.assertIsNone(result['liquidity_adjusted_returns']);self.assertEqual(capture(history,[item],path)['events_appended'],0)
+
+    def test_interrupted_publish_preserves_prefix_and_retry_recovers(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as folder:
+            path=pathlib.Path(folder)/'events.jsonl'
+            append([{'kind':'TEST','number':1}],path);prefix=path.read_bytes()
+            with patch('pathlib.Path.replace',side_effect=OSError('interrupted')):
+                with self.assertRaises(OSError):append([{'kind':'TEST','number':2}],path)
+            self.assertEqual(path.read_bytes(),prefix)
+            self.assertEqual(len(read(path)),1)
+            append([{'kind':'TEST','number':2}],path)
+            self.assertTrue(path.read_bytes().startswith(prefix));self.assertEqual(len(read(path)),2)
