@@ -59,9 +59,9 @@ def gecko_rows(network,raw,url,mode,at=None):
 class GeckoDiscovery:
     network=None
     def __init__(self,fetch):self.fetch=fetch
-    def discover(self):
+    def discover(self, modes=('new_pools','trending_pools')):
         observations=[];rows=[];failures=[]
-        for mode in ('new_pools','trending_pools'):
+        for mode in modes:
             url=f'{GECKO}/networks/{self.network}/{mode}?include=base_token,quote_token&page=1'
             try:
                 raw=self.fetch(url);at=stamp()

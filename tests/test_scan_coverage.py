@@ -24,6 +24,15 @@ class SessionTests(unittest.TestCase):
             with self.assertRaises(urllib.error.HTTPError):s.json('https://provider.example/a',headers={'x-api-key':'secret-fixture'})
             with self.assertRaises(ProviderUnavailable):s.get('https://provider.example/b')
             self.assertEqual(len(calls),1);self.assertNotIn('secret-fixture',str(s.summary()))
+    def test_retry_after_is_never_shortened(self):
+        now=[100.]
+        def provider(url,*args):
+            raise urllib.error.HTTPError(url,429,'limited',{'Retry-After':'180'},None)
+        session=Session(transport=provider,clock=lambda:now[0],sleeper=lambda _:None)
+        with self.assertRaises(urllib.error.HTTPError):session.get('https://provider.example/a')
+        self.assertEqual(session.cooldown['provider.example'],280)
+        self.assertFalse(session.wait_ready('https://provider.example/a'))
+
     def test_missing_resource_does_not_disable_other_resources(self):
         def provider(url,*args):
             if url.endswith('/a'):raise urllib.error.HTTPError(url,404,'missing',{},None)

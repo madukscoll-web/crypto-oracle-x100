@@ -5,6 +5,8 @@ session; 404 stops that resource; 429/5xx open a cooldown. No automatic retries.
 RPC contract reverts do not disable a healthy RPC host.
 """
 import contextvars
+import datetime as dt
+import email.utils
 import contextlib
 import json
 import math
@@ -80,7 +82,17 @@ class Session:
         except urllib.error.HTTPError as exc:
             if exc.code in (401,402,403):self.denied[host]=exc.code
             elif exc.code in (404,422) and payload is None:self.missing[url]=exc.code
-            elif exc.code==429 or exc.code>=500:self.cooldown[host]=self.clock()+60
+            elif exc.code==429 or exc.code>=500:
+                delay=60.0
+                try:
+                    value=(exc.headers or {}).get('Retry-After','')
+                    try: advertised=float(value)
+                    except ValueError:
+                        target=email.utils.parsedate_to_datetime(value)
+                        advertised=(target-dt.datetime.now(dt.timezone.utc)).total_seconds()
+                    if math.isfinite(advertised) and advertised>0:delay=max(delay,advertised)
+                except (ValueError,TypeError,OverflowError,AttributeError):pass
+                self.cooldown[host]=self.clock()+delay
             self.events.append(dict(host=host,event='HTTP_ERROR',http_status=exc.code))
             raise
         except (OSError,ValueError):
