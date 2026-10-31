@@ -69,3 +69,13 @@ class LaunchpadTests(unittest.TestCase):
         corroborate_bonk([row],rpc)
         self.assertEqual(row['origin_corroboration'],'CONFLICTING')
         self.assertTrue(row['persistent_adverse_reasons'])
+    def test_matching_bytes_in_wrong_program_account_type_do_not_prove_origin(self):
+        import base64
+        from launchpad_discovery import corroborate_bonk, decode58
+        data=b'\0'*173+decode58(BONK_PLATFORM)+decode58(MINT)
+        row={'token_address':MINT,'launchpad_pool_address':MINT}
+        def rpc(url,payload):
+            result=GENESIS if payload['method']=='getGenesisHash' else {'context':{'slot':123},'value':[{'owner':'LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj','executable':False,'data':[base64.b64encode(data).decode(),'base64']}]}
+            return {'id':payload['id'],'result':result}
+        corroborate_bonk([row],rpc)
+        self.assertEqual(row['origin_corroboration'],'CONFLICTING')
