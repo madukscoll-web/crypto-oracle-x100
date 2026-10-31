@@ -8,19 +8,21 @@ import hashlib
 import json
 import pathlib
 import os
+import re
 from asset_identity import key
 
 PATH = pathlib.Path('forward_events.jsonl')
 ZERO = '0'*64
+POLICY_FILES = ('watch_policy.json','canonical_outcomes.py','crypto_oracle_scanner.py','opportunity_alerts.py')
 
 
 def digest(value):
     return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
 
 
-def model_version():
-    root=pathlib.Path(__file__).parent
-    files={name:(root/name).read_text() for name in ('watch_policy.json','canonical_outcomes.py')}
+def model_version(root=None):
+    root=pathlib.Path(root) if root is not None else pathlib.Path(__file__).parent
+    files={name:(root/name).read_text() for name in POLICY_FILES}
     return 'research-policy-sha256:'+digest(files)
 
 
@@ -62,6 +64,10 @@ def append(events,path=PATH):
 def capture(history,items,path=PATH):
     rows=read(path);known={row['event']['pool_key'] for row in rows if row['event']['kind']=='SIGNAL'}
     events=[];version=model_version()
+    revision=os.environ.get('GITHUB_SHA','')
+    revision=revision if re.fullmatch('[0-9a-fA-F]{40}',revision) else None
+    run_id=os.environ.get('GITHUB_RUN_ID','')
+    run_id=run_id if run_id.isascii() and run_id.isdecimal() and 0<len(run_id)<=24 else None
     items=list(items)
     current_keys={item.get('key') for item in items}
     # Seed retained historical signals even when no current candidate matches.
@@ -83,6 +89,8 @@ def capture(history,items,path=PATH):
             events.append(dict(kind='SIGNAL',pool_key=pool,asset_key=identity,network=network,
                 token_address=item['token_address'],at=first['at'],price_usd=first['price_usd'],
                 model_version='LEGACY_UNKNOWN' if imported else version,
+                source_revision=None if imported else revision,source_run_id=None if imported else run_id,
+                import_source_revision=revision if imported else None,import_run_id=run_id if imported else None,
                 model_parameters=None if imported else json.loads(pathlib.Path(__file__).with_name('watch_policy.json').read_text()),
                 classification='LEGACY_RESEARCH_SIGNAL' if imported else item.get('canonical_outcome','INSUFFICIENT EVIDENCE'),
                 historical_import=imported,features=None if imported else {k:item.get(k) for k in ('liquidity','volume','buy_share','change_h1','change_h24')},
@@ -92,7 +100,7 @@ def capture(history,items,path=PATH):
         matched=next((r for r in observations if r['at']==item.get('observed_at')),None)
         if matched:
             events.append(dict(kind='PRICE',pool_key=pool,asset_key=identity,at=matched['at'],price_usd=matched['price_usd'],
-                model_version=version,source=matched['source'],liquidity_usd=item.get('liquidity'),
+                model_version=version,source_revision=revision,source_run_id=run_id,source=matched['source'],liquidity_usd=item.get('liquidity'),
                 liquidity_scope='Provider pool reserve; not executable depth',execution_costs_usd=None))
     count=append(events,path)
     return {'status':'HASH_CHAIN_VERIFIED','events_appended':count,'events_total':len(read(path)),

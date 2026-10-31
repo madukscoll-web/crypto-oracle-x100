@@ -45,3 +45,22 @@ class LedgerTests(unittest.TestCase):
             self.assertEqual(rows[0]['event']['model_version'],'LEGACY_UNKNOWN')
             self.assertIsNone(rows[0]['event']['features'])
             self.assertEqual(capture(history,[],path)['events_appended'],0)
+
+    def test_entry_algorithm_changes_model_hash_without_parameter_change(self):
+        from forward_ledger import model_version,POLICY_FILES
+        with tempfile.TemporaryDirectory() as folder:
+            root=pathlib.Path(folder)
+            for name in POLICY_FILES:(root/name).write_text('fixed fixture policy')
+            before=model_version(root)
+            (root/'crypto_oracle_scanner.py').write_text('changed entry algorithm fixture')
+            self.assertNotEqual(before,model_version(root))
+    def test_current_signal_records_source_revision_without_claiming_legacy_prediction(self):
+        from unittest.mock import patch
+        import os
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ,GITHUB_SHA='a'*40,GITHUB_RUN_ID='12345'):
+            path=pathlib.Path(folder)/'events.jsonl';token='0x'+'b'*40;at='2026-10-31T00:00:00+00:00'
+            history={'base:pool':[{'at':at,'price_usd':1,'token_address':token,'source':'Fixture'}]}
+            item={'key':'base:pool','network':'base','token_address':token,'observed_at':at}
+            capture(history,[item],path);event=read(path)[0]['event']
+            self.assertEqual(event['source_revision'],'a'*40);self.assertEqual(event['source_run_id'],'12345')
+            self.assertFalse(event['historical_import'])
