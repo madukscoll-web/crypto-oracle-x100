@@ -6,40 +6,49 @@ applies fair research rotation. Existing production scanner is unchanged.
 import argparse
 import datetime as dt
 import json
-from discovery_adapters import ADAPTERS, deduplicate, ProfileFallback
+from discovery_adapters import RESEARCH_ADAPTERS, deduplicate, ProfileFallback
 from multichain_candidate_rotation import rotate
 from provider_session import Session
 from global_discovery import EvidenceFetch
 from multichain_research_audit import audit
 from collections import Counter
 
-def run(limit=12, cursor=0, fetch=None, adapters=ADAPTERS, include_profiles=False):
+def run(limit=12, cursor=0, fetch=None, adapters=RESEARCH_ADAPTERS, include_profiles=False):
     if not 1 <= limit <= 100:
         raise ValueError("Invalid limit")
     if fetch is None:
-        with Session(max_requests=80, max_seconds=180) as session:
-            return run(limit, cursor, EvidenceFetch(session), adapters, include_profiles)
-    rows, failures = [], []
+        with Session(max_requests=80, max_seconds=180,
+                     host_intervals={"api.geckoterminal.com": 6.1}) as session:
+            report = run(limit, cursor, EvidenceFetch(session), adapters, include_profiles)
+            report["provider_session"] = session.summary()
+            return report
+    rows, failures, observations = [], [], []
     for adapter in adapters:
         try:
             result = adapter(fetch).discover()
             rows.extend(result["rows"])
             failures.extend(result["failures"])
+            observations.extend(result.get("observations", []))
         except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
             failures.append({"network": adapter.network, "error_type": type(exc).__name__})
     if include_profiles:
         fallback = ProfileFallback(fetch)
-        for network in ("solana", "bsc", "base", "eth"):
+        for network in dict.fromkeys(a.network for a in adapters):
             result = fallback.discover(network, limit=2)
             rows.extend(result["rows"])
             failures.extend(result["failures"])
+            observations.extend(result.get("observations", []))
     assets = deduplicate(rows)
     source_counts = Counter(str(row.get("source") or "UNKNOWN") for row in rows)
-    selection = rotate(assets, per_run=limit, cursor=cursor)
+    selection = rotate(assets, per_run=limit, cursor=cursor,
+                       enabled=tuple(a.network for a in adapters))
     report = {"observed_at": dt.datetime.now(dt.timezone.utc).isoformat(),
             "mode": "READ_ONLY_RESEARCH", "orders_allowed": False,
             "buy_authorized": False, "telegram_transmission": False,
             "observed_pools": len(rows), "unique_tokens": len(assets),
+            "requested_networks": list(dict.fromkeys(a.network for a in adapters)),
+            "observed_by_chain": dict(sorted(Counter(r["network"] for r in rows).items())),
+            "provider_observations": observations,
             "discovery_sources": dict(sorted(source_counts.items())),
             "launchpad_direct_feeds_active": [],
             "selected": [{"network": a["network"], "token_address": a["token_address"],
