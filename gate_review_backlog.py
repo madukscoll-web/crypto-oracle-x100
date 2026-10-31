@@ -46,7 +46,7 @@ def main():
     report_path = Path(a.report)
     report = json.loads(report_path.read_text(encoding="utf-8")) if report_path.exists() else None
     result = summarize(registry, report)
-    Path(a.output).write_text(json.dumps(result, indent=2, sort_keys=True)+"\\n", encoding="utf-8")
+    Path(a.output).write_text(json.dumps(result, indent=2, sort_keys=True)+"\n", encoding="utf-8")
     print(json.dumps(result, sort_keys=True))
 
 
