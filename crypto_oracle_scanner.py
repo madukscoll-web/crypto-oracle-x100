@@ -1025,7 +1025,7 @@ def main():
         warnings.append("Gate paper stage unavailable: " + type(exc).__name__)
     save_watchlist(watchlist)
     signal_tracker.save(history)
-    ledger_status = forward_ledger.capture(history, candidates)
+    ledger_status = forward_ledger.capture(history, selected)
     print(f"Tracked pool histories: {len(history)}", flush=True)
     for hours in signal_tracker.HORIZONS_HOURS:
         values = [result["change_percent"]

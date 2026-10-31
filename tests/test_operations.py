@@ -174,6 +174,32 @@ class ScanOperationTests(unittest.TestCase):
                 scanner.main()
         self.assertEqual(scanner.load_watchlist()[item['key']], original)
 
+    def test_revisited_signal_absent_from_discovery_reaches_forward_ledger(self):
+        import datetime as dt
+        import forward_ledger
+        from test_signals import sample
+        token='0x'+'a'*40;pool='0x'+'b'*40;pool_key='base:'+pool
+        stamp=dt.datetime.now(dt.timezone.utc)
+        item=sample(key=pool_key,address=pool,token_address=token,pool_class='EXISTING POOL',
+                    observed_at=stamp.isoformat(),base_token_price_usd=1.25)
+        scanner.save_watchlist({pool_key:{'network':'base','pool_address':pool,'observed_at':'2020-01-01','setup':'WAIT'}})
+        scanner.signal_tracker.save({pool_key:[{'at':(stamp-dt.timedelta(days=1)).isoformat(),
+            'price_usd':1,'token_address':token,'source':'Fixture indicative history'}]})
+        with patch.object(scanner,'fetch_json',side_effect=[{'data':[]},{'data':[]},{'data':{'id':'tracked'}}]), \
+             patch.object(scanner,'inspect',return_value=item), patch.object(scanner,'enrich'), \
+             patch.object(scanner.fundamental_evidence,'collect',return_value={}), \
+             patch.object(scanner.evidence_checks,'review',return_value={}), \
+             patch.object(scanner.market_corroboration,'check',return_value={'status':'UNKNOWN'}), \
+             patch.object(scanner,'entry_setup',return_value=('MOMENTUM WATCH','Fixture')), \
+             patch.object(scanner,'price_evidence',return_value=(True,'Fixture')), \
+             patch.object(scanner,'watchlist_transition',return_value=None), \
+             patch.object(scanner.gate_spot_candidates,'hourly',return_value={'errors':[],'candidates':[]}):
+            report=scanner.main()
+        self.assertEqual(report['candidates'],0)
+        events=forward_ledger.read()
+        self.assertEqual([r['event']['kind'] for r in events],['SIGNAL','PRICE'])
+        self.assertEqual(events[-1]['event']['price_usd'],1.25)
+
     def test_nonfinite_number_rejected(self):
         for value in ('NaN', 'Infinity', '-Infinity'):
             self.assertEqual(scanner.number(value), 0)

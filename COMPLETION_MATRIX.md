@@ -14,13 +14,13 @@ explicitly not historical or live provider evidence.
 | 1 | Current main, Issue #6, PRs through #30 and diagnostics audit | PARTIAL | GitHub source/history inspected; primary discovery, evidence, notification and ledger paths reviewed. Not a comprehensive independent contract/security audit of every dependency. PR #30's Stonk integration preserved. |
 | 2 | Authenticated, attributed launchpad discovery and origin | PARTIAL | Official pump IDL/create instructions/events implemented over HTTPS mainnet RPC; bounded live probe returned valid RPC responses with zero creates. Five real LetsBONK API rows independently corroborated against finalized Raydium-owned pool platform/mint bytes; no token-suffix inference. Stonk is provider-attested and can be empty. Four.meme docs HTTP 403, official usable API/schema/program mapping not established. This is source authentication and narrow origin evidence, not an independent security audit. |
 | 3 | Eight-network reliability, bounds, concurrency, retries, health, dedup/rotation | PARTIAL | Live probe observed all eight networks. At most three independent provider groups, serial paced calls within a provider, per-provider time/request budgets, Retry-After respected. All new-pool chains visited before trending; durable cursor changes fetch start, least-recently-selected identities prioritized. Two trending requests exhausted budget in probe; continuous provider availability is not guaranteed. Persistent state stored by hourly workflow; post-deployment confirmation required. |
-| 4 | Winners and comparable failed-launch historical reconstruction | BLOCKED | Empty `historical_cohort.json` is explicit, not fabricated data. Real launch-era SHIB and Chainlink history endpoints returned HTTP 401. Representative failure-inclusive cohort, point-in-time holders/supply/unlocks and executable entry/exit depth/costs remain absent. Current charts cannot reconstruct these facts. |
+| 4 | Winners and comparable failed-launch historical reconstruction | BLOCKED | Empty `historical_cohort.json` is explicit, not fabricated data. Real launch-era SHIB and Chainlink history endpoints returned HTTP 401. A separate non-production descriptive study now verifies 75 public Binance Vision archives for BNB/SHIB/old LUNA, with explicit chart-only limitations and no production-model use. Representative failure-inclusive cohort, point-in-time holders/supply/unlocks and executable entry/exit depth/costs remain absent. Current charts cannot reconstruct these facts. |
 | 5 | Separate ranking, walk-forward and holdout validation | PARTIAL | `research_validation.py` implements separately versioned meme and utility fixed heuristics; provenance/time checks, asset overlap rejection, purged matured training windows, final temporal holdout, per-type metrics and execution-cost/depth checks. Real dataset absent: report BLOCKED. Synthetic tests verify mechanics only; no predictive validation, calibration or 100x claim. |
 | 6 | Full security, controls, owners, tokenomics, backing, market/execution evidence | BLOCKED | Existing bounded evidence collectors preserved. Complete beneficial ownership, LP controls, supply/vesting/bridge-reserve proof and funded two-way executable quotes are not established. Narrow chain observations cannot fill these gaps. Original independent BUY audit remains fail-closed. No issuer review or credential forged. |
 | 7 | Five canonical outcomes | PARTIAL | `canonical_outcomes.py` emits the common policy in scanner and discovery artifacts. REJECT differs from INSUFFICIENT EVIDENCE; existing preliminary/candle watches remain RESEARCH WATCH when critical gaps exist. ENTRY WATCH requires a complete original audit with no critical gaps; VERIFIED BUY reuses original authorization. Those positive evidence paths remain unavailable with current missing verification, not manufactured. No caller label/boolean authorizes BUY. |
 | 8 | Rejection suppression, internal records and Telegram | PARTIAL | Existing default-deny send paths preserved; canonical records remain in diagnostics. Actual baseline production Telegram delivery verified previously. New commit's live delivery and suppression require post-merge logs/artifact inspection. No live test token or recommendation sent merely for testing. |
 | 9 | Immutable timestamped forward performance, costs, false positives, model history | PARTIAL | New append-only hash-linked JSONL records model hash/parameters and contemporaneous observations; corrupt chains reject writes. Legacy entry imports marked LEGACY_UNKNOWN without invented historical features/model predictions. Original timestamps retained. Sampled drawdowns/horizons remain operational. Without authenticated historical/live execution costs and mature labelled outcomes, liquidity-adjusted returns and false positives stay null. Hash links detect altered content; they are not external immutable storage or protection from full-history replacement. |
-| 10 | Compile, regression, adversarial, integration and production checks | PARTIAL | Compilation plus 457 tests passed locally. Live API/RPC probes and rejected/unknown decision tests retained. CI and post-deployment results are recorded in the final execution report, not presumed from local success. |
+| 10 | Compile, regression, adversarial, integration and production checks | PARTIAL | Compilation plus 458 tests passed locally. Live API/RPC probes and rejected/unknown decision tests retained. CI and post-deployment results are recorded in the final execution report, not presumed from local success. |
 | 11 | PR, successful required checks, merge and production verification | PARTIAL | Changes prepared for reviewable commits; merge/deployment must follow successful checks. Final report supersedes this as-of-commit status only when real evidence exists. |
 | 12 | Evidence-linked final matrix with unresolved dependencies | COMPLETE | This matrix identifies each requirement as COMPLETE/PARTIAL/BLOCKED/FAILED and links source/probe files. No unresolved requirement is described as complete. |
 
@@ -91,3 +91,24 @@ Solana LP control coverage unknown, preserves adverse vetoes before schema handl
 and records safe frame locations without credentials. No successful deployment of
 that earlier run is claimed. Final production status is reported only after the
 corrected source has actually run.
+
+
+Forward-ledger revisit correction: an end-to-end scanner regression with empty
+discovery feeds and a refreshed tracked pool reproduced missing forward events.
+Capture now receives the actual assessed `selected` set, including tracked-pool
+revisits, instead of only fresh discovery candidates. The original entry and the
+new accepted price both reach the ledger. All 458 tests pass after this correction.
+
+Historical descriptive context (not a model validation cohort):
+`research/nonproduction/historical-context.json` and `archive-manifest.json`
+contain real, checksum-verified venue candle observations. BNB's retained
+2017-11 to 2021-11 daily-close path has a 430.39x maximum chart multiple from the
+first retained close, with an 80.02% sampled close drawdown. SHIB's retained
+2021-05 to 2022-05 path has only 2.28x maximum daily-close multiple from the first
+retained close; earlier widely quoted multiples cannot be assumed executable at
+this venue/time. Old LUNA's retained path ends before Terra 2.0 ticker reuse and
+shows a 99.9997% sampled close drawdown. These are USDT-denominated hypothetical
+chart statistics, NOT executed returns, exact launch prices or independent token
+identity/holder/tokenomics reconstruction. This convenience sample is not a
+matched launch cohort and cannot validate predictive models. Dataset attribution
+and CC BY-NC-SA 4.0 restrictions are scoped in that separate non-production folder.
