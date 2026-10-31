@@ -32,3 +32,16 @@ class LedgerTests(unittest.TestCase):
             self.assertEqual(len(read(path)),1)
             append([{'kind':'TEST','number':2}],path)
             self.assertTrue(path.read_bytes().startswith(prefix));self.assertEqual(len(read(path)),2)
+
+    def test_retained_signal_is_imported_without_fresh_discovery_or_price(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path=pathlib.Path(folder)/'events.jsonl';token='0x'+'a'*40
+            history={'base:old-pool':[{'at':'2026-10-01T00:00:00+00:00','price_usd':1,
+                'token_address':token,'source':'Retained indicative observation'}]}
+            result=capture(history,[],path);rows=read(path)
+            self.assertEqual(result['events_appended'],1)
+            self.assertEqual(rows[0]['event']['kind'],'SIGNAL')
+            self.assertEqual(rows[0]['event']['at'],'2026-10-01T00:00:00+00:00')
+            self.assertEqual(rows[0]['event']['model_version'],'LEGACY_UNKNOWN')
+            self.assertIsNone(rows[0]['event']['features'])
+            self.assertEqual(capture(history,[],path)['events_appended'],0)

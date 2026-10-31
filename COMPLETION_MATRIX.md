@@ -20,7 +20,7 @@ explicitly not historical or live provider evidence.
 | 7 | Five canonical outcomes | PARTIAL | `canonical_outcomes.py` emits the common policy in scanner and discovery artifacts. REJECT differs from INSUFFICIENT EVIDENCE; existing preliminary/candle watches remain RESEARCH WATCH when critical gaps exist. ENTRY WATCH requires a complete original audit with no critical gaps; VERIFIED BUY reuses original authorization. Those positive evidence paths remain unavailable with current missing verification, not manufactured. No caller label/boolean authorizes BUY. |
 | 8 | Rejection suppression, internal records and Telegram | PARTIAL | Existing default-deny send paths preserved; canonical records remain in diagnostics. Actual baseline production Telegram delivery verified previously. New commit's live delivery and suppression require post-merge logs/artifact inspection. No live test token or recommendation sent merely for testing. |
 | 9 | Immutable timestamped forward performance, costs, false positives, model history | PARTIAL | New append-only hash-linked JSONL records model hash/parameters and contemporaneous observations; corrupt chains reject writes. Legacy entry imports marked LEGACY_UNKNOWN without invented historical features/model predictions. Original timestamps retained. Sampled drawdowns/horizons remain operational. Without authenticated historical/live execution costs and mature labelled outcomes, liquidity-adjusted returns and false positives stay null. Hash links detect altered content; they are not external immutable storage or protection from full-history replacement. |
-| 10 | Compile, regression, adversarial, integration and production checks | PARTIAL | Compilation plus 458 tests passed locally. Live API/RPC probes and rejected/unknown decision tests retained. CI and post-deployment results are recorded in the final execution report, not presumed from local success. |
+| 10 | Compile, regression, adversarial, integration and production checks | PARTIAL | Compilation plus 459 tests passed locally. Live API/RPC probes and rejected/unknown decision tests retained. CI and post-deployment results are recorded in the final execution report, not presumed from local success. |
 | 11 | PR, successful required checks, merge and production verification | PARTIAL | Changes prepared for reviewable commits; merge/deployment must follow successful checks. Final report supersedes this as-of-commit status only when real evidence exists. |
 | 12 | Evidence-linked final matrix with unresolved dependencies | COMPLETE | This matrix identifies each requirement as COMPLETE/PARTIAL/BLOCKED/FAILED and links source/probe files. No unresolved requirement is described as complete. |
 
@@ -97,7 +97,7 @@ Forward-ledger revisit correction: an end-to-end scanner regression with empty
 discovery feeds and a refreshed tracked pool reproduced missing forward events.
 Capture now receives the actual assessed `selected` set, including tracked-pool
 revisits, instead of only fresh discovery candidates. The original entry and the
-new accepted price both reach the ledger. All 458 tests pass after this correction.
+new accepted price both reach the ledger. All 459 tests pass after this correction.
 
 Historical descriptive context (not a model validation cohort):
 `research/nonproduction/historical-context.json` and `archive-manifest.json`
@@ -112,3 +112,10 @@ chart statistics, NOT executed returns, exact launch prices or independent token
 identity/holder/tokenomics reconstruction. This convenience sample is not a
 matched launch cohort and cannot validate predictive models. Dataset attribution
 and CC BY-NC-SA 4.0 restrictions are scoped in that separate non-production folder.
+
+
+Ledger bootstrap correction: all retained legacy signals are imported once into
+the hash-linked log even when a run has no corresponding discovery/refresh item.
+Their original entry timestamp/price and unknown model lineage are preserved;
+no new price, historical feature, verified security claim or model prediction is
+invented. A regression checks empty-current-discovery import and repeat deduplication.
