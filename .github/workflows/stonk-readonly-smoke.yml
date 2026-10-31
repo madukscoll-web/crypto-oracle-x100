@@ -1,0 +1,32 @@
+name: StonkFun read-only API smoke test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-launch-feed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate StonkFun recent-launch response
+        run: |
+          python -m unittest discover -s tests -p 'test_stonk_launch_discovery.py' -v
+          python - <<'PY'
+          import json
+          from stonk_launch_discovery import run
+          result = run()
+          print(json.dumps({
+              "source": result["source_url"],
+              "observed_tokens": result["count"],
+              "invalid_rows": result["invalid_rows"],
+              "buy_authorized": result["buy_authorized"],
+              "telegram_transmission": result["telegram_transmission"]
+          }))
+          PY
