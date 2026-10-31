@@ -14,6 +14,9 @@ PUMP = '6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P'
 PUMP_DOC = 'https://github.com/pump-fun/pump-public-docs/blob/main/idl/pump.json'
 CREATE = {bytes([24,30,200,40,5,28,7,119]): 'create', bytes([214,144,76,236,95,139,49,180]): 'create_v2'}
 BONK_PLATFORM = '8pCtbn9iatQ8493mDQax4xfEUjhoVBpUWYVQoRU18333'
+# Leading PoolState marker observed in the five independently fetched live pool accounts.
+# Unknown account types/versions are not interpreted as this pool layout.
+BONK_POOL_MARKER = bytes.fromhex('f7ede3f5d7c3de46')
 BONK_DOC = 'https://github.com/raydium-io/raydium-sdk-V2-demo/blob/master/src/launchpad/createBonkMintApi.ts'
 BONK_URL = 'https://launch-mint-v1.raydium.io/get/list?platformId='+BONK_PLATFORM+'&sort=new&size=5&mintType=default&includeNsfw=false'
 
@@ -160,12 +163,13 @@ def corroborate_bonk(rows, request):
             data=base64.b64decode(value['data'][0],validate=True)
             if value['data'][1]!='base64' or len(data)<237:raise ValueError('Unsupported pool layout')
             match=(value.get('owner')=='LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj'
-                and value.get('executable') is False and encode58(data[173:205])==BONK_PLATFORM
+                and value.get('executable') is False and data[:8]==BONK_POOL_MARKER
+                and encode58(data[173:205])==BONK_PLATFORM
                 and encode58(data[205:237])==row['token_address'])
             row['origin_corroboration']='POOL_PLATFORM_MINT_CORROBORATED_SINGLE_RPC' if match else 'CONFLICTING'
             row['origin_slot']=slot
             if match:row['launchpad_origin_status']='API_AND_PROGRAM_STATE_CORROBORATED — NOT AN INDEPENDENT SECURITY AUDIT'
-            else:row['persistent_adverse_reasons']=['Launchpad API and finalized pool platform/mint ownership conflict']
+            else:row['persistent_adverse_reasons']=['Launchpad API and finalized pool program/account-type/platform/mint conflict']
     except (OSError,ValueError,TypeError,KeyError,AttributeError,IndexError) as exc:
         failures.append({'source':'LetsBONK on-chain corroboration','error_type':type(exc).__name__,'http_status':getattr(exc,'code',None)})
     return {'observations':evidence,'failures':failures}

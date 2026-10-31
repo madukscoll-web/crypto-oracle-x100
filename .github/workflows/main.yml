@@ -11,6 +11,7 @@ on:
       - canonical_outcomes.py
       - research_state.py
       - forward_ledger.py
+      - workflow_state.py
       - launchpad_discovery.py
       - research_validation.py
       - tests/test_multichain_live_research.py
@@ -68,6 +69,9 @@ jobs:
               sys.exit(1)
           print('Required Telegram secrets are configured (values withheld).')
           PYTHON
+      - name: Refresh persisted scanner state
+        id: state_refresh
+        run: python workflow_state.py refresh
       - name: Run scanner
         id: scan
         timeout-minutes: 15
@@ -116,37 +120,7 @@ jobs:
       - name: Save scanner state
         id: state
         if: always() && steps.scan.outcome != 'skipped'
-        run: |
-          if [ -f research_discovery_state.json ] || [ -f forward_events.jsonl ] || [ -f reported_pools.json ] || [ -f watchlist_state.json ] || [ -f signal_history.json ] || [ -f gate_paper_history.json ]; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            if [ -f research_discovery_state.json ]; then git add research_discovery_state.json; fi
-            if [ -f forward_events.jsonl ]; then git add forward_events.jsonl; fi
-            if [ -f reported_pools.json ]; then git add reported_pools.json; fi
-            if [ -f watchlist_state.json ]; then git add watchlist_state.json; fi
-            if [ -f signal_history.json ]; then git add signal_history.json; fi
-            if [ -f gate_paper_history.json ]; then git add gate_paper_history.json; fi
-            if ! git diff --cached --quiet; then
-              git commit -m "Update reported pool IDs [skip ci]"
-              # Another commit may arrive while the scanner runs.
-              # Rebase the state-only commit rather than force-pushing.
-              for attempt in 1 2 3; do
-                git fetch origin "$GITHUB_REF_NAME"
-                if ! git rebase "origin/$GITHUB_REF_NAME"; then
-                  git rebase --abort || true
-                  echo "State update conflicted; refusing to overwrite branch changes."
-                  exit 1
-                fi
-                if git push origin "HEAD:$GITHUB_REF_NAME"; then
-                  exit 0
-                fi
-                echo "Concurrent push detected; retrying ($attempt/3)."
-                sleep 2
-              done
-              echo "Could not save reported IDs after three attempts."
-              exit 1
-            fi
-          fi
+        run: python workflow_state.py publish
       - name: Notify Telegram on successful scan completion
         if: success() && steps.scan.outcome == 'success'
         env:
@@ -158,7 +132,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          FAILED_STAGES: compile=${{ steps.compile.outcome }}, tests=${{ steps.tests.outcome }}, config=${{ steps.telegram_config.outcome }}, scan=${{ steps.scan.outcome }}, state=${{ steps.state.outcome }}
+          FAILED_STAGES: compile=${{ steps.compile.outcome }}, tests=${{ steps.tests.outcome }}, config=${{ steps.telegram_config.outcome }}, state_refresh=${{ steps.state_refresh.outcome }}, scan=${{ steps.scan.outcome }}, state=${{ steps.state.outcome }}
         run: python telegram_notify.py failure
       - name: Retain scan diagnostics and state snapshot
         if: always()
@@ -170,6 +144,8 @@ jobs:
           path: |
             historical_validation_report.json
             forward_events.jsonl
+            workflow_state_base.json
+            state_publish_report.json
             research_discovery_state.json
             stonk_launch_report.json
             multichain_research_report.json
