@@ -8,7 +8,23 @@ VERSION = 'canonical-outcomes-v1'
 
 def assess(item, now=None):
     # Recompute; never consume a caller-provided decision or buy_eligible boolean.
-    legacy = opportunity_alerts.classify(item, now=now)
+    report=item.get('verification') or {}
+    adverse=[]
+    if isinstance(report,dict):
+        for name in opportunity_alerts.CRITICAL:
+            record=report.get(name)
+            if isinstance(record,dict) and record.get('status') in ('FAIL','FAILED','CONFLICTING','HIGH CONCERN'):
+                adverse.append(name+': '+str(record.get('reason','Adverse evidence')))
+    if item.get('risk_category')=='AVOID / HIGH CONCERN':adverse.append('Critical provider/security concern')
+    if adverse:
+        legacy={'classification':'REJECT','eligible_for_buy':False,'reasons':adverse,'missing_checks':[]}
+    else:
+        try:
+            legacy = opportunity_alerts.classify(item, now=now)
+        except (ValueError,TypeError,KeyError,AttributeError,OverflowError) as exc:
+            legacy={'classification':'INELIGIBLE','eligible_for_buy':False,
+                'reasons':['Evidence structure unavailable: '+type(exc).__name__],
+                'missing_checks':['Classification withheld until evidence schema is supported']}
     label = legacy['classification']
     if label == 'REJECT':
         outcome = 'REJECT'
