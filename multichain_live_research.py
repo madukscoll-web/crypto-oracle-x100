@@ -89,12 +89,13 @@ def run(limit=12,cursor=0,fetch=None,adapters=RESEARCH_ADAPTERS,include_profiles
     rows=[r for part in parts for r in part['rows']]
     failures=[r for part in parts for r in part['failures']]
     observations=[r for part in parts for r in part['observations']]
-    assets=deduplicate(rows)
+    assets=research_state.retain_adverse(deduplicate(rows),state)
     if state is not None:assets=research_state.prioritize(assets,state)
     selection=rotate(assets,per_run=limit,cursor=cursor,enabled=tuple(a.network for a in adapters))
     at=dt.datetime.now(dt.timezone.utc).isoformat();selected=[]
     for asset in selection['selected']:
-        pools=asset['pools'];representative=next((p for p in pools if p.get('address')),pools[0])
+        pools=asset['pools'];representative=dict(next((p for p in pools if p.get('address')),pools[0]))
+        representative['persistent_adverse_reasons']=asset['persistent_adverse_reasons']
         platforms=sorted({p['launchpad'] for p in pools if p.get('launchpad')})
         selected.append(dict(network=asset['network'],token_address=asset['token_address'],asset_key=asset['asset_key'],
             pool_count=sum(bool(p.get('address')) for p in pools),
