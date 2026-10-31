@@ -1,0 +1,192 @@
+{
+  "runtime_source": "8bb1616ba4fbc63f65b703d15e758aba6837ac6b",
+  "production_run": 41196305974,
+  "ci_run": 41196306001,
+  "tests_passed": 468,
+  "artifact_id": 13041222636,
+  "artifact_sha256": "642490a5bada82a941278899f2649d97d2e17adff0910d846de8ce1e9f42c4f1",
+  "scan": {
+    "status": "completed",
+    "observations": 320,
+    "candidates": 52,
+    "alerts_delivered": 0,
+    "successful_feeds": 16,
+    "classification_counts": {
+      "VERIFIED BUY": 0,
+      "ENTRY WATCH": 0,
+      "RESEARCH WATCH": 0,
+      "REJECT": 5,
+      "INSUFFICIENT EVIDENCE": 1
+    },
+    "forward_ledger": {
+      "status": "HASH_CHAIN_VERIFIED",
+      "events_appended": 0,
+      "events_total": 10,
+      "model_version": "research-policy-sha256:f25a29b7ee9e0817578935969f4a5eeae7aa71576b4b775ac586c7498f65ec09",
+      "liquidity_adjusted_returns": null,
+      "false_positive_rate": null,
+      "limitation": "No authenticated size-specific round-trip execution costs or mature labelled cohort; no adjusted return or false-positive rate inferred"
+    }
+  },
+  "discovery": {
+    "observed_by_chain": {
+      "arbitrum": 20,
+      "avax": 12,
+      "base": 20,
+      "bsc": 21,
+      "polygon_pos": 20,
+      "solana": 8
+    },
+    "observed_pools": 96,
+    "unique_tokens": 92,
+    "fetch_order": [
+      "base",
+      "bsc",
+      "arbitrum",
+      "polygon_pos",
+      "avax",
+      "optimism",
+      "solana",
+      "eth"
+    ],
+    "next_cursor": 3,
+    "classification_counts": {
+      "INSUFFICIENT EVIDENCE": 12
+    },
+    "failures": [
+      {
+        "url": "https://api.geckoterminal.com/api/v2/networks/optimism/new_pools?include=base_token,quote_token&page=1",
+        "error_type": "HTTPError",
+        "http_status": 429
+      },
+      {
+        "url": "https://api.geckoterminal.com/api/v2/networks/solana/new_pools?include=base_token,quote_token&page=1",
+        "error_type": "ProviderUnavailable",
+        "http_status": null
+      },
+      {
+        "url": "https://api.geckoterminal.com/api/v2/networks/eth/new_pools?include=base_token,quote_token&page=1",
+        "error_type": "ProviderUnavailable",
+        "http_status": null
+      },
+      {
+        "url": "https://api.geckoterminal.com/api/v2/networks/base/trending_pools?include=base_token,quote_token&page=1",
+        "error_type": "ProviderUnavailable",
+        "http_status": null
+      },
+      {
+        "url": "https://api.geckoterminal.com/api/v2/networks/bsc/trending_pools?include=base_token,quote_token&page=1",
+        "error_type": "ProviderUnavailable",
+        "http_status": null
+      },
+      {
+        "url": "https://api.geckoterminal.com/api/v2/networks/arbitrum/trending_pools?include=base_token,quote_token&page=1",
+        "error_type": "ProviderUnavailable",
+        "http_status": null
+      },
+      {
+        "url": "https://api.geckoterminal.com/api/v2/networks/polygon_pos/trending_pools?include=base_token,quote_token&page=1",
+        "error_type": "ProviderUnavailable",
+        "http_status": null
+      },
+      {
+        "url": "https://api.geckoterminal.com/api/v2/networks/avax/trending_pools?include=base_token,quote_token&page=1",
+        "error_type": "ProviderUnavailable",
+        "http_status": null
+      },
+      {
+        "url": "https://api.geckoterminal.com/api/v2/networks/optimism/trending_pools?include=base_token,quote_token&page=1",
+        "error_type": "ProviderUnavailable",
+        "http_status": null
+      },
+      {
+        "url": "https://api.geckoterminal.com/api/v2/networks/solana/trending_pools?include=base_token,quote_token&page=1",
+        "error_type": "ProviderUnavailable",
+        "http_status": null
+      },
+      {
+        "url": "https://api.geckoterminal.com/api/v2/networks/eth/trending_pools?include=base_token,quote_token&page=1",
+        "error_type": "ProviderUnavailable",
+        "http_status": null
+      }
+    ]
+  },
+  "publication": {
+    "status": "PUBLISHED",
+    "source_revision": "8bb1616ba4fbc63f65b703d15e758aba6837ac6b",
+    "state_base_revision": "8bb1616ba4fbc63f65b703d15e758aba6837ac6b",
+    "parent_revision": "8bb1616ba4fbc63f65b703d15e758aba6837ac6b",
+    "attempt": 1,
+    "completed_at": "2026-10-31T11:26:43.443125+00:00",
+    "commit": "1c4ad9a0c35979e2d19fb6e1ab78d54f55d4c454",
+    "state_blobs": {
+      "reported_pools.json": "ba9c59a027c349363b621dc7bb730d39edf5aeec",
+      "watchlist_state.json": "289e79e222bedbd8337910155c5b029bb867f548",
+      "signal_history.json": "e94d561fc8be541157959a590dca1506fb667176",
+      "gate_paper_history.json": "171213843df2f2f028f0d0e59990b3febbf8d953",
+      "research_discovery_state.json": "e4867a3b9f26248da66f8f2ec9f22be0ef228b93",
+      "forward_events.jsonl": "09c08e62b3dce4d444f21cc069354c8637448bae"
+    }
+  },
+  "published_blobs_match_artifact": {
+    "reported_pools.json": true,
+    "watchlist_state.json": true,
+    "signal_history.json": true,
+    "gate_paper_history.json": true,
+    "research_discovery_state.json": true,
+    "forward_events.jsonl": true
+  },
+  "retained_identity_count": 36,
+  "ledger_events": 10,
+  "ledger_event_types": {
+    "SIGNAL": 10
+  },
+  "legacy_import_count": 10,
+  "all_entry_anchors_match_history": true,
+  "signal_history_count": 10,
+  "signal_price_samples": 12,
+  "historical_validation": {
+    "scope": "OFFLINE_SOURCE_CONSISTENCY_ONLY",
+    "probabilities_calibrated": false,
+    "buy_authorized": false,
+    "orders_allowed": false,
+    "models": {
+      "meme-v1": {
+        "type": "meme",
+        "weights": {
+          "liquidity_valuation": 0.3,
+          "organic_wallet_growth": 0.25,
+          "flow_quality": 0.25,
+          "momentum_quality": 0.2
+        }
+      },
+      "utility-v1": {
+        "type": "utility",
+        "weights": {
+          "liquidity_valuation": 0.2,
+          "retained_users": 0.25,
+          "revenue_quality": 0.25,
+          "developer_retention": 0.15,
+          "dilution_quality": 0.15
+        }
+      }
+    },
+    "records": 0,
+    "status": "BLOCKED",
+    "reason": "No source-bound winners-and-failures cohort",
+    "blockers": [
+      "No representative launch cohort with failed and successful tokens and verifiable launch-era entry depth/costs",
+      "Contemporaneous holders, supply, vesting and feature-availability archives not established",
+      "No historical multiple or predictive calibration inferred from modern chart prices"
+    ],
+    "folds": [],
+    "holdout": null
+  },
+  "telegram": {
+    "provider": "Telegram Bot API",
+    "actual_completion_receipt_confirmed": true,
+    "log_timestamp_utc": "2026-10-31T11:26:45.0549541Z",
+    "message_id_present": true,
+    "credentials_or_chat_details_retained": false
+  }
+}
