@@ -119,9 +119,8 @@ def findings(item):
 
 
 def adverse(item):
-    report = item.get('verification') or {}
-    return any((report.get(k) or {}).get('status') in ('FAIL', 'FAILED', 'HIGH CONCERN', 'CONFLICTING')
-               for k in ('contract_security', 'sellability', 'tokenomics', 'supply_comparison'))
+    from adverse_evidence import findings
+    return bool(findings(item))
 
 
 def telegram_lines(item):

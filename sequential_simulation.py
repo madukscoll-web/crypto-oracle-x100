@@ -27,7 +27,7 @@ def delta(logs,token,taker):
     return net
 
 
-def simulate(rpc,quotes,taker):
+def request_for(quotes,taker):
     calls=[]
     for leg in quotes:
         tx=leg['raw']['transaction']
@@ -48,7 +48,19 @@ def simulate(rpc,quotes,taker):
     sequence=[balance_call(token),balance_call(funding),calls[0],balance_call(token),
               balance_call(funding),calls[1],balance_call(token),balance_call(funding)]
     payload=dict(blockStateCalls=[dict(calls=sequence)],validation=True,traceTransfers=True,returnFullTransactions=False)
+    return payload
+
+
+def simulate(rpc,quotes,taker):
+    payload = request_for(quotes, taker)
     raw=rpc.call('eth_simulateV1',[payload,rpc.block['number']])
+    return validate_result(raw, quotes, taker)
+
+
+def validate_result(raw, quotes, taker):
+    """Recompute simulated balance/log proof; no supplied success flag is used."""
+    if not isinstance(quotes, list) or len(quotes) != 2:
+        raise ValueError('Exactly two quote legs required')
     if not isinstance(raw,list) or len(raw)!=1 or len(raw[0].get('calls',[]))!=8:
         raise ValueError('Invalid sequential simulation result')
     results=raw[0]['calls']

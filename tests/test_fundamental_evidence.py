@@ -75,7 +75,7 @@ class FundamentalsTests(unittest.TestCase):
                               holder_distribution_verified=True, executable_quote_verified=True))
         self.assertIn('independent sellability not verified', r['blockers'])
         self.assertFalse(r['buy_eligible'])
-        self.assertEqual(r['decision'], 'WAIT / VERIFY')
+        self.assertEqual(r['decision'], 'WAIT/VERIFY')
 
     def test_large_unlock_and_missing_holders(self):
         r = gates.assess(item(circulating_supply=100, unlock_amount=80))
@@ -96,7 +96,7 @@ class FundamentalsTests(unittest.TestCase):
 
     def test_old_pool_is_not_token_age_evidence(self):
         r = gates.assess(item(age_hours=100000, token_age='UNVERIFIED'))
-        self.assertEqual(r['decision'], 'WAIT / VERIFY')
+        self.assertEqual(r['decision'], 'WAIT/VERIFY')
         self.assertFalse(r['buy_eligible'])
 
     def test_alert_safety_and_scenarios_survive_truncation(self):

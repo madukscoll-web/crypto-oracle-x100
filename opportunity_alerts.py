@@ -14,9 +14,10 @@ from urllib.parse import urlsplit
 import evidence_audit
 import verification
 import telegram_validation
+import adverse_evidence
 
 ACTIVE={'HIGH-PRIORITY WATCH','ENTRY WATCH','VERIFIED BUY'}
-CRITICAL=('contract_security','sellability','tokenomics','supply_comparison','tokenized_stock_reference','nft_custody')
+CRITICAL=adverse_evidence.CHECKS
 
 
 def number(value):
@@ -57,10 +58,13 @@ def score(item,config):
 
 
 def classify(item,config=None,now=None):
-    import crypto_oracle_scanner as scanner
     now=dt.datetime.now(dt.timezone.utc).timestamp() if now is None else now
     config=config or policy();e=item.get('verification') or {}
+    malformed = not isinstance(e, dict) or any(not isinstance(v, dict) for v in e.values())
+    if not isinstance(e, dict):e={}
     missing=item.get('mandatory_blockers') or []
+    if not isinstance(missing,list):missing=['Malformed mandatory evidence blockers']
+    if malformed:missing=['Malformed verification records; independent evidence unavailable']
     if not missing:
         import candidate_evidence
         missing=candidate_evidence.blockers(item)
@@ -68,14 +72,26 @@ def classify(item,config=None,now=None):
                 risks=['Can lose the entire allocation; liquidity and exits may disappear','Advanced verification incomplete; no executable entry or guaranteed return'],
                 entry=None,observed_at=item.get('observed_at'),eligible_for_buy=False)
     failed=list(item.get('persistent_adverse_reasons') or [])
-    failed += [k+': '+e[k].get('reason','Adverse evidence') for k in CRITICAL if e.get(k,{}).get('status') in ('FAIL','CONFLICTING','HIGH CONCERN')]
+    failed += [k+': '+reason for k, reason in adverse_evidence.findings(item).items()]
     failed.extend('Prior '+x.get('check','evidence')+': unresolved adverse evidence' for x in item.get('unresolved_prior_adverse_evidence',[]))
     if item.get('risk_category')=='AVOID / HIGH CONCERN':failed.extend(item.get('risk_reasons') or ['Critical security concern'])
     if failed:
         result.update(classification='REJECT',reasons=failed);return result
+    if malformed:
+        result['reasons']=['Malformed verification records; classification withheld'];return result
     # Caller booleans, scores and watch classifications can never grant BUY.
-    if scanner.decision_summary(item)[0]=='BUY CANDIDATE — REVIEW ENTRY' and evidence_audit.audit(item)['trade_ready'] is True and scanner.validate_execution_evidence(item):
-        result.update(classification='VERIFIED BUY',eligible_for_buy=True,reasons=['Original independent mandatory gates passed']);return result
+    import authenticated_admission
+    admission = authenticated_admission.evaluate(item, now=now)
+    if admission['admitted']:
+        result.update(classification='VERIFIED BUY',eligible_for_buy=True,missing_checks=[],
+                      reasons=['Authenticated independent mandatory gates passed; manual review required'],
+                      risks=['Entire allocation can be lost; liquidity and exits may disappear',
+                             'Quotes expire; simulation and review cannot guarantee future execution']);return result
+    if admission['safety_verified']:
+        result.update(classification='HIGH-PRIORITY WATCH',missing_checks=['Signed entry monitoring required'],
+                      reasons=['Authenticated mandatory safety evidence passed; signed entry review requires monitoring'],
+                      risks=['Entire allocation can be lost; no BUY signal; recheck fresh evidence'])
+        return result
     if item.get('refresh_failed') or item.get('discovery_eligible') is False:
         result['reasons']=['Market refresh unavailable or original market filters failed'];return result
     try:
@@ -178,13 +194,16 @@ def failed(state,key,now):state[key]['failed_attempt']={'at':now}
 
 
 def format_alert(item,result,event='NEW WATCH',example=False):
+    import authenticated_admission
+    admission = authenticated_admission.evaluate(item)
+    qualified = result.get('classification') == 'VERIFIED BUY' and admission['admitted'] and not example
     def measurement(key,prefix='',suffix=''):
         try:return prefix+format(number(item.get(key)),'.8g')+suffix
         except (ValueError,TypeError):return 'UNKNOWN'
-    title='WATCH UPDATE — NO ACTIVE SETUP' if result['classification']=='INELIGIBLE' else result['classification'];missing=list(result.get('missing_checks') or ['Mandatory verification completeness UNKNOWN'])
+    title=('BUY CANDIDATE — MANUAL REVIEW' if qualified else 'WAIT/VERIFY' if result['classification']=='VERIFIED BUY' else 'WATCH UPDATE — NO ACTIVE SETUP' if result['classification']=='INELIGIBLE' else result['classification']);missing=list(result.get('missing_checks') or ([] if qualified else ['Mandatory verification completeness UNKNOWN']))
     # All missing checks must survive Telegram's per-message limit; send chunks.
     lines=[('EXAMPLE — NOT A LIVE SIGNAL\n' if example else '')+'CRYPTO-ORACLE X100 — '+title,
-        'NOT A VERIFIED BUY SIGNAL' if title!='VERIFIED BUY' or example else 'Original mandatory evidence gates passed; expires with the executable quote',
+        'Authenticated mandatory evidence gates passed; expires with the executable quote' if qualified else 'NOT A VERIFIED BUY SIGNAL',
         'Event: '+event,'Network: '+str(item.get('network','UNKNOWN')),
         'Contract: '+str(item.get('token_address','UNKNOWN')),'Pool: '+str(item.get('address','UNKNOWN')),
         'Observed price: '+measurement('base_token_price_usd','USD ')+' (indicative, not executable)',
@@ -202,11 +221,38 @@ def format_alert(item,result,event='NEW WATCH',example=False):
         lines.append('- '+key+': '+entry.get('status','UNKNOWN')+'; observed '+str(entry.get('observed_at','UNKNOWN'))+'; '+entry.get('reason','Unavailable'))
     if result.get('entry'):
         entry=result['entry'];lines+=['ENTRY WATCH: historical reference '+str(entry['entry_reference'])+'; observed invalidation '+str(entry['invalidation'])+'; candle UTC '+dt.datetime.fromtimestamp(entry['candle_at'],dt.timezone.utc).isoformat(), 'These are observed historical levels, not executable entry/stop orders. Targets: UNKNOWN.']
-    if title=='VERIFIED BUY' and not example:
+    if qualified:
+        lines += ['SIGNED ADMISSION: '+admission['bundle_sha256'],
+                  'Independent reviewers: '+', '.join(admission['reviewers']),
+                  'Expires: '+admission['expires_at'],
+                  'Security, LP, beneficial ownership, tokenomics and sequential exit: PASS within signed review scope']
         quote=item.get('execution_evidence') or {}
         lines+=['EXECUTION AND RISK EVIDENCE: '+json.dumps({k:quote.get(k,'UNKNOWN') for k in ('provider','quote_id','amount_in','amount_out','expires_at','fees','slippage','entry','invalidation','risk')},sort_keys=True)]
     lines+=['EXACT MISSING MANDATORY CHECKS:']+['- '+x for x in missing]+['MAJOR RISKS:']+['- '+x for x in result.get('risks',[])]+['Research: '+str(item.get('url','UNKNOWN')),'Automated trading DISABLED. Recheck fresh evidence before any decision.']
     return '\n'.join(lines)
+
+
+def format_admission_alert(item):
+    """A fresh authenticated decision; caller-supplied classifications are ignored."""
+    import authenticated_admission
+    admission = authenticated_admission.evaluate(item)
+    if not admission['safety_verified']:
+        raise ValueError('Authenticated BUY admission unavailable or expired')
+    lines = ['CRYPTO-ORACLE X100 — '+('BUY CANDIDATE — MANUAL REVIEW' if admission['admitted'] else 'WATCHLIST — SIGNED ENTRY MONITORING; NO BUY SIGNAL'),
+             'Network: '+str(item['network']), 'Contract: '+str(item['token_address']),
+             'Pool: '+str(item['address']), 'Discovery source: '+str(item.get('source','UNKNOWN'))[:160],
+             'Independent reviewers: '+', '.join(admission['reviewers']),
+             'Evidence SHA-256: '+admission['bundle_sha256'], 'Expires: '+admission['expires_at'],
+             'Security/LP controls/beneficial ownership/tokenomics/sequential exit: PASS within signed review scope']
+    for section, metrics in admission['summary'].items():
+        lines.append(section.upper()+': '+json.dumps(metrics,sort_keys=True))
+    lines += ['Unresolved mandatory evidence gaps: none within this signed review scope.',
+              'Risks: entire allocation can be lost; liquidity, authority and prices can change. Simulation cannot guarantee future execution.',
+              'Recheck evidence and quote expiration before manual action. Automatic trading DISABLED.']
+    message='\n'.join(lines)
+    if len(message.encode('utf-16-le'))//2>4096:
+        raise ValueError('Admission alert exceeds safe Telegram length')
+    return message
 
 
 def valuation(item):

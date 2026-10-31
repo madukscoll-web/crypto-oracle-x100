@@ -12,10 +12,12 @@ class ResearchSummaryTests(unittest.TestCase):
         text=summarize(report())
         self.assertIn("VERIFIED BUY SIGNALS: 0",text)
         self.assertIn("WAIT AND VERIFY (1 blockers)",text)
-    def test_discard_is_reported(self):
+    def test_discard_is_excluded_from_candidate_report(self):
         item=report()["candidates"][0]
         item["decision"]="DISCARD"
-        self.assertIn("DISCARD",summarize(report([item])))
+        self.assertNotIn(item['token_address'],summarize(report([item])))
+        self.assertNotIn('DISCARD',summarize(report([item])))
+        self.assertEqual(item['decision'], 'DISCARD')
     def test_refuse_unreviewed_buy_claim(self):
         for decision in ("BUY", "BUY CANDIDATE — REVIEW ENTRY", None):
             item=report()["candidates"][0]
