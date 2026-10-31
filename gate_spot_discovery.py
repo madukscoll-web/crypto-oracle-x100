@@ -186,6 +186,18 @@ def run(fetch=None,limit=12,checkpoint=None):
     report['finished_at']=utc()
     report['counts']=dict(assessed=len(report['candidates']),exact_spot=sum((x['evidence'].get('gate_identity')or{}).get('status')=='CONFIRMED_SPOT' for x in report['candidates']),
         market_setups=sum(x['market_setup']is not None for x in report['candidates']),buy_candidates=0)
+    report['review_queue'] = [
+        dict(symbol=row['symbol'], network=row['network'],
+             contract=row['token_address'], pair=row['pair_id'],
+             security=(row.get('evidence', {}).get('security') or {}).get('status', 'UNKNOWN'),
+             issuer_supply=(row.get('evidence', {}).get('issuer_supply') or {}).get('status', 'UNKNOWN'),
+             market_setup_present=row.get('market_setup') is not None,
+             review_topics=['supply', 'unlocks', 'holders', 'authority'],
+             reviewed=False, buy_authorized=False, blockers=row.get('blockers', []))
+        for row in report['candidates']
+        if row.get('classification') != 'AVOID / HIGH CONCERN'
+    ]
+    report['review_queue_status'] = 'UNVERIFIED RESEARCH ONLY'
     print('GATE_DISCOVERY_COUNTS '+json.dumps(report['counts'],sort_keys=True),flush=True)
     return report
 
