@@ -1,0 +1,88 @@
+name: Admission isolated live validation
+on:
+  push:
+    branches: [validation/admission-5fe3356]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: admission-isolated-5fe3356
+  cancel-in-progress: false
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+    steps:
+      - name: Check out immutable reviewed source without write credentials
+        uses: actions/checkout@v4
+        with:
+          ref: 5fe33562804cc8d09e7f1ea36fd3a3f6122031d3
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify source identity and copy state into isolated directory
+        run: |
+          test "$(git rev-parse HEAD)" = "5fe33562804cc8d09e7f1ea36fd3a3f6122031d3"
+          mkdir -p "$RUNNER_TEMP/admission-validation"
+          cp reported_pools.json watchlist_state.json signal_history.json gate_paper_history.json research_discovery_state.json forward_events.jsonl "$RUNNER_TEMP/admission-validation/"
+      - name: Run current scanner with isolated state
+        env:
+          ORACLE_NETWORKS: eth,base,bsc
+          ORACLE_PAGES: '1'
+          ORACLE_MAX_ALERTS: '1'
+          ORACLE_REVISITS: '1'
+          ZEROX_API_KEY: ${{ secrets.ZEROX_API_KEY }}
+          ORACLE_TAKER_ADDRESS: ${{ vars.ORACLE_TAKER_ADDRESS }}
+          ORACLE_FUNDING_TOKEN: ${{ vars.ORACLE_FUNDING_TOKEN }}
+          ORACLE_ORDER_BASE_UNITS: ${{ vars.ORACLE_ORDER_BASE_UNITS }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          cd "$RUNNER_TEMP/admission-validation"
+          python "$GITHUB_WORKSPACE/admission_preflight.py"
+          python -u "$GITHUB_WORKSPACE/crypto_oracle_scanner.py"
+      - name: Verify production state is unchanged
+        if: always()
+        run: git diff --exit-code -- reported_pools.json watchlist_state.json signal_history.json gate_paper_history.json research_discovery_state.json forward_events.jsonl
+      - name: Confirm labelled Telegram completion delivery
+        if: success()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          cd "$RUNNER_TEMP/admission-validation"
+          python - <<'PYTHON'
+          import json
+          import pathlib
+          from telegram_notify import send_message, workflow_message
+          report=json.loads(pathlib.Path("scan_summary.json").read_text())
+          assert report["status"] == "completed"
+          message="ADMISSION VALIDATION — isolated state; NO BUY SIGNAL; source 5fe33562804cc8d09e7f1ea36fd3a3f6122031d3\n"+workflow_message("completion")
+          assert send_message(message) is True
+          pathlib.Path("live_delivery_receipt.json").write_text(json.dumps({"source_revision":"5fe33562804cc8d09e7f1ea36fd3a3f6122031d3","scanner_completed":True,"telegram_bot_api_receipt_confirmed":True,"orders_allowed":False})+"\n")
+          PYTHON
+      - name: Send labelled validation failure health alert
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python - <<'PYTHON'
+          from telegram_notify import send_message
+          assert send_message("ADMISSION VALIDATION FAILED — source 5fe3356; no deployment or BUY signal. Inspect the validation Actions run.") is True
+          PYTHON
+      - name: Preserve isolated evidence and delivery receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admission-isolated-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/admission-validation/scan_summary.json
+            ${{ runner.temp }}/admission-validation/evidence_report.json
+            ${{ runner.temp }}/admission-validation/work/admission_preflight.json
+            ${{ runner.temp }}/admission-validation/live_delivery_receipt.json
