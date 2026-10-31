@@ -6,19 +6,19 @@ applies fair research rotation. Existing production scanner is unchanged.
 import argparse
 import datetime as dt
 import json
-from discovery_adapters import ADAPTERS, deduplicate
+from discovery_adapters import ADAPTERS, deduplicate, ProfileFallback
 from multichain_candidate_rotation import rotate
 from provider_session import Session
 from global_discovery import EvidenceFetch
 from multichain_research_audit import audit
 from collections import Counter
 
-def run(limit=12, cursor=0, fetch=None, adapters=ADAPTERS):
+def run(limit=12, cursor=0, fetch=None, adapters=ADAPTERS, include_profiles=False):
     if not 1 <= limit <= 100:
         raise ValueError("Invalid limit")
     if fetch is None:
         with Session(max_requests=80, max_seconds=180) as session:
-            return run(limit, cursor, EvidenceFetch(session), adapters)
+            return run(limit, cursor, EvidenceFetch(session), adapters, include_profiles)
     rows, failures = [], []
     for adapter in adapters:
         try:
@@ -27,6 +27,12 @@ def run(limit=12, cursor=0, fetch=None, adapters=ADAPTERS):
             failures.extend(result["failures"])
         except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
             failures.append({"network": adapter.network, "error_type": type(exc).__name__})
+    if include_profiles:
+        fallback = ProfileFallback(fetch)
+        for network in ("solana", "bsc", "base", "eth"):
+            result = fallback.discover(network, limit=2)
+            rows.extend(result["rows"])
+            failures.extend(result["failures"])
     assets = deduplicate(rows)
     source_counts = Counter(str(row.get("source") or "UNKNOWN") for row in rows)
     selection = rotate(assets, per_run=limit, cursor=cursor)
@@ -51,8 +57,9 @@ if __name__ == "__main__":
     parser.add_argument("--limit", type=int, default=12)
     parser.add_argument("--cursor", type=int, default=0)
     parser.add_argument("--output", default="multichain_research_report.json")
+    parser.add_argument("--include-profiles", action="store_true", help="Add promotional DEX Screener leads; never assert launchpad provenance")
     args = parser.parse_args()
-    report = run(args.limit, args.cursor)
+    report = run(args.limit, args.cursor, include_profiles=args.include_profiles)
     with open(args.output, "w", encoding="utf-8") as stream:
         json.dump(report, stream, indent=2)
     print(json.dumps({k: v for k, v in report.items() if k != "selected"}))
