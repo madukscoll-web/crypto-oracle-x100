@@ -20,7 +20,7 @@ explicitly not historical or live provider evidence.
 | 7 | Five canonical outcomes | PARTIAL | `canonical_outcomes.py` emits the common policy in scanner and discovery artifacts. REJECT differs from INSUFFICIENT EVIDENCE; existing preliminary/candle watches remain RESEARCH WATCH when critical gaps exist. ENTRY WATCH requires a complete original audit with no critical gaps; VERIFIED BUY reuses original authorization. Those positive evidence paths remain unavailable with current missing verification, not manufactured. No caller label/boolean authorizes BUY. |
 | 8 | Rejection suppression, internal records and Telegram | PARTIAL | Existing default-deny send paths preserved; canonical records remain in diagnostics. Actual baseline production Telegram delivery verified previously. New commit's live delivery and suppression require post-merge logs/artifact inspection. No live test token or recommendation sent merely for testing. |
 | 9 | Immutable timestamped forward performance, costs, false positives, model history | PARTIAL | New append-only hash-linked JSONL records model hash/parameters and contemporaneous observations; corrupt chains reject writes. Legacy entry imports marked LEGACY_UNKNOWN without invented historical features/model predictions. Original timestamps retained. Sampled drawdowns/horizons remain operational. Without authenticated historical/live execution costs and mature labelled outcomes, liquidity-adjusted returns and false positives stay null. Hash links detect altered content; they are not external immutable storage or protection from full-history replacement. |
-| 10 | Compile, regression, adversarial, integration and production checks | PARTIAL | Compilation plus 459 tests passed locally. Live API/RPC probes and rejected/unknown decision tests retained. CI and post-deployment results are recorded in the final execution report, not presumed from local success. |
+| 10 | Compile, regression, adversarial, integration and production checks | PARTIAL | Compilation plus 465 tests passed locally. Live API/RPC probes and rejected/unknown decision tests retained. CI and post-deployment results are recorded in the final execution report, not presumed from local success. |
 | 11 | PR, successful required checks, merge and production verification | PARTIAL | Changes prepared for reviewable commits; merge/deployment must follow successful checks. Final report supersedes this as-of-commit status only when real evidence exists. |
 | 12 | Evidence-linked final matrix with unresolved dependencies | COMPLETE | This matrix identifies each requirement as COMPLETE/PARTIAL/BLOCKED/FAILED and links source/probe files. No unresolved requirement is described as complete. |
 
@@ -97,7 +97,7 @@ Forward-ledger revisit correction: an end-to-end scanner regression with empty
 discovery feeds and a refreshed tracked pool reproduced missing forward events.
 Capture now receives the actual assessed `selected` set, including tracked-pool
 revisits, instead of only fresh discovery candidates. The original entry and the
-new accepted price both reach the ledger. All 459 tests pass after this correction.
+new accepted price both reach the ledger. All 465 tests pass after this correction.
 
 Historical descriptive context (not a model validation cohort):
 `research/nonproduction/historical-context.json` and `archive-manifest.json`
@@ -119,3 +119,26 @@ the hash-linked log even when a run has no corresponding discovery/refresh item.
 Their original entry timestamp/price and unknown model lineage are preserved;
 no new price, historical feature, verified security claim or model prediction is
 invented. A regression checks empty-current-discovery import and repeat deduplication.
+
+
+Production publication race: run 41193887310 successfully scanned, classified,
+created legacy ledger events, and ran all discovery/history steps, but correctly
+refused a rebase conflict in research_discovery_state.json/watchlist_state.json.
+Queued runs had pinned source snapshots with older state than the current branch.
+No successful full deployment or completion message is claimed for that run.
+`workflow_state.py` now refreshes state independently of tested source, compares
+baseline blobs before publication, and creates a state-only commit on the latest
+branch tree. It never rebases mutable JSON or replaces source code. Real local
+Git tests cover queued snapshots, concurrent code commits, concurrent state veto,
+ledger/signal-history rewrite rejection, and idempotent publication recovery.
+All 465 tests pass. Actual final GitHub publication and Telegram completion remain
+mandatory post-merge checks, not inferred from these tests.
+
+
+The 10 legacy signal events produced by the failed-publication run were recovered
+byte-for-byte from artifact 13040565101. Their hash chain validates, and every
+original entry timestamp/price/token matches current main's retained signal
+history. `validation/ledger-recovery-2026-10-31.json` records provenance and hashes.
+No historical model prediction was synthesized; original import timestamps and
+LEGACY_UNKNOWN flags are unchanged. New publication logic protects this ledger
+prefix on every future update.
