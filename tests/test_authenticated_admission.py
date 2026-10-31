@@ -29,14 +29,14 @@ def read(n):return dict(status='0x1',returnData='0x'+format(n,'064x'))
 
 def fixture():
     def leg(sell,buy,amount,out):
-        return dict(observed_at=at(),expires_at=at(60),pools=[POOL],raw=dict(
+        return dict(observed_at=at(),expires_at=at(60),pools=[POOL],router_bytecode=CODE,raw=dict(
             liquidityAvailable=True,sellToken=sell,buyToken=buy,sellAmount=str(amount),buyAmount=str(out),minBuyAmount=str(out),blockNumber='16',
-            transaction=dict(to=TARGET,data='0x1234',gas='100000',gasPrice='1',value='0'),
+            transaction=dict(to=TARGET,data='0x12345678',gas='100000',gasPrice='1',value='0'),
             fees=dict(zeroExFee=None,integratorFee=None,gasFee=None),issues=dict(simulationIncomplete=False,balance=None,allowance=None)))
     simulation=[dict(calls=[read(0),read(100),
-        dict(status='0x1',gasUsed='0x100',logs=[event(FUNDING,TAKER,TARGET,100),event(TOKEN,TARGET,TAKER,200)]),
+        dict(status='0x1',gasUsed='0x100',logs=[event(FUNDING,TAKER,POOL,100),event(TOKEN,POOL,TAKER,200)]),
         read(200),read(0),
-        dict(status='0x1',gasUsed='0x100',logs=[event(TOKEN,TAKER,TARGET,200),event(FUNDING,TARGET,TAKER,99)]),read(0),read(99)])]
+        dict(status='0x1',gasUsed='0x100',logs=[event(TOKEN,TAKER,POOL,200),event(FUNDING,POOL,TAKER,99)]),read(0),read(99)])]
     controls={name:'ABSENT' for name in admission.CONTROLS};controls['bridge_backing']='NOT_APPLICABLE_NATIVE_ASSET'
     metrics=dict(
         security=dict(runtime_sha256=CODEHASH,runtime_bytecode=CODE,controls=controls,buy_tax_percent='0',sell_tax_percent='0',transfer_tax_percent='0'),
@@ -63,6 +63,7 @@ class AdmissionTests(unittest.TestCase):
     def setUpClass(cls):
         cls.directory=tempfile.TemporaryDirectory(prefix='oracle-test-keys-')
         cls.root=pathlib.Path(cls.directory.name);cls.trust=dict(schema=admission.VERSION,reviewers={},sources={org+'.example':{'organization':org} for org in ('provider-one','provider-two')})
+        cls.trust['routers']={'eth:'+TARGET:{'runtime_sha256':CODEHASH,'selectors':['0x12345678']}}
         for i in (1,2):
             key=cls.root/str(i)
             subprocess.run(['openssl','genpkey','-algorithm','Ed25519','-out',str(key)],check=True,capture_output=True)
@@ -284,3 +285,17 @@ class AdmissionTests(unittest.TestCase):
             self.assertTrue(admission.evaluate(item,now=NOW)['admitted'])
             self.assertIn('network=eth',fetch.call_args.args[0])
             self.assertFalse(admission.evaluate(item,now=NOW+60)['admitted'])
+    def test_signed_claim_cannot_substitute_router_or_selector(self):
+        for mutation in ('router','code','selector'):
+            self.bundle=fixture();self.item['admission_bundle']=self.bundle
+            leg=self.bundle['payload']['evidence']['execution']['metrics']['quotes'][0]
+            if mutation=='router':leg['raw']['transaction']['to']=POOL
+            if mutation=='code':leg['router_bytecode']='0x6001'
+            if mutation=='selector':leg['raw']['transaction']['data']='0xdeadbeef'
+            self.sign();self.assertFalse(self.evaluate()['admitted'])
+    def test_signed_pool_label_cannot_replace_actual_pool_transfer_proof(self):
+        calls=self.bundle['payload']['evidence']['execution']['metrics']['simulation'][0]['calls']
+        for index in (2,5):
+            for log in calls[index]['logs']:
+                log['topics']=[topic(TARGET) if value==topic(POOL) else value for value in log['topics']]
+        self.sign();self.assertFalse(self.evaluate()['admitted'])

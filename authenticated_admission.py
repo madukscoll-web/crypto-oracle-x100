@@ -226,12 +226,26 @@ def inspect(payload, item, now, trust):
         leg = legs[index]
         require(0 <= now-stamp(leg['observed_at']) <= 60 and now < stamp(leg['expires_at']), 'Executable quote expired or future-dated')
         raw = validate(leg['raw'], sell, buy, amount)
+        router = address(raw['transaction']['to'])
+        enrolled_router = trust.get('routers', {}).get(identity['network']+':'+router)
+        require(isinstance(enrolled_router,dict), 'Execution router not independently enrolled')
+        router_code = leg['router_bytecode']
+        require(isinstance(router_code,str) and re.fullmatch(r'0x(?:[0-9a-fA-F]{2})+',router_code), 'Router bytecode absent')
+        require(hashlib.sha256(bytes.fromhex(router_code[2:])).hexdigest() == enrolled_router['runtime_sha256'], 'Router runtime hash mismatch')
+        selector = raw['transaction']['data'][:10].lower()
+        require(len(selector)==10 and selector in enrolled_router['selectors'], 'Unreviewed router selector')
         require(integer(raw['blockNumber']) == integer(identity['block_number']), 'Quote block mismatch')
         require(raw['issues'].get('balance', 'MISSING') is None and raw['issues'].get('allowance', 'MISSING') is None, 'Funding or allowance not verified')
         require([address(x) for x in leg['pools']] == [identity['pool']], 'Route uses an unverified pool')
         amount = integer(raw['minBuyAmount'])
     require(execution['simulation_request'] == request_for(legs, execution['taker']), 'Simulation request/route mismatch or overrides present')
     validate_result(execution['simulation'], legs, execution['taker'])
+    pool_topic = '0x'+identity['pool'][2:].zfill(64)
+    for index in (2,5):
+        logs = execution['simulation'][0]['calls'][index]['logs']
+        require(any(str(log.get('address','')).lower() in (identity['token'],identity['funding'])
+                    and pool_topic in [str(topic).lower() for topic in log.get('topics',[])[1:]]
+                    for log in logs), 'Sequential transfer evidence does not involve the exact pool')
     order, exit_value = number(execution['order_usd']), number(execution['minimum_exit_usd'])
     gas, fees = number(execution['gas_usd']), number(execution['fees_usd'])
     decimals = integer(execution['funding_decimals'])

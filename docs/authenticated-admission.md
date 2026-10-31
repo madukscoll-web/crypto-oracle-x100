@@ -17,6 +17,8 @@ Each reviewer needs `organization`, `public_key` (Ed25519 SPKI PEM), `revoked:fa
 `valid_from`, `valid_until`, and all five `scopes`: `security`, `lp_controls`,
 `holders`, `tokenomics`, `execution`. Reusing one public key or organization for two
 reviewers is rejected. Enrollment expiry and revocation are checked every time.
+Router identities also require `routers[network+":"+router_address]` enrollment with an independently reviewed runtime SHA-256 and allowed four-byte selectors. Each quote must carry matching router bytecode. Transfer evidence in both simulated legs must involve the exact pool; a route label alone is insufficient.
+
 Provider domains also require `sources[hostname].organization` enrollment; a
 caller cannot invent source independence by supplying organization strings.
 

@@ -34,6 +34,8 @@ def inspect(env=None, now=None):
     sources=trust.get('sources',{})
     if not isinstance(sources,dict) or len({x.get('organization') for x in sources.values() if isinstance(x,dict) and isinstance(x.get('organization'),str)})<2:
         blockers.append('Two independent evidence source organizations must be enrolled')
+    if not isinstance(trust.get('routers'),dict) or not trust['routers']:
+        blockers.append('Independently reviewed router runtimes and selectors must be enrolled')
     directory=ROOT/'admission_evidence'
     files=len(list(directory.glob('*.json'))) if directory.is_dir() else 0
     if files==0 and not trust.get('bundle_endpoint'):blockers.append('No exact-asset signed admission bundles or enrolled HTTPS feed installed')
