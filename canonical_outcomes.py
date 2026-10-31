@@ -1,6 +1,7 @@
 """Five canonical research outcomes. Authorization stays with existing BUY gates."""
 import opportunity_alerts
 import evidence_audit
+import adverse_evidence
 
 OUTCOMES = ('VERIFIED BUY', 'ENTRY WATCH', 'RESEARCH WATCH', 'REJECT', 'INSUFFICIENT EVIDENCE')
 VERSION = 'canonical-outcomes-v1'
@@ -8,14 +9,7 @@ VERSION = 'canonical-outcomes-v1'
 
 def assess(item, now=None):
     # Recompute; never consume a caller-provided decision or buy_eligible boolean.
-    report=item.get('verification') or {}
-    adverse=[]
-    if isinstance(report,dict):
-        for name in opportunity_alerts.CRITICAL:
-            record=report.get(name)
-            if isinstance(record,dict) and record.get('status') in ('FAIL','FAILED','CONFLICTING','HIGH CONCERN'):
-                adverse.append(name+': '+str(record.get('reason','Adverse evidence')))
-    if item.get('risk_category')=='AVOID / HIGH CONCERN':adverse.append('Critical provider/security concern')
+    adverse=[name+': '+reason for name, reason in adverse_evidence.findings(item).items()]
     if adverse:
         legacy={'classification':'REJECT','eligible_for_buy':False,'reasons':adverse,'missing_checks':[]}
     else:

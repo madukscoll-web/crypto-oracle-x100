@@ -14,9 +14,10 @@ from urllib.parse import urlsplit
 import evidence_audit
 import verification
 import telegram_validation
+import adverse_evidence
 
 ACTIVE={'HIGH-PRIORITY WATCH','ENTRY WATCH','VERIFIED BUY'}
-CRITICAL=('contract_security','sellability','tokenomics','supply_comparison','tokenized_stock_reference','nft_custody')
+CRITICAL=adverse_evidence.CHECKS
 
 
 def number(value):
@@ -60,7 +61,11 @@ def classify(item,config=None,now=None):
     import crypto_oracle_scanner as scanner
     now=dt.datetime.now(dt.timezone.utc).timestamp() if now is None else now
     config=config or policy();e=item.get('verification') or {}
+    malformed = not isinstance(e, dict) or any(not isinstance(v, dict) for v in e.values())
+    if not isinstance(e, dict):e={}
     missing=item.get('mandatory_blockers') or []
+    if not isinstance(missing,list):missing=['Malformed mandatory evidence blockers']
+    if malformed:missing=['Malformed verification records; independent evidence unavailable']
     if not missing:
         import candidate_evidence
         missing=candidate_evidence.blockers(item)
@@ -68,11 +73,13 @@ def classify(item,config=None,now=None):
                 risks=['Can lose the entire allocation; liquidity and exits may disappear','Advanced verification incomplete; no executable entry or guaranteed return'],
                 entry=None,observed_at=item.get('observed_at'),eligible_for_buy=False)
     failed=list(item.get('persistent_adverse_reasons') or [])
-    failed += [k+': '+e[k].get('reason','Adverse evidence') for k in CRITICAL if e.get(k,{}).get('status') in ('FAIL','CONFLICTING','HIGH CONCERN')]
+    failed += [k+': '+reason for k, reason in adverse_evidence.findings(item).items()]
     failed.extend('Prior '+x.get('check','evidence')+': unresolved adverse evidence' for x in item.get('unresolved_prior_adverse_evidence',[]))
     if item.get('risk_category')=='AVOID / HIGH CONCERN':failed.extend(item.get('risk_reasons') or ['Critical security concern'])
     if failed:
         result.update(classification='REJECT',reasons=failed);return result
+    if malformed:
+        result['reasons']=['Malformed verification records; classification withheld'];return result
     # Caller booleans, scores and watch classifications can never grant BUY.
     if scanner.decision_summary(item)[0]=='BUY CANDIDATE — REVIEW ENTRY' and evidence_audit.audit(item)['trade_ready'] is True and scanner.validate_execution_evidence(item):
         result.update(classification='VERIFIED BUY',eligible_for_buy=True,reasons=['Original independent mandatory gates passed']);return result

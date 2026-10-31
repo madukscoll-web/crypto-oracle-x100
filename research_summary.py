@@ -26,7 +26,9 @@ def summarize(report):
         blockers = item.get("mandatory_blockers")
         if not isinstance(blockers, list) or not blockers:
             raise ValueError("Missing mandatory evidence blockers")
-        lines.append(f"{network} {address}: {decision} ({len(blockers)} blockers)")
+        # Keep rejected/discarded records in the JSON diagnostics, not candidate alerts.
+        if decision != 'DISCARD':
+            lines.append(f"{network} {address}: {decision} ({len(blockers)} blockers)")
     if report.get("verified_buy_signals") not in ([], 0):
         raise ValueError("Unreviewed buy-signal schema; refusing to notify")
     lines.append("VERIFIED BUY SIGNALS: 0. No automated trades.")
