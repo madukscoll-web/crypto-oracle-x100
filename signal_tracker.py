@@ -9,8 +9,9 @@ import json
 import math
 import pathlib
 
-HORIZONS_HOURS = (24, 168, 720)
-MAX_OBSERVATIONS = 1200
+HORIZONS_HOURS = (24, 168, 720, 2160, 8760)
+# Admission limits stop growth without deleting or rewriting historical signals.
+MAX_OBSERVATIONS = 12000
 MAX_TOKENS = 400
 HISTORY_FILE = pathlib.Path("signal_history.json")
 
@@ -25,6 +26,8 @@ def _utc(value):
 def record(history, item):
     """Append a valid observation; deduplicate same timestamp and pool."""
     price = item.get("base_token_price_usd")
+    if isinstance(price, bool):
+        return False
     try:
         price = float(price)
         stamp = _utc(item["observed_at"])
@@ -39,13 +42,20 @@ def record(history, item):
     # Existing tracked signals continue receiving subsequent observations.
     if key not in history and item.get("entry_pattern") not in ("MOMENTUM WATCH", "PULLBACK WATCH"):
         return False
+    if key not in history and len(history) >= MAX_TOKENS:
+        return False
     observations = history.setdefault(key, [])
     if not isinstance(observations, list):
         return False
     iso = stamp.isoformat()
-    if observations and str(observations[0].get("token_address", "")).lower() != str(item["token_address"]).lower():
+    network = str(item.get("network") or key.split(":", 1)[0])
+    token = str(item["token_address"])
+    same_token = (lambda value: str(value) == token) if network == "solana" else (lambda value: str(value).lower() == token.lower())
+    if observations and not same_token(observations[0].get("token_address", "")):
         return False  # Pool identity changed; never splice two token histories.
-    if any(x.get("at") == iso for x in observations):
+    if observations and stamp <= _utc(observations[-1]["at"]):
+        return False  # No backdated insertion or replacement of the signal anchor.
+    if len(observations) >= MAX_OBSERVATIONS:
         return False
     observations.append({
         "at": iso, "price_usd": price,
@@ -54,8 +64,6 @@ def record(history, item):
         "token_address": str(item["token_address"]),
         "source": "GeckoTerminal indicative pool price",
     })
-    observations.sort(key=lambda x: x["at"])
-    del observations[:-MAX_OBSERVATIONS]
     return True
 
 
@@ -99,7 +107,26 @@ def load(path=HISTORY_FILE):
 
 
 def save(history, path=HISTORY_FILE):
-    trimmed = dict(list(history.items())[-MAX_TOKENS:])
     temp = path.with_suffix(".tmp")
-    temp.write_text(json.dumps(trimmed, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    temp.write_text(json.dumps(history, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     temp.replace(path)
+
+
+def sampled_risk(observations):
+    """Excursions across retained samples only; never infer intrahour extremes."""
+    if not observations:
+        return {"status": "INSUFFICIENT EVIDENCE"}
+    prices = [float(row["price_usd"]) for row in observations]
+    if any(not math.isfinite(price) or price <= 0 for price in prices):
+        return {"status": "INSUFFICIENT EVIDENCE"}
+    entry, peak, drawdown = prices[0], prices[0], 0.0
+    for price in prices:
+        peak = max(peak, price)
+        drawdown = min(drawdown, price / peak - 1)
+    return {"status": "OBSERVED_INDICATIVE_SAMPLES", "sample_count": len(prices),
+            "entry_at": observations[0]["at"], "last_at": observations[-1]["at"],
+            "maximum_favorable_excursion_percent": round((max(prices) / entry - 1) * 100, 2),
+            "maximum_adverse_excursion_percent": round((min(prices) / entry - 1) * 100, 2),
+            "maximum_drawdown_percent": round(drawdown * 100, 2),
+            "execution_adjusted_returns": None,
+            "limitation": "Sampled indicative prices; gaps, slippage, fees and liquidity unmeasured"}

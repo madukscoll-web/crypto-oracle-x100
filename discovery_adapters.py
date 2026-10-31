@@ -78,6 +78,13 @@ class BaseDiscovery(GeckoDiscovery):network='base'
 class BnbDiscovery(GeckoDiscovery):network='bsc'
 ADAPTERS=(SolanaDiscovery,EthereumDiscovery,BaseDiscovery,BnbDiscovery)
 
+# Expanded public discovery is separate from production security authorization.
+class ArbitrumDiscovery(GeckoDiscovery):network='arbitrum'
+class PolygonDiscovery(GeckoDiscovery):network='polygon_pos'
+class AvalancheDiscovery(GeckoDiscovery):network='avax'
+class OptimismDiscovery(GeckoDiscovery):network='optimism'
+RESEARCH_ADAPTERS=ADAPTERS+(ArbitrumDiscovery,PolygonDiscovery,AvalancheDiscovery,OptimismDiscovery)
+
 
 class ProfileFallback:
     def __init__(self,fetch):self.fetch=fetch;self.raw=None

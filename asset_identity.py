@@ -2,9 +2,12 @@
 import re
 
 CHAINS={'eth':'eip155:1','base':'eip155:8453','bsc':'eip155:56',
-        'solana':'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp'}
+        'solana':'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
+        'arbitrum':'eip155:42161','polygon_pos':'eip155:137',
+        'avax':'eip155:43114','optimism':'eip155:10'}
 GATE_CHAINS={'ETH':'eth','BASEEVM':'base','BSC':'bsc','SOL':'solana'}
-DEX_CHAINS={'eth':'ethereum','base':'base','bsc':'bsc','solana':'solana'}
+DEX_CHAINS={'eth':'ethereum','base':'base','bsc':'bsc','solana':'solana',
+            'arbitrum':'arbitrum','polygon_pos':'polygon','avax':'avalanche','optimism':'optimism'}
 ALPHABET='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 
 

@@ -1051,6 +1051,14 @@ def main():
               "alerts_delivered": delivered, "successful_feeds": successful_feeds,
               "hourly_evidence": hourly_collector.summary(),
               "gate_paper_candidates": sum(c.get("classification") == gate_spot_candidates.LABEL for c in gate_report.get("candidates", [])),
+              "signal_performance": {key: {"horizons": signal_tracker.outcomes(rows),
+                                           "sampled_risk": signal_tracker.sampled_risk(rows)}
+                                     for key, rows in history.items()},
+              "signal_tracking_limits": {"maximum_signals": signal_tracker.MAX_TOKENS,
+                                         "maximum_samples_per_signal": signal_tracker.MAX_OBSERVATIONS,
+                                         "at_signal_capacity": len(history) >= signal_tracker.MAX_TOKENS,
+                                         "signals_at_sample_capacity": [key for key, rows in history.items()
+                                              if len(rows) >= signal_tracker.MAX_OBSERVATIONS]},
               "warnings": warnings, "errors": errors,
               "completed_at": dt.datetime.now(dt.timezone.utc).isoformat()}
     pathlib.Path("scan_summary.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")

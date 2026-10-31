@@ -83,3 +83,22 @@ reviews and live endpoint validation are required before live candidate delivery
 Run `python gate_spot_candidates.py` for a no-notification diagnostic report.
 
 Gate catalog-first research and recorded live results are documented in [GATE_SPOT_DISCOVERY.md](GATE_SPOT_DISCOVERY.md). Research queues do not grant token approval.
+
+## Eight-network read-only discovery and signal retention
+
+`multichain_live_research.py` now requests Solana, Ethereum, BNB Chain, Base,
+Arbitrum, Polygon POS, Avalanche C-Chain and Optimism. Exact CAIP chain IDs and
+GeckoTerminal/DEX Screener network identifiers remain distinct. Expanded discovery
+does not activate security or BUY authorization. Provider responses and invalid-row
+ledgers are retained in `provider_observations`; failures and chain counts are
+reported separately. Empty or throttled feeds do not prove market coverage.
+GeckoTerminal requests use a conservative 6.1-second interval within a 180-second
+run budget; shared provider limits may still cause explicit coverage gaps.
+
+Paper signals retain their first entry and all accepted samples. Backdated entries,
+Solana case changes and boolean prices are rejected. Capacity prevents admission
+instead of deleting prior signals or changing return baselines. The scanner's
+`scan_summary.json` exposes tracking capacity, 24h/7d/30d/90d/365d outcomes and
+sampled MFE/MAE/drawdown. These are indicative sampled-price statistics, without
+intrahour extremes, execution costs or liquidity adjustments. Already-lost legacy
+samples cannot be reconstructed by this repair. No predictive validation is implied.

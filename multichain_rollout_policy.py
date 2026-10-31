@@ -26,10 +26,12 @@ PLANS = (
     ChainPlan("eth", 2, "existing", COMMON + EVM),
     ChainPlan("base", 3, "existing", COMMON + EVM),
     ChainPlan("bsc", 4, "existing", COMMON + EVM),
-    ChainPlan("arbitrum", 5, "planned", COMMON + EVM),
+    ChainPlan("arbitrum", 5, "discovery_only", COMMON + EVM),
     ChainPlan("sui", 6, "planned", COMMON + ("move_package_and_upgrade_authority", "coin_metadata_and_treasury_cap")),
-    ChainPlan("avalanche", 7, "planned", COMMON + EVM),
+    ChainPlan("avax", 7, "discovery_only", COMMON + EVM),
     ChainPlan("ton", 8, "planned", COMMON + ("jetton_master_wallet_validation", "admin_and_mint_controls")),
+    ChainPlan("polygon_pos", 9, "discovery_only", COMMON + EVM),
+    ChainPlan("optimism", 10, "discovery_only", COMMON + EVM),
 )
 
 def plan(network):
@@ -47,7 +49,7 @@ def eligible_for_buy(network, observations):
     missing = [check for check in item.required_checks
                if not isinstance(observations.get(check), dict)
                or observations[check].get("status") != "VERIFIED"]
-    if item.stage == "planned":
+    if item.stage in ("planned", "discovery_only"):
         missing.insert(0, "production_chain_adapter")
     return {"status": "PREREQUISITES_PRESENT" if not missing else "INCOMPLETE",
             "missing": missing, "buy_authorized": False}

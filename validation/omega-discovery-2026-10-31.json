@@ -1,0 +1,191 @@
+{
+  "scope": "Discovery schema and exact identity only; not security verification or BUY authorization",
+  "probes": [
+    {
+      "observed_at": "2026-10-31T09:24:34.996858+00:00",
+      "requested_networks": [
+        "solana",
+        "eth",
+        "base",
+        "bsc",
+        "arbitrum",
+        "polygon_pos",
+        "avax",
+        "optimism"
+      ],
+      "observed_by_chain": {
+        "base": 40,
+        "bsc": 42,
+        "eth": 40,
+        "solana": 43
+      },
+      "observed_pools": 165,
+      "unique_tokens": 146,
+      "failures": [
+        {
+          "url": "https://api.geckoterminal.com/api/v2/networks/arbitrum/new_pools?include=base_token,quote_token&page=1",
+          "error_type": "HTTPError",
+          "http_status": 429
+        },
+        {
+          "url": "https://api.geckoterminal.com/api/v2/networks/arbitrum/trending_pools?include=base_token,quote_token&page=1",
+          "error_type": "ProviderUnavailable",
+          "http_status": null
+        },
+        {
+          "url": "https://api.geckoterminal.com/api/v2/networks/polygon_pos/new_pools?include=base_token,quote_token&page=1",
+          "error_type": "ProviderUnavailable",
+          "http_status": null
+        },
+        {
+          "url": "https://api.geckoterminal.com/api/v2/networks/polygon_pos/trending_pools?include=base_token,quote_token&page=1",
+          "error_type": "ProviderUnavailable",
+          "http_status": null
+        },
+        {
+          "url": "https://api.geckoterminal.com/api/v2/networks/avax/new_pools?include=base_token,quote_token&page=1",
+          "error_type": "ProviderUnavailable",
+          "http_status": null
+        },
+        {
+          "url": "https://api.geckoterminal.com/api/v2/networks/avax/trending_pools?include=base_token,quote_token&page=1",
+          "error_type": "ProviderUnavailable",
+          "http_status": null
+        },
+        {
+          "url": "https://api.geckoterminal.com/api/v2/networks/optimism/new_pools?include=base_token,quote_token&page=1",
+          "error_type": "ProviderUnavailable",
+          "http_status": null
+        },
+        {
+          "url": "https://api.geckoterminal.com/api/v2/networks/optimism/trending_pools?include=base_token,quote_token&page=1",
+          "error_type": "ProviderUnavailable",
+          "http_status": null
+        },
+        {
+          "error_type": "ValueError",
+          "http_status": null
+        }
+      ],
+      "coverage_audit": {
+        "scope": "DISCOVERY_ONLY",
+        "selected_by_chain": {
+          "base": 4,
+          "bsc": 4,
+          "eth": 4,
+          "solana": 4
+        },
+        "selected_total": 16,
+        "discovery_sources": {
+          "DEX Screener latest-profile fallback (promotional lead)": 5,
+          "GeckoTerminal public pool feed": 160
+        },
+        "launchpad_direct_feeds_active": [],
+        "launchpad_origin_verified_count": 0,
+        "discovery_failure_count": 9,
+        "unassessed_count": 130,
+        "verified_buy_count": 0,
+        "buy_authorized": false,
+        "missing_verification": [
+          "independent_security_review",
+          "beneficial_owner_concentration",
+          "circulating_supply_and_unlocks",
+          "pool_control_and_executable_sellability",
+          "fresh_funded_execution_evidence",
+          "human_reviewed_entry_and_risk_limits"
+        ],
+        "telegram_eligible": false
+      }
+    },
+    {
+      "observed_at": "2026-10-31T09:27:10.989590+00:00",
+      "requested_networks": [
+        "arbitrum",
+        "polygon_pos",
+        "avax",
+        "optimism"
+      ],
+      "observed_by_chain": {
+        "arbitrum": 40,
+        "avax": 32,
+        "optimism": 40,
+        "polygon_pos": 40
+      },
+      "observed_pools": 152,
+      "unique_tokens": 101,
+      "failures": [],
+      "coverage_audit": {
+        "scope": "DISCOVERY_ONLY",
+        "selected_by_chain": {
+          "arbitrum": 2,
+          "avax": 2,
+          "optimism": 2,
+          "polygon_pos": 2
+        },
+        "selected_total": 8,
+        "discovery_sources": {
+          "GeckoTerminal public pool feed": 152
+        },
+        "launchpad_direct_feeds_active": [],
+        "launchpad_origin_verified_count": 0,
+        "discovery_failure_count": 0,
+        "unassessed_count": 93,
+        "verified_buy_count": 0,
+        "buy_authorized": false,
+        "missing_verification": [
+          "independent_security_review",
+          "beneficial_owner_concentration",
+          "circulating_supply_and_unlocks",
+          "pool_control_and_executable_sellability",
+          "fresh_funded_execution_evidence",
+          "human_reviewed_entry_and_risk_limits"
+        ],
+        "telegram_eligible": false
+      }
+    }
+  ],
+  "source_document_checks": [
+    {
+      "url": "https://apiguide.geckoterminal.com/",
+      "status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "bytes_read": 145698,
+      "retrieved_at": "2026-10-31T09:24:04.536631+00:00"
+    },
+    {
+      "url": "https://docs.dexscreener.com/api/reference",
+      "status": 200,
+      "content_type": "text/plain; charset=utf-8",
+      "bytes_read": 12994,
+      "retrieved_at": "2026-10-31T09:24:05.445803+00:00"
+    },
+    {
+      "url": "https://pump.fun",
+      "status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "bytes_read": 920332,
+      "retrieved_at": "2026-10-31T09:24:06.335380+00:00"
+    },
+    {
+      "url": "https://letsbonk.fun",
+      "status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "bytes_read": 946,
+      "retrieved_at": "2026-10-31T09:24:07.009029+00:00"
+    },
+    {
+      "url": "https://four.meme",
+      "status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "bytes_read": 302610,
+      "retrieved_at": "2026-10-31T09:24:09.281642+00:00"
+    },
+    {
+      "url": "https://www.stonkfun.xyz",
+      "status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "bytes_read": 23578,
+      "retrieved_at": "2026-10-31T09:24:09.909707+00:00"
+    }
+  ]
+}
