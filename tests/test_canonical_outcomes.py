@@ -20,3 +20,12 @@ class CanonicalTests(unittest.TestCase):
                    sellability_verified=True, tokenomics_verified=True)
         self.assertNotEqual(assess(row, now=NOW)['outcome'], 'VERIFIED BUY')
         self.assertEqual(len(OUTCOMES), 5)
+    def test_solana_rpc_trace_list_is_unknown_not_scanner_crash(self):
+        item={'network':'solana','token_address':'So11111111111111111111111111111111111111112',
+              'address':'11111111111111111111111111111111',
+              'verification':{'onchain':{'status':'UNKNOWN','raw':[{'request':{},'response':{}}]}}}
+        self.assertEqual(assess(item)['outcome'],'INSUFFICIENT EVIDENCE')
+    def test_adverse_evidence_wins_even_with_unexpected_raw_container(self):
+        item={'network':'solana','verification':{'onchain':{'raw':['RPC trace']},
+              'contract_security':{'status':'FAIL','reason':'Active freeze authority'}}}
+        self.assertEqual(assess(item)['outcome'],'REJECT')

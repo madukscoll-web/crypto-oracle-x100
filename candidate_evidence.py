@@ -41,7 +41,11 @@ def blockers(item):
         suffix=' (HTTP '+str(diagnostic['http_status'])+')' if diagnostic.get('http_status') is not None else ''
         reasons.append('Exact source/bytecode verification unavailable: '+source.get('reason','Not checked')+suffix)
     reasons.append('Independent contract mint/upgrade/transfer authority audit is incomplete')
-    lp=((report.get('onchain',{}).get('raw') or {}).get('results') or {}).get('lp',{})
+    onchain_raw=report.get('onchain',{}).get('raw')
+    # EVM collectors store a results object; Solana stores an RPC call trace list.
+    # A trace does not prove EVM-style LP controls and must remain unknown.
+    onchain_results=onchain_raw.get('results') if isinstance(onchain_raw,dict) else {}
+    lp=(onchain_results or {}).get('lp',{})
     metrics=(report.get('pool_identity_followup',{}).get('metrics') if report.get('pool_identity_followup',{}).get('status')=='LIMITED' else None) or lp.get('metrics') or {}
     fraction=metrics.get('burned_lp_fraction')
     if fraction is None:

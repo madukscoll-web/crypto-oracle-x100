@@ -17,6 +17,7 @@ import urllib.parse
 import signal_tracker
 import canonical_outcomes
 import forward_ledger
+import traceback
 import evidence_audit
 import investment_gates
 import fundamental_evidence
@@ -1087,9 +1088,14 @@ def cli():
     except Exception as exc:
         error = "Unexpected scanner failure: " + type(exc).__name__
         print("::error::" + error + "; see workflow failure notification", flush=True)
+        # Frame names and line numbers only: no exception values, arguments,
+        # locals, remote bodies, URLs or credentials enter diagnostic output.
+        locations=[pathlib.Path(frame.filename).name+':'+str(frame.lineno)+' in '+frame.name
+                   for frame in traceback.extract_tb(exc.__traceback__)[-5:]]
+        print('Safe failure locations: '+'; '.join(locations), flush=True)
         try:
             pathlib.Path("scan_summary.json").write_text(json.dumps(dict(
-                status="failed", errors=[error],
+                status="failed", errors=[error], error_locations=locations,
                 completed_at=dt.datetime.now(dt.timezone.utc).isoformat())) + "\n", encoding="utf-8")
         except OSError:
             print("::error::Could not write failed scan summary", flush=True)
