@@ -37,6 +37,11 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(result["failures"][0]["source"], "StonkFun")
         self.assertFalse(result["buy_authorized"])
 
+    def test_fetch_rotation_survives_explicit_cursor(self):
+        class Other(Adapter): network = "base"
+        report = run(1, cursor=1, fetch=lambda url: {}, adapters=(Adapter, Other))
+        self.assertEqual(report['fetch_order'], ['base','solana'])
+
     def test_invalid_limit(self):
         with self.assertRaises(ValueError):
             run(0, fetch=lambda url: {}, adapters=())

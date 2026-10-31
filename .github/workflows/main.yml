@@ -8,6 +8,11 @@ on:
       - .github/workflows/main.yml
       - stonk_launch_discovery.py
       - multichain_live_research.py
+      - canonical_outcomes.py
+      - research_state.py
+      - forward_ledger.py
+      - launchpad_discovery.py
+      - research_validation.py
       - tests/test_multichain_live_research.py
       - multichain_research_audit.py
       - crypto_oracle_scanner.py
@@ -75,7 +80,7 @@ jobs:
         continue-on-error: true
         timeout-minutes: 4
         run: |
-          python -u multichain_live_research.py --limit 12 --include-profiles --include-stonk --output multichain_research_report.json
+          python -u multichain_live_research.py --limit 12 --include-profiles --include-stonk --include-launchpads --state research_discovery_state.json --output multichain_research_report.json
           python - <<'PY'
           import json
           with open('multichain_research_report.json', encoding='utf-8') as source:
@@ -106,13 +111,17 @@ jobs:
               json.dump(result, output, indent=2)
           print("StonkFun read-only launches:", result["count"], "invalid:", result["invalid_rows"])
           PY
+      - name: Record historical research validation status
+        run: python research_validation.py --dataset historical_cohort.json --output historical_validation_report.json
       - name: Save scanner state
         id: state
         if: always() && steps.scan.outcome != 'skipped'
         run: |
-          if [ -f reported_pools.json ] || [ -f watchlist_state.json ] || [ -f signal_history.json ] || [ -f gate_paper_history.json ]; then
+          if [ -f research_discovery_state.json ] || [ -f forward_events.jsonl ] || [ -f reported_pools.json ] || [ -f watchlist_state.json ] || [ -f signal_history.json ] || [ -f gate_paper_history.json ]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            if [ -f research_discovery_state.json ]; then git add research_discovery_state.json; fi
+            if [ -f forward_events.jsonl ]; then git add forward_events.jsonl; fi
             if [ -f reported_pools.json ]; then git add reported_pools.json; fi
             if [ -f watchlist_state.json ]; then git add watchlist_state.json; fi
             if [ -f signal_history.json ]; then git add signal_history.json; fi
@@ -159,6 +168,9 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
           path: |
+            historical_validation_report.json
+            forward_events.jsonl
+            research_discovery_state.json
             stonk_launch_report.json
             multichain_research_report.json
             scan_summary.json

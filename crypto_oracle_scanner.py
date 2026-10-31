@@ -15,6 +15,8 @@ import urllib.error
 import urllib.parse
 
 import signal_tracker
+import canonical_outcomes
+import forward_ledger
 import evidence_audit
 import investment_gates
 import fundamental_evidence
@@ -942,6 +944,8 @@ def main():
             item["risk_category"] = "AVOID / HIGH CONCERN"
             item["risk_reasons"].append("Adverse independent evidence; inspect detailed findings")
         coverage = evidence_coverage.summary(item)
+        canonical = canonical_outcomes.assess(item)
+        item["canonical_outcome"] = canonical["outcome"]
         print("Evidence coverage " + item["key"] + ": " +
               json.dumps({name: row["status"] for name, row in coverage.items()}, sort_keys=True), flush=True)
         evidence_reports.append({"network": item["network"], "pool": item["address"],
@@ -963,6 +967,7 @@ def main():
                                  "gate_spot": item.get("gate_spot"),
                                  "gate_provider_evidence": item.get("gate_provider_evidence"),
                                  "gate_execution_research": item.get("gate_execution_research"),
+                                 "canonical_assessment": canonical,
                                  "assessment": investment_gates.assess(item)})
         risk_counts[item["risk_category"]] = risk_counts.get(item["risk_category"], 0) + 1
         setup = setup_assessment(item)[0]
@@ -1019,6 +1024,7 @@ def main():
         warnings.append("Gate paper stage unavailable: " + type(exc).__name__)
     save_watchlist(watchlist)
     signal_tracker.save(history)
+    ledger_status = forward_ledger.capture(history, candidates)
     print(f"Tracked pool histories: {len(history)}", flush=True)
     for hours in signal_tracker.HORIZONS_HOURS:
         values = [result["change_percent"]
@@ -1051,9 +1057,12 @@ def main():
               "alerts_delivered": delivered, "successful_feeds": successful_feeds,
               "hourly_evidence": hourly_collector.summary(),
               "gate_paper_candidates": sum(c.get("classification") == gate_spot_candidates.LABEL for c in gate_report.get("candidates", [])),
+              "forward_ledger": ledger_status,
               "signal_performance": {key: {"horizons": signal_tracker.outcomes(rows),
                                            "sampled_risk": signal_tracker.sampled_risk(rows)}
                                      for key, rows in history.items()},
+              "classification_counts": {outcome: sum(row["canonical_assessment"]["outcome"] == outcome for row in evidence_reports)
+                                        for outcome in canonical_outcomes.OUTCOMES},
               "signal_tracking_limits": {"maximum_signals": signal_tracker.MAX_TOKENS,
                                          "maximum_samples_per_signal": signal_tracker.MAX_OBSERVATIONS,
                                          "at_signal_capacity": len(history) >= signal_tracker.MAX_TOKENS,
