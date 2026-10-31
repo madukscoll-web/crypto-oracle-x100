@@ -117,6 +117,9 @@ jobs:
           PY
       - name: Record historical research validation status
         run: python research_validation.py --dataset historical_cohort.json --output historical_validation_report.json
+      - name: Record Gate review backlog diagnostics
+        if: always()
+        run: python gate_review_backlog.py --output gate_review_backlog.json
       - name: Save scanner state
         id: state
         if: always() && steps.scan.outcome != 'skipped'
@@ -146,6 +149,7 @@ jobs:
             scan_summary.json
             evidence_report.json
             gate_candidate_report.json
+            gate_review_backlog.json
             gate_paper_history.json
             reported_pools.json
             watchlist_state.json
