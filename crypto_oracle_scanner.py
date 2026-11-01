@@ -835,9 +835,10 @@ def research_alert_eligible(item):
         return False
     # WAIT research requires meaningful observed liquidity/activity; a weak or
     # missing market setup alone must never create a notification.
-    if setup == "WAIT" and not (item.get("score", 0) >= 60
-                               and item.get("liquidity", 0) >= 100000
-                               and item.get("volume", 0) >= 100000):
+    if setup == "WAIT" and not (fundamental_evidence.finite(item.get("score"), minimum=0) or 0) >= 60:
+        return False
+    if setup == "WAIT" and not ((fundamental_evidence.finite(item.get("liquidity"), minimum=0) or 0) >= 100000
+                               and (fundamental_evidence.finite(item.get("volume"), minimum=0) or 0) >= 100000):
         return False
     if str(item.get("token_identity_status", "")).startswith("UNVERIFIED"):
         return False
