@@ -938,7 +938,7 @@ def main():
     setup_counts = {}
     evidence_reports = []
     entry_counts = {}
-    hourly_collector = hourly_evidence.HourlyEvidence()
+    hourly_collector = hourly_evidence.HourlyEvidence(max_candidates=EVIDENCE_SLOTS)
     for item in selected:
         enrich(item)
         item["fundamental_evidence"] = fundamental_evidence.collect(item, lambda url: get_json(url, headers=HEADERS, retries=0, timeout=5))
