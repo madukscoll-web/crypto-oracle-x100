@@ -16,7 +16,7 @@ def fake_fetch(url):
 
 class ReversalCLITests(unittest.TestCase):
     def test_mocked_gate_pair_stays_research_only(self):
-        result = run(["LINK_USDT"], fetch=fake_fetch, now=1800000000)
+        result = run(["LINK_USDT"], fetch=fake_fetch, now=1700000000 + 101 * 86400)
         row = result["results"][0]
         self.assertEqual(row["status"], "RESEARCH_ONLY")
         self.assertEqual(row["candle_count"], 100)
@@ -26,11 +26,11 @@ class ReversalCLITests(unittest.TestCase):
     def test_stablecoin_rejected_without_request(self):
         def forbidden(_):
             raise AssertionError("No API calls expected")
-        result = run(["USDC_USDT"], fetch=forbidden, now=1800000000)
+        result = run(["USDC_USDT"], fetch=forbidden, now=1700000000 + 101 * 86400)
         self.assertEqual(result["results"][0]["status"], "UNAVAILABLE")
 
     def test_missing_metadata_fails_closed(self):
-        result = run(["ONDO_USDT"], fetch=lambda _: {}, now=1800000000)
+        result = run(["ONDO_USDT"], fetch=lambda _: {}, now=1700000000 + 101 * 86400)
         self.assertEqual(result["results"][0]["status"], "UNAVAILABLE")
 
 
