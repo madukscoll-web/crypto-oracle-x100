@@ -47,7 +47,7 @@ def research_gate_pair(gate, pair_id, *, interval="1d", now=None):
     if interval not in ("1d", "1w"):
         raise ValueError("Unsupported interval")
     raw = gate.get("/spot/candlesticks", dict(currency_pair=pair_id,
-                                              interval=interval, limit=120))
+                                              interval="7d" if interval == "1w" else "1d", limit=120))
     candles = gate_candles(raw, interval_seconds=86400 if interval == "1d" else 604800,
                            now=now)
     observed = dt.datetime.now(dt.timezone.utc).isoformat()
