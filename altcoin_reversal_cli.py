@@ -49,8 +49,10 @@ def run(pairs, interval="1d", *, fetch=fetch_public, now=None):
                 raise ValueError("Active normal Gate Spot pair not verified")
             if any(type(meta.get(k)) is not int or meta[k] > now for k in ("buy_start", "sell_start")):
                 raise ValueError("Gate Spot activation times unknown or not active")
+            if meta.get("delisting_time") not in (None, 0):
+                raise ValueError("Delisting status requires independent review")
             raw = gate.get("/spot/candlesticks", dict(
-                currency_pair=pair, interval=interval, limit=1000))
+                currency_pair=pair, interval="7d" if interval == "1w" else "1d", limit=1000))
             candles = gate_candles(raw, interval_seconds=86400 if interval == "1d" else 604800,
                                    now=now)
             if len(candles) < 65:
