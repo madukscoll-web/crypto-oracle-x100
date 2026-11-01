@@ -6,11 +6,12 @@
 - Daily and weekly closed-candle technical WATCH detection with read-only Gate public API integration.
 - Preliminary technical entry trigger and invalidation (not executable prices or position sizing).
 - Rolling 10-candle forward paper evaluation using next-bar open, illustrative fees and slippage.
-- Manual GitHub Actions workflow with downloadable JSON output. The workflow **fails** if any requested pair lacks verifiable public Spot data.
+- Hourly bounded production research stage with a retained JSON artifact. Each pair reports RESEARCH_ONLY or UNAVAILABLE; unavailable market data never passes verification.
+- Manual read-only CLI for daily/weekly research; no standalone manual workflow is imported into main.
 - Existing BUY approval and trading controls are unchanged.
 
-## Evidence required before production use
-1. Run the manual workflow on the feature branch after merge or through an authorized GitHub Actions dispatch; preserve run URL and the full JSON artifact. GitHub PR unit tests are not a live exchange validation.
+## Evidence required before investment use
+1. Inspect the hourly production research artifact after deployment; preserve the run URL and raw exchange observations. GitHub PR unit tests are not live exchange validation.
 2. Validate the actual Gate candlestick schema and daily/weekly timestamp semantics. Reject missing, stale, duplicated, partial or irregular candles; compare a sample to independent OHLCV.
 3. Test on a pre-registered diversified altcoin universe across bullish, bearish and sideways regimes, with survivorship-bias-aware delisted history.
 4. Use non-overlapping walk-forward folds and realistic order-book fees, spreads, slippage, stops and limit-order fill assumptions. Current rolling signals overlap and reported hit rate must not be treated as independent predictive probability.

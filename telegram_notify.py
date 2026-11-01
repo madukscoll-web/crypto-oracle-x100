@@ -74,7 +74,9 @@ def workflow_message(mode):
     counts = audit.get("notification_outcomes") or {}
     details = (f"Assessed: {audit.get('assessed_candidates', 'unknown')}; "
                f"ineligible: {counts.get('ineligible', 0)}; already delivered: {counts.get('already_delivered', 0)}; "
-               f"delivery capped: {counts.get('delivery_cap', 0)}; failed sends: {counts.get('delivery_failed', 0)}. ")
+               f"delivery capped: {counts.get('delivery_cap', 0)}; failed sends: {counts.get('delivery_failed', 0)}. "
+               f"Security concerns among assessed: {audit.get('security_rejections', 0)}; "
+               f"discovered pools deferred: {audit.get('discovery_pools_not_selected', 'unknown')}. ")
     return (f"CRYPTO-ORACLE X100 hourly scan completed at {report['completed_at']}. "
             f"Pool observations: {report['observations']}; research candidates: {report['candidates']}; "
             f"separate candidate alerts delivered: {report['alerts_delivered']}; "
