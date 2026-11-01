@@ -39,6 +39,7 @@ jobs:
         run: |
           python altcoin_reversal_cli.py --pairs "$PAIRS" --interval "$INTERVAL" > altcoin-reversal-report.json
           python -m json.tool altcoin-reversal-report.json > /dev/null
+          python -c 'import json; r=json.load(open("altcoin-reversal-report.json")); bad=[x for x in r["results"] if x["status"]!="RESEARCH_ONLY"]; assert not bad, "Gate research failed for: "+", ".join(x["pair"]+": "+x.get("reason","unknown") for x in bad)'
       - name: Upload read-only report
         uses: actions/upload-artifact@v4
         with:
