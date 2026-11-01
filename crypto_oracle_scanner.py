@@ -766,6 +766,33 @@ def telegram_eligible(item):
         return False
 
 
+
+def research_telegram_eligible(item):
+    """Opt-in research notification, never BUY authorization."""
+    if os.environ.get("ORACLE_RESEARCH_ALERTS", "").strip().lower() not in ("1", "true", "yes"):
+        return False
+    try:
+        decision, _ = decision_summary(item)
+        if decision != "WAIT AND VERIFY" or item.get("risk_category") == "AVOID / HIGH CONCERN":
+            return False
+        if item.get("discovery_eligible") is False or item.get("refresh_failed"):
+            return False
+        if item.get("token_identity_status") != "VERIFIED":
+            return False
+        if not all(item.get(k) for k in ("network", "token_address", "address")):
+            return False
+        if missing_market_fields(item) or item.get("liquidity", 0) <= 0 or item.get("volume", 0) <= 0:
+            return False
+        if hourly_evidence.adverse(item):
+            return False
+        if any(((item.get("evidence_review") or {}).get(key) or {}).get("status") == "HIGH CONCERN"
+               for key in ("security", "provider_security")):
+            return False
+        return True
+    except (ValueError, TypeError, KeyError, AttributeError, OSError):
+        return False
+
+
 def send_telegram(item):
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
     chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
@@ -987,9 +1014,10 @@ def main():
             save_watchlist(watchlist)
             continue
         item["setup_transition"] = transition or "INITIAL DISCOVERY"
-        if delivered >= MAX_ALERTS_PER_RUN or not telegram_eligible(item):
-            # Retain research and audit artifacts, but never notify rejected or
-            # incomplete tokens. Do not mark a silent token as delivered.
+        buy_eligible = telegram_eligible(item)
+        research_eligible = not buy_eligible and research_telegram_eligible(item)
+        if delivered >= MAX_ALERTS_PER_RUN or not (buy_eligible or research_eligible):
+            # Keep discarded or insufficiently evidenced tokens silent.
             save_watchlist(watchlist)
             continue
         try:
