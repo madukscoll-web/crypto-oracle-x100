@@ -82,7 +82,7 @@ def analyze(symbol: str, candles: list[dict], *, source: str,
         result["reason"] = "No credible baseline volume"
         return result
     volume_ratio = volumes[-1] / volume_mean
-    higher_low = min(lows[-10:]) > min(lows[-30:-10])
+    higher_low = min(lows[-10:-1]) > min(lows[-30:-10])
     recovering = close > ma20 and ma20 > mean(closes[-25:-5])
     breakout = close > prior_high and volume_ratio >= 1.5
     result.update(metrics=dict(close=close, ma20=ma20, ma50=ma50,
