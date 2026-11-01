@@ -1082,6 +1082,11 @@ def main():
                                               if len(rows) >= signal_tracker.MAX_OBSERVATIONS]},
               "warnings": warnings, "errors": errors,
               "completed_at": dt.datetime.now(dt.timezone.utc).isoformat()}
+    if sum(notification_counts.values()) != len(evidence_reports):
+        raise RuntimeError("Notification accounting does not reconcile with assessed candidates")
+    if sum(discovery_counts.values()) != total_checked:
+        raise RuntimeError("Discovery accounting does not reconcile with observations")
+    print("Filter audit: " + json.dumps(report["filter_audit"], sort_keys=True), flush=True)
     pathlib.Path("scan_summary.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     if errors:
         raise SystemExit(1)
