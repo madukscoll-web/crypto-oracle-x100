@@ -9,7 +9,9 @@ from decimal import Decimal,InvalidOperation
 from onchain import Rpc,address,uint,ZERO,DEAD
 from verification import observation
 
-PLATFORMS={'eth':'ethereum','base':'base','bsc':'binance-smart-chain'}
+PLATFORMS={'eth':'ethereum','base':'base','bsc':'binance-smart-chain',
+           'arbitrum':'arbitrum-one','polygon_pos':'polygon-pos',
+           'avax':'avalanche','optimism':'optimistic-ethereum'}
 EXPLORERS={'eth':'https://eth.blockscout.com','base':'https://base.blockscout.com'}
 
 

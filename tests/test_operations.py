@@ -138,6 +138,14 @@ class ScanOperationTests(unittest.TestCase):
         self.assertIn('No qualifying tokens found', telegram.workflow_message('completion'))
         send.assert_not_called()
 
+    def test_malformed_rows_are_counted_without_losing_remaining_observations(self):
+        with patch.object(scanner, 'fetch_json', return_value={'data': [None, {'attributes': {}}]}):
+            report = scanner.main()
+        counts = report['filter_audit']['discovery_observations']
+        self.assertEqual(report['observations'], 4)
+        self.assertEqual(report['filter_audit']['discovery_observation_count'], 4)
+        self.assertEqual(counts, {'malformed_pool_observation': 2, 'missing_pool_creation_time': 2})
+
     def test_provider_outage_is_failure_not_empty_success(self):
         with patch.object(scanner, 'fetch_json', side_effect=TimeoutError):
             with self.assertRaises(SystemExit):

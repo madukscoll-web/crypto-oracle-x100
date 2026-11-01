@@ -148,7 +148,7 @@ def risk_plan(equity, entry, invalidation, fees_fraction, slippage_fraction, liq
             'invalidation': invalidation, 'fees_fraction': fees, 'slippage_fraction': slip}
 
 
-def collect(item, fetch, rpc_request=None):
+def collect(item, fetch, rpc_request=None, include_entry=True):
     from evidence_coverage import unavailable
     if item.get('network') == 'solana':
         import solana_evidence
@@ -171,6 +171,8 @@ def collect(item, fetch, rpc_request=None):
         'ohlcv': 'https://api.geckoterminal.com/api/v2/networks/' + urllib.parse.quote(network, safe='') + '/pools/' + urllib.parse.quote(item['address'], safe='') + '/ohlcv/minute?aggregate=5&limit=30&currency=usd&token=base',
     }
     for source, url in endpoints.items():
+        if source == "ohlcv" and not include_entry:
+            continue
         try:
             if source == 'honeypot' and network not in SIMULATOR_CHAINS:
                 report['sellability'] = observation(source, url, None, 'UNSUPPORTED', 'Independent simulator does not support this network')

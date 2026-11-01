@@ -8,6 +8,7 @@ import pathlib
 import os
 import evidence_coverage
 import execution_quotes
+import contract_sources
 import kyber_quotes
 import re
 
@@ -25,13 +26,21 @@ class HourlyEvidence:
         self.max_candidates = max_candidates
         self.assessed = 0
         self.session = Session(max_requests=max_requests, max_seconds=max_seconds,
-                               transport=transport, max_request_seconds=5)
+                               transport=transport, max_request_seconds=3)
         self.gate = PublicGate(self.fetch)
         self.catalog_attempted = False
         self.registry = json.loads(pathlib.Path(__file__).with_name('evidence_registry.json').read_text())
 
     def fetch(self, url):
         return self.session.json(url, timeout=5)
+
+    def stage(self, name, action, seconds=6, requests=8):
+        """A slow or failed provider must leave budget for unrelated evidence."""
+        try:
+            with self.session.budget(seconds, requests):
+                return action()
+        except (OSError, ValueError, KeyError, TypeError, AttributeError, OverflowError) as exc:
+            return evidence_coverage.unavailable(name, '', exc)
 
     def collect(self, item):
         # The session is shared across candidates, including RPC calls made by
@@ -42,21 +51,24 @@ class HourlyEvidence:
             return
         self.assessed += 1
         with self.session, self.session.budget(40, 45):
-            item['verification'] = verification.collect(item, self.fetch)
+            with self.session.budget(7, 5):
+                item['verification'] = verification.collect(item, self.fetch, include_entry=False)
             report = item['verification']
+            report['execution'] = self.stage('0x', lambda: execution_quotes.collect(item, os.environ), seconds=3)
+            if item.get('network') in kyber_quotes.CHAINS:
+                report['kyber'] = self.stage('kyber', lambda: kyber_quotes.collect(item, os.environ), seconds=3)
+            else:
+                report['kyber'] = verification.observation('kyber', '', None, 'UNSUPPORTED', 'EVM route adapter unsupported on network')
             if item.get('network') in onchain.RPCS and re.fullmatch(r'0x[0-9a-fA-F]{40}', item.get('token_address', '')):
                 info = ((report.get('contract_security', {}).get('raw') or {}).get('result') or {}).get(item['token_address'].lower(), {})
                 # Exact-pool identity and holder balance observations; no LP
                 # control or beneficial-owner verification is inferred.
-                report['supply_comparison'] = supply_evidence.collect(item, self.fetch)
-                report['onchain'] = onchain.collect(item, (info.get('holders') or [])[:8],
-                    lock_descriptors=self.registry.get('lp_locks', {}).get(item['network'] + ':' + item['address'].lower(), []))
+                report['supply_comparison'] = self.stage('supply_comparison', lambda: supply_evidence.collect(item, self.fetch))
+                report['onchain'] = self.stage('evm_rpc', lambda: onchain.collect(item, (info.get('holders') or [])[:8],
+                    lock_descriptors=self.registry.get('lp_locks', {}).get(item['network'] + ':' + item['address'].lower(), [])), seconds=9, requests=24)
+                report['source_controls'] = self.stage('sourcify', lambda: contract_sources.collect(item, self.fetch), seconds=5)
+
             report['unlocks'] = token_unlocks.collect(item, self.registry)
-            report['execution'] = execution_quotes.collect(item, os.environ)
-            if item.get('network') in kyber_quotes.CHAINS:
-                report['kyber'] = kyber_quotes.collect(item, os.environ)
-            else:
-                report['kyber'] = verification.observation('kyber', '', None, 'UNSUPPORTED', 'EVM route adapter unsupported on network')
             if 'onchain' not in report:
                 report['onchain'] = verification.observation('policy', '', None, 'UNSUPPORTED', 'No reviewed on-chain pool/holder adapter for network')
             if 'supply_comparison' not in report:
