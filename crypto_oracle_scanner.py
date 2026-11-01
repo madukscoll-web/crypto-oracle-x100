@@ -670,6 +670,7 @@ def watchlist_transition(item, watchlist):
     if (item.get("hourly_evidence") or {}).get("status") == "COLLECTED":
         checked_at = item["observed_at"]
     watchlist[key] = {"evidence_checked_at": checked_at, "setup": setup, "observed_at": item["observed_at"],
+                      "research_alerted_at": watchlist.get(key, {}).get("research_alerted_at"),
                       "score": item["score"], "network": item["network"],
                       "pool_address": item["address"]}
     if setup == "PRIORITY VERIFY" and previous != "PRIORITY VERIFY":
@@ -819,6 +820,46 @@ def send_telegram(item):
     if len(message) > 4096:
         message = message[:3900] + "\n[Additional diagnostics truncated; see workflow logs.]"
     return send_message(message)
+
+
+
+def research_alert_eligible(item):
+    """Independent, non-trading research notification; never changes BUY eligibility."""
+    if item.get("risk_category") == "AVOID / HIGH CONCERN":
+        return False
+    decision, _ = decision_summary(item)
+    if decision == "DISCARD":
+        return False
+    setup, _ = setup_assessment(item)
+    if setup not in ("PRIORITY VERIFY", "WATCH SETUP"):
+        return False
+    if missing_market_fields(item) or not price_evidence(item)[0]:
+        return False
+    return bool(item.get("network") and item.get("token_address") and item.get("address"))
+
+
+def research_alert_text(item):
+    decision, reason = decision_summary(item)
+    setup, setup_reason = setup_assessment(item)
+    risks = "; ".join(item.get("risk_reasons") or []) or "Independent safety and execution verification incomplete"
+    return (
+        "CRYPTO-ORACLE X100 — RESEARCH WATCH ONLY\\n"
+        "NOT APPROVED FOR PURCHASE. NOT A BUY SIGNAL.\\n"
+        f"Market setup: {setup} — {setup_reason}\\n"
+        f"Decision: {decision} — {reason}\\n"
+        f"Token: {item.get('token_symbol', 'UNKNOWN')}\\n"
+        f"Chain: {item['network']}\\n"
+        f"Contract: {item['token_address']}\\n"
+        f"Pool: {item['address']}\\n"
+        f"Liquidity USD: {display_measurement(item.get('liquidity'), ',.0f')}\\n"
+        f"24h volume USD: {display_measurement(item.get('volume'), ',.0f')}\\n"
+        f"1h trades: {display_measurement(item.get('trades'), '.0f')}\\n"
+        f"Discovery score (not safety): {item.get('score', 'UNKNOWN')}\\n"
+        f"Unresolved evidence: {risks[:700]}\\n"
+        f"Observed UTC: {item.get('observed_at', 'UNKNOWN')}\\n"
+        "Independent sellability, LP controls, holders, vesting and executable entry "
+        "must be verified before any purchase."
+    )
 
 
 def main():
@@ -1028,6 +1069,24 @@ def main():
         else:
             delivered_existing += 1
         time.sleep(1)
+    # Research WATCH messages use a separate, bounded, persistent notification path.
+    # They never set BUY authorization, order permissions, or verified-alert state.
+    research_sent = 0
+    for item in selected:
+        if research_sent >= 2:
+            break
+        if not research_alert_eligible(item):
+            continue
+        if (watchlist.get(item["key"]) or {}).get("research_alerted_at"):
+            continue
+        try:
+            send_message(research_alert_text(item))
+        except (urllib.error.URLError, ValueError, RuntimeError, TimeoutError, OSError) as exc:
+            warnings.append("Research watch delivery failed: " + type(exc).__name__)
+            continue
+        watchlist[item["key"]]["research_alerted_at"] = item.get("observed_at")
+        save_watchlist(watchlist)
+        research_sent += 1
     # Gate-only strategy has its own evidence, report, paper history and label.
     # Optional failure never changes the DEX decision or interrupts its delivery.
     gate_report = {}
