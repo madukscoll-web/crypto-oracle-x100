@@ -23,3 +23,17 @@ class ResearchWatchTests(unittest.TestCase):
             message=scanner.research_alert_text(x)
             self.assertIn("NOT APPROVED FOR PURCHASE",message)
             self.assertIn(x["token_address"],message)
+
+    def test_wait_with_credible_market_data(self):
+        x=self.item();x["score"]=65;x["liquidity"]=150000;x["volume"]=120000
+        with patch.object(scanner,"decision_summary",return_value=("WAIT AND VERIFY","Incomplete evidence")), patch.object(scanner,"setup_assessment",return_value=("WAIT","No confirmed reversal")), patch.object(scanner,"price_evidence",return_value=(True,"ok")):
+            self.assertTrue(scanner.research_alert_eligible(x))
+            self.assertIn("WAIT",scanner.research_alert_text(x))
+    def test_wait_without_credible_activity_is_silent(self):
+        x=self.item();x["score"]=20
+        with patch.object(scanner,"decision_summary",return_value=("WAIT AND VERIFY","Incomplete evidence")), patch.object(scanner,"setup_assessment",return_value=("WAIT","Weak market activity")):
+            self.assertFalse(scanner.research_alert_eligible(x))
+    def test_unverified_identity_is_silent(self):
+        x=self.item();x["token_identity_status"]="UNVERIFIED (mismatch)"
+        with patch.object(scanner,"decision_summary",return_value=("WAIT AND VERIFY","Identity unknown")), patch.object(scanner,"setup_assessment",return_value=("PRIORITY VERIFY","Activity")):
+            self.assertFalse(scanner.research_alert_eligible(x))
