@@ -831,7 +831,15 @@ def research_alert_eligible(item):
     if decision == "DISCARD":
         return False
     setup, _ = setup_assessment(item)
-    if setup not in ("PRIORITY VERIFY", "WATCH SETUP"):
+    if setup not in ("PRIORITY VERIFY", "WATCH SETUP", "WAIT"):
+        return False
+    # WAIT research requires meaningful observed liquidity/activity; a weak or
+    # missing market setup alone must never create a notification.
+    if setup == "WAIT" and not (item.get("score", 0) >= 60
+                               and item.get("liquidity", 0) >= 100000
+                               and item.get("volume", 0) >= 100000):
+        return False
+    if str(item.get("token_identity_status", "")).startswith("UNVERIFIED"):
         return False
     if missing_market_fields(item) or not price_evidence(item)[0]:
         return False
@@ -843,20 +851,20 @@ def research_alert_text(item):
     setup, setup_reason = setup_assessment(item)
     risks = "; ".join(item.get("risk_reasons") or []) or "Independent safety and execution verification incomplete"
     return (
-        "CRYPTO-ORACLE X100 — RESEARCH WATCH ONLY\\n"
-        "NOT APPROVED FOR PURCHASE. NOT A BUY SIGNAL.\\n"
-        f"Market setup: {setup} — {setup_reason}\\n"
-        f"Decision: {decision} — {reason}\\n"
-        f"Token: {item.get('token_symbol', 'UNKNOWN')}\\n"
-        f"Chain: {item['network']}\\n"
-        f"Contract: {item['token_address']}\\n"
-        f"Pool: {item['address']}\\n"
-        f"Liquidity USD: {display_measurement(item.get('liquidity'), ',.0f')}\\n"
-        f"24h volume USD: {display_measurement(item.get('volume'), ',.0f')}\\n"
-        f"1h trades: {display_measurement(item.get('trades'), '.0f')}\\n"
-        f"Discovery score (not safety): {item.get('score', 'UNKNOWN')}\\n"
-        f"Unresolved evidence: {risks[:700]}\\n"
-        f"Observed UTC: {item.get('observed_at', 'UNKNOWN')}\\n"
+        "CRYPTO-ORACLE X100 — RESEARCH WATCH ONLY\n"
+        "NOT APPROVED FOR PURCHASE. NOT A BUY SIGNAL.\n"
+        f"Market setup: {setup} — {setup_reason}\n"
+        f"Decision: {decision} — {reason}\n"
+        f"Token: {item.get('token_symbol', 'UNKNOWN')}\n"
+        f"Chain: {item['network']}\n"
+        f"Contract: {item['token_address']}\n"
+        f"Pool: {item['address']}\n"
+        f"Liquidity USD: {display_measurement(item.get('liquidity'), ',.0f')}\n"
+        f"24h volume USD: {display_measurement(item.get('volume'), ',.0f')}\n"
+        f"1h trades: {display_measurement(item.get('trades'), '.0f')}\n"
+        f"Discovery score (not safety): {item.get('score', 'UNKNOWN')}\n"
+        f"Unresolved evidence: {risks[:700]}\n"
+        f"Observed UTC: {item.get('observed_at', 'UNKNOWN')}\n"
         "Independent sellability, LP controls, holders, vesting and executable entry "
         "must be verified before any purchase."
     )
