@@ -901,7 +901,7 @@ def main():
     # Bound requests to avoid exceeding the public API rate limit.
     revisits = []
     # Rotate tracked pools by oldest observation, instead of always refreshing the same eight.
-    ordered_watchlist = sorted(watchlist.items(), key=lambda pair: pair[1].get("observed_at", ""))
+    ordered_watchlist = sorted(watchlist.items(), key=lambda pair: (\n        0 if pair[1].get("setup") == "PRIORITY VERIFY" else 1,\n        pair[1].get("evidence_checked_at") or "",\n        pair[1].get("observed_at") or "",\n        pair[0]))
     revisit_limit = max(1, min(12, int(os.environ.get("ORACLE_REVISITS", "3"))))
     for key, record in ordered_watchlist[:revisit_limit]:
         network = record.get("network")
