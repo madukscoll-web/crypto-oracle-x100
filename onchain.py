@@ -218,8 +218,12 @@ def collect(item, provider_rows=(), rpc=None, lock_descriptors=()):
                 results['lp']=dict(status='LIMITED',reason=lp['limitation'],metrics=lp)
             except (KeyError,ValueError,TypeError,OSError):
                 results['lp'] = dict(status='UNKNOWN', reason='Unsupported pair/factory or unavailable LP proof')
-        concentration = holder_concentration(rpc, item['token_address'], provider_rows)
-        results['holders'] = dict(status='LIMITED', reason=concentration['limitation'], metrics=concentration)
+        try:
+            concentration = holder_concentration(rpc, item['token_address'], provider_rows)
+            results['holders'] = dict(status='LIMITED', reason=concentration['limitation'], metrics=concentration)
+        except (KeyError, ValueError, TypeError, OSError, AttributeError, OverflowError) as exc:
+            from evidence_coverage import unavailable
+            results['holders'] = unavailable('evm_rpc', rpc.url, exc)
         rpc.unchanged()
         return observation('evm_rpc', rpc.url, dict(block=block, calls=rpc.calls, results=results),
                            'LIMITED', 'Pinned-block independent observations; beneficial ownership and timelock coverage not established')

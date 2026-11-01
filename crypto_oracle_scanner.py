@@ -27,6 +27,7 @@ import market_corroboration
 import evidence_coverage
 import hourly_evidence
 import gate_spot_candidates
+import scan_audit
 from oracle_http import get_json
 from telegram_notify import send_message
 
@@ -97,33 +98,18 @@ def display_measurement(value, spec):
 
 def inspect(pool, network, mode="new_pools"):
     """Score observed pool activity; never infer contract or token safety."""
+    if scan_audit.discovery_reason(pool, network, mode) is not None:
+        return None
     attrs = pool.get("attributes") or {}
-    created = attrs.get("pool_created_at")
-    if not created:
-        return None
-    try:
-        timestamp = dt.datetime.fromisoformat(created.replace("Z", "+00:00"))
-        if timestamp.tzinfo is None:
-            timestamp = timestamp.replace(tzinfo=dt.timezone.utc)
-        age_hours = (dt.datetime.now(dt.timezone.utc) - timestamp).total_seconds() / 3600
-    except (TypeError, ValueError, OverflowError):
-        return None
-    if age_hours < 0:
-        return None
-    if mode == "new_pools" and age_hours > MAX_NEW_POOL_AGE_HOURS:
-        return None
-    if mode == "trending_pools" and age_hours < MIN_TRENDING_POOL_AGE_HOURS:
-        return None
-
+    timestamp = dt.datetime.fromisoformat(attrs["pool_created_at"].replace("Z", "+00:00"))
+    if timestamp.tzinfo is None:
+        timestamp = timestamp.replace(tzinfo=dt.timezone.utc)
+    age_hours = (dt.datetime.now(dt.timezone.utc) - timestamp).total_seconds() / 3600
     liquidity = number(attrs.get("reserve_in_usd"))
     volume = number((attrs.get("volume_usd") or {}).get("h24"))
     h1 = (attrs.get("transactions") or {}).get("h1") or {}
-    buys = int(max(0, number(h1.get("buys"))))
-    sells = int(max(0, number(h1.get("sells"))))
+    buys, sells = (int(number(h1[k])) for k in ("buys", "sells"))
     trades = buys + sells
-    if (liquidity < MIN_LIQUIDITY_USD or volume < MIN_24H_VOLUME_USD
-            or trades < MIN_1H_TRANSACTIONS):
-        return None
 
     address = attrs.get("address") or (pool.get("id") or "").removeprefix(network + "_")
     if not address:
@@ -836,6 +822,8 @@ def main():
     errors = []
     total_checked = 0
     successful_feeds = 0
+    discovery_counts = {}
+    notification_counts = {}
     for network in NETWORKS:
         network_checked = 0
         for mode in SCAN_MODES:
@@ -850,7 +838,14 @@ def main():
                     network_checked += len(pools)
                     total_checked += len(pools)
                     for pool in pools:
-                        item = inspect(pool, network, mode)
+                        try:
+                            item = inspect(pool, network, mode)
+                        except (ValueError, TypeError, AttributeError, KeyError, OverflowError):
+                            scan_audit.increment(discovery_counts, "malformed_pool_observation")
+                            continue
+                        outcome = ("qualified_duplicate_pool" if item and item["key"] in keys_in_run else
+                                   "qualified_unique_pool" if item else scan_audit.discovery_reason(pool, network, mode))
+                        scan_audit.increment(discovery_counts, outcome)
                         if item and item["key"] not in keys_in_run:
                             candidates.append(item)
                             keys_in_run.add(item["key"])
@@ -868,6 +863,8 @@ def main():
                     time.sleep(REQUEST_DELAY_SECONDS)
         print(f"{network}: checked {network_checked} pool observations", flush=True)
 
+    previously_reported_pool_count = sum(item['key'] in seen for item in candidates)
+    research_identity_count = len(hourly_evidence.rotate(candidates, watchlist))
     # Rank independently: older, high-liquidity pools cannot crowd out new pools.
     # These are POOL classifications, not independently verified token ages.
     new_candidates = sorted(
@@ -951,6 +948,7 @@ def main():
               json.dumps({name: row["status"] for name, row in coverage.items()}, sort_keys=True), flush=True)
         evidence_reports.append({"network": item["network"], "pool": item["address"],
                                  "contract": item.get("token_address"),
+                                 "risk_category": item["risk_category"],
                                  "security": item.get("security_provider_evidence"),
                                  "source_records": item["research_records"],
                                  "market_corroboration": item["market_corroboration"],
@@ -982,12 +980,18 @@ def main():
         previous_watch = watchlist.get(item["key"])
         transition = watchlist_transition(item, watchlist)
         if already_alerted(item, seen):
+            scan_audit.increment(notification_counts, "already_delivered")
             # Already delivered: never repeat the same token just because a
             # market setup transition occurred on a later hourly scan.
             save_watchlist(watchlist)
             continue
         item["setup_transition"] = transition or "INITIAL DISCOVERY"
-        if delivered >= MAX_ALERTS_PER_RUN or not telegram_eligible(item):
+        eligible = telegram_eligible(item)
+        if not eligible:
+            scan_audit.increment(notification_counts, "ineligible")
+        elif delivered >= MAX_ALERTS_PER_RUN:
+            scan_audit.increment(notification_counts, "delivery_cap")
+        if delivered >= MAX_ALERTS_PER_RUN or not eligible:
             # Retain research and audit artifacts, but never notify rejected or
             # incomplete tokens. Do not mark a silent token as delivered.
             save_watchlist(watchlist)
@@ -995,6 +999,7 @@ def main():
         try:
             send_telegram(item)
         except (urllib.error.URLError, ValueError, RuntimeError, TimeoutError, OSError) as exc:
+            scan_audit.increment(notification_counts, "delivery_failed")
             errors.append(f"Telegram delivery failed for {item['key']}: {type(exc).__name__}")
             # Retry a failed priority-transition alert on the next scan.
             if previous_watch is None:
@@ -1008,6 +1013,7 @@ def main():
         save_state(seen)
         save_watchlist(watchlist)
         delivered += 1
+        scan_audit.increment(notification_counts, "delivered")
         if item["pool_class"] == "NEW POOL":
             delivered_new += 1
         else:
@@ -1054,6 +1060,11 @@ def main():
         errors.append("No discovery feeds completed successfully")
     pathlib.Path("evidence_report.json").write_text(json.dumps(evidence_reports, indent=2) + "\n", encoding="utf-8")
     report = {"status": "failed" if errors else "completed",
+              "github_run_id": os.environ.get("GITHUB_RUN_ID", ""),
+              "filter_audit": scan_audit.summarize(discovery_counts, notification_counts,
+                                                  candidates, selected, evidence_reports),
+              "qualified_previously_reported_pools": previously_reported_pool_count,
+              "qualified_research_identities": research_identity_count,
               "observations": total_checked, "candidates": len(candidates),
               "alerts_delivered": delivered, "successful_feeds": successful_feeds,
               "hourly_evidence": hourly_collector.summary(),
@@ -1071,6 +1082,11 @@ def main():
                                               if len(rows) >= signal_tracker.MAX_OBSERVATIONS]},
               "warnings": warnings, "errors": errors,
               "completed_at": dt.datetime.now(dt.timezone.utc).isoformat()}
+    if sum(notification_counts.values()) != len(evidence_reports):
+        raise RuntimeError("Notification accounting does not reconcile with assessed candidates")
+    if sum(discovery_counts.values()) != total_checked:
+        raise RuntimeError("Discovery accounting does not reconcile with observations")
+    print("Filter audit: " + json.dumps(report["filter_audit"], sort_keys=True), flush=True)
     pathlib.Path("scan_summary.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     if errors:
         raise SystemExit(1)

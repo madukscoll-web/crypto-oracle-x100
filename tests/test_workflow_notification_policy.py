@@ -7,9 +7,9 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 
 class WorkflowNotificationPolicyTests(unittest.TestCase):
-    def test_no_routine_success_telegram_step(self):
+    def test_one_aggregate_success_telegram_step(self):
         workflow = (ROOT / ".github/workflows/main.yml").read_text(encoding="utf-8")
-        self.assertNotIn("python telegram_notify.py success", workflow)
+        self.assertEqual(workflow.count("python telegram_notify.py success"), 1)
         self.assertNotIn("Notify Telegram on successful scan completion", workflow)
 
     def test_failure_alert_preserved(self):

@@ -70,17 +70,34 @@ def workflow_message(mode):
     report = json.loads(pathlib.Path("scan_summary.json").read_text(encoding="utf-8"))
     if report.get("status") != "completed":
         raise NotificationError("Refusing completion summary for an unsuccessful scan")
+    audit = report.get("filter_audit") or {}
+    counts = audit.get("notification_outcomes") or {}
+    details = (f"Assessed: {audit.get('assessed_candidates', 'unknown')}; "
+               f"ineligible: {counts.get('ineligible', 0)}; already delivered: {counts.get('already_delivered', 0)}; "
+               f"delivery capped: {counts.get('delivery_cap', 0)}; failed sends: {counts.get('delivery_failed', 0)}. "
+               f"Security concerns among assessed: {audit.get('security_rejections', 0)}; "
+               f"discovered pools deferred: {audit.get('discovery_pools_not_selected', 'unknown')}. ")
     return (f"CRYPTO-ORACLE X100 hourly scan completed at {report['completed_at']}. "
             f"Pool observations: {report['observations']}; research candidates: {report['candidates']}; "
             f"separate candidate alerts delivered: {report['alerts_delivered']}; "
             f"coverage warnings: {len(report['warnings'])}. "
+            + details
             + ("No qualifying tokens found. " if report['candidates'] == 0 else "")
             + "Research only; not a buy signal. Run: " + run_url)
 
 
 if __name__ == "__main__":
     try:
-        send_message(workflow_message(sys.argv[1]))
+        mode = sys.argv[1]
+        if mode != "failure":
+            report = json.loads(pathlib.Path("scan_summary.json").read_text(encoding="utf-8"))
+            if os.environ.get("GITHUB_RUN_ID") and report.get("github_run_id") != os.environ["GITHUB_RUN_ID"]:
+                raise NotificationError("Summary belongs to another workflow run")
+        send_message(workflow_message(mode))
+        if mode != "failure":
+            pathlib.Path("operational_notification.json").write_text(json.dumps({
+                "status": "BOT_API_CONFIRMED", "github_run_id": os.environ.get("GITHUB_RUN_ID", ""),
+                "candidate_details_included": False}) + "\n", encoding="utf-8")
     except (NotificationError, OSError, ValueError, KeyError, IndexError) as exc:
         print(f"ERROR: Telegram workflow notification failed ({type(exc).__name__}). Inspect configuration and run logs.", flush=True)
         sys.exit(1)

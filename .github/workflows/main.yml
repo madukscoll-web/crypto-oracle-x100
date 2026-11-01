@@ -18,6 +18,9 @@ on:
       - multichain_research_audit.py
       - crypto_oracle_scanner.py
       - hourly_evidence.py
+      - scan_audit.py
+      - telegram_notify.py
+      - altcoin_reversal_*.py
       - evidence_coverage.py
       - solana_evidence.py
       - verification.py
@@ -98,6 +101,11 @@ jobs:
           assert report['orders_allowed'] is False
           print('Read-only multichain coverage:', json.dumps(audit, sort_keys=True))
           PY
+      - name: Run bounded altcoin bullish-reversal research
+        id: reversal
+        continue-on-error: true
+        timeout-minutes: 1
+        run: python -u altcoin_reversal_production.py
       - name: Run read-only StonkFun launch audit
         id: stonk_launches
         continue-on-error: true
@@ -124,6 +132,13 @@ jobs:
         id: state
         if: always() && steps.scan.outcome != 'skipped'
         run: python workflow_state.py publish
+      - name: Send aggregate operational summary
+        id: operational_summary
+        if: success()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python telegram_notify.py success
       - name: Notify Telegram when workflow fails
         if: failure()
         env:
@@ -147,6 +162,8 @@ jobs:
             stonk_launch_report.json
             multichain_research_report.json
             scan_summary.json
+            operational_notification.json
+            altcoin_reversal_report.json
             evidence_report.json
             gate_candidate_report.json
             gate_review_backlog.json
