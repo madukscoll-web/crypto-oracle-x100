@@ -52,6 +52,15 @@ MIN_TRENDING_POOL_AGE_HOURS = 72
 PAGES_PER_NETWORK = max(1, min(3, int(os.environ.get("ORACLE_PAGES", "1"))))
 REQUEST_DELAY_SECONDS = 8
 MAX_ALERTS_PER_RUN = max(1, min(10, int(os.environ.get("ORACLE_MAX_ALERTS", "4"))))
+# Evidence assessment capacity is distinct from alert delivery capacity.
+# Default remains production-tested at six; opt-in expansion is capped to eight.
+def evidence_capacity(value):
+    try:
+        return max(1, min(8, int(value)))
+    except (TypeError, ValueError, OverflowError):
+        return 6
+
+EVIDENCE_SLOTS = evidence_capacity(os.environ.get("ORACLE_EVIDENCE_SLOTS", "6"))
 NEW_POOL_TARGET_SHARE = 0.70  # Minimum priority allocation when enough new candidates qualify.
 STATE_FILE = pathlib.Path("reported_pools.json")
 WATCH_STATE_FILE = pathlib.Path("watchlist_state.json")
@@ -879,7 +888,7 @@ def main():
     existing_unseen = [item for item in existing_candidates if item["key"] not in seen]
     # Verification capacity is separate from the Telegram delivery limit.
     # Prefer new pools, and use spare research slots when that feed is empty.
-    evidence_slots = 6
+    evidence_slots = EVIDENCE_SLOTS
     new_reserved = (evidence_slots * 7 + 9) // 10
     new_unseen = hourly_evidence.rotate(new_unseen, watchlist)
     existing_unseen = hourly_evidence.rotate(existing_unseen, watchlist)
