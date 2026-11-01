@@ -57,6 +57,12 @@ def run(pairs, interval="1d", *, fetch=fetch_public, now=None):
                                    now=now)
             if len(candles) < 65:
                 raise ValueError("Not enough closed historical candles for 10-bar evaluation")
+            period = 86400 if interval == "1d" else 604800
+            if now - candles[-1]["timestamp"] > 3 * period:
+                raise ValueError("Historical candles are stale")
+            if any(b["timestamp"] - a["timestamp"] != period
+                   for a, b in zip(candles, candles[1:])):
+                raise ValueError("Missing or irregular historical candles")
             source = "Gate Spot public API v4"
             research = analyze(pair.replace("_", "/"), candles,
                                source=source, observed_at=dt.datetime.fromtimestamp(
