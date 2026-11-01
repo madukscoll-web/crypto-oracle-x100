@@ -1,0 +1,48 @@
+name: Altcoin Reversal Read-Only Research
+
+on:
+  workflow_dispatch:
+    inputs:
+      pairs:
+        description: "Comma-separated Gate Spot pairs (maximum 10)"
+        required: false
+        default: "LINK_USDT,ONDO_USDT"
+      interval:
+        description: "Closed candle timeframe"
+        required: false
+        type: choice
+        options:
+          - "1d"
+          - "1w"
+        default: "1d"
+
+permissions:
+  contents: read
+
+jobs:
+  altcoin-reversal-research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verify research module regression tests
+        run: python -m unittest discover -s tests -p 'test_altcoin_reversal_*.py' -v
+      - name: Query Gate public market data and generate research JSON
+        env:
+          PAIRS: ${{ inputs.pairs }}
+          INTERVAL: ${{ inputs.interval }}
+        run: |
+          python altcoin_reversal_cli.py --pairs "$PAIRS" --interval "$INTERVAL" > altcoin-reversal-report.json
+          python -m json.tool altcoin-reversal-report.json > /dev/null
+          python -c 'import json; r=json.load(open("altcoin-reversal-report.json")); bad=[x for x in r["results"] if x["status"]!="RESEARCH_ONLY"]; assert not bad, "Gate research failed for: "+", ".join(x["pair"]+": "+x.get("reason","unknown") for x in bad)'
+      - name: Upload read-only report
+        uses: actions/upload-artifact@v4
+        with:
+          name: altcoin-reversal-report
+          path: altcoin-reversal-report.json
+          retention-days: 14
