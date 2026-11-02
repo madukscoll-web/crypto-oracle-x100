@@ -10,7 +10,9 @@ from altcoin_reversal_alerts import select_watches, format_watch
 from telegram_notify import send_message, NotificationError
 
 def deliver(report, state, sender=send_message, max_alerts=3, persist=None):
-    if type(max_alerts) is not int or not 1 <= max_alerts <= 10:\n        raise ValueError('Invalid alert budget')\n    if not isinstance(state, dict):
+    if type(max_alerts) is not int or not 1 <= max_alerts <= 10:
+        raise ValueError('Invalid alert budget')
+    if not isinstance(state, dict):
         raise ValueError("Invalid dedup state")
     previous = state.get("delivered", {})
     if not isinstance(previous, dict):
@@ -24,8 +26,11 @@ def deliver(report, state, sender=send_message, max_alerts=3, persist=None):
         candle = str(row.get("latest_closed_candle", ""))
         if not candle or updated.get(key) == candle:
             continue
-        sender(format_watch(row))
+        if sender(format_watch(row)) is not True:
+            raise NotificationError('Telegram receipt not confirmed')
         updated[key] = candle
+        if persist is not None:
+            persist({'version': 1, 'delivered': updated})
         delivered.append(key)
     return {"version": 1, "delivered": updated}, {
         "pairs_assessed": len(report["results"]),
@@ -44,10 +49,13 @@ def main():
     report = json.loads(pathlib.Path(args.report).read_text())
     state_path = pathlib.Path(args.state)
     state = json.loads(state_path.read_text()) if state_path.exists() else {"version": 1, "delivered": {}}
-    def persist(snapshot):\n        temporary = state_path.with_suffix(state_path.suffix + '.tmp')\n        temporary.write_text(json.dumps(snapshot, indent=2))\n        temporary.replace(state_path)\n    new_state, summary = deliver(report, state, persist=persist)
-    # Persist only after confirmed sends. A partial-send exception stops before
-    # persistence, so Telegram's ambiguous transport outcomes can still duplicate.
-    state_path.write_text(json.dumps(new_state, indent=2))
+    def persist(snapshot):
+        temporary = state_path.with_suffix(state_path.suffix + '.tmp')
+        temporary.write_text(json.dumps(snapshot, indent=2))
+        temporary.replace(state_path)
+    new_state, summary = deliver(report, state, persist=persist)
+    # Persist each confirmed receipt, including when a later send fails.
+    persist(new_state)
     pathlib.Path(args.summary).write_text(json.dumps(summary, indent=2))
     print(json.dumps(summary))
 
