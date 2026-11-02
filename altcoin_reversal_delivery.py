@@ -9,8 +9,8 @@ import sys
 from altcoin_reversal_alerts import select_watches, format_watch
 from telegram_notify import send_message, NotificationError
 
-def deliver(report, state, sender=send_message, max_alerts=3):
-    if not isinstance(state, dict):
+def deliver(report, state, sender=send_message, max_alerts=3, persist=None):
+    if type(max_alerts) is not int or not 1 <= max_alerts <= 10:\n        raise ValueError('Invalid alert budget')\n    if not isinstance(state, dict):
         raise ValueError("Invalid dedup state")
     previous = state.get("delivered", {})
     if not isinstance(previous, dict):
@@ -44,7 +44,7 @@ def main():
     report = json.loads(pathlib.Path(args.report).read_text())
     state_path = pathlib.Path(args.state)
     state = json.loads(state_path.read_text()) if state_path.exists() else {"version": 1, "delivered": {}}
-    new_state, summary = deliver(report, state)
+    def persist(snapshot):\n        temporary = state_path.with_suffix(state_path.suffix + '.tmp')\n        temporary.write_text(json.dumps(snapshot, indent=2))\n        temporary.replace(state_path)\n    new_state, summary = deliver(report, state, persist=persist)
     # Persist only after confirmed sends. A partial-send exception stops before
     # persistence, so Telegram's ambiguous transport outcomes can still duplicate.
     state_path.write_text(json.dumps(new_state, indent=2))
