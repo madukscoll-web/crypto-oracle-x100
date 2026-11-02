@@ -3,7 +3,7 @@ from altcoin_reversal_delivery import deliver
 
 class DeliveryTests(unittest.TestCase):
     def report(self):
-        return {"buy_authorized": False, "results": [{
+        return {"buy_authorized": False, "orders_allowed": False, "results": [{
             "pair": "LINK_USDT", "status": "RESEARCH_ONLY", "buy_authorized": False,
             "orders_allowed": False, "latest_closed_candle": 1700000000,
             "research": {"classification": "EARLY REVERSAL WATCH", "buy_authorized": False,
