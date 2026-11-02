@@ -20,7 +20,9 @@ def deliver(report, state, sender=send_message, max_alerts=3, persist=None):
     updated = dict(previous)
     delivered = []
     watches = select_watches(report)
-    for row in watches[:max_alerts]:
+    for row in watches:
+        if len(delivered) >= max_alerts:
+            break
         research = row["research"]
         key = row["pair"] + "|" + research["interval"] + "|" + research["classification"]
         candle = str(row.get("latest_closed_candle", ""))
