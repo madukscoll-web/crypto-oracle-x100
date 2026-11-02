@@ -8,7 +8,7 @@ import math
 WATCHES = frozenset(("EARLY REVERSAL WATCH", "TECHNICAL REVERSAL WATCH"))
 
 def select_watches(report):
-    if not isinstance(report, dict) or report.get("buy_authorized") is not False:
+    if not isinstance(report, dict) or report.get("buy_authorized") is not False or report.get("orders_allowed") is not False:
         raise ValueError("Untrusted research report")
     rows = report.get("results")
     if not isinstance(rows, list):
