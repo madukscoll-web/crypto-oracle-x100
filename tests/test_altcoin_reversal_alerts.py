@@ -3,7 +3,7 @@ from altcoin_reversal_alerts import select_watches, format_watch
 
 class AlertPolicyTests(unittest.TestCase):
     def sample(self):
-        return {"buy_authorized": False, "results": [{
+        return {"buy_authorized": False, "orders_allowed": False, "results": [{
             "pair": "LINK_USDT", "status": "RESEARCH_ONLY",
             "buy_authorized": False, "orders_allowed": False,
             "research": {"classification": "EARLY REVERSAL WATCH",
