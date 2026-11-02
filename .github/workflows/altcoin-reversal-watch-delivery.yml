@@ -1,0 +1,54 @@
+name: Altcoin Reversal WATCH Delivery
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 * * * *'
+permissions:
+  contents: read
+concurrency:
+  group: altcoin-reversal-watch-delivery
+  cancel-in-progress: false
+jobs:
+  research-watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify regression tests
+        run: python -m unittest discover -s tests -p 'test_altcoin_reversal_*.py' -v
+      - name: Restore deduplication state
+        uses: actions/cache/restore@v4
+        with:
+          path: reversal-watch-state.json
+          key: reversal-watch-state-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            reversal-watch-state-
+      - name: Collect read-only daily Gate Spot research
+        run: |
+          python altcoin_reversal_cli.py --pairs LINK_USDT,ONDO_USDT --interval 1d > reversal-watch-report.json
+          python -m json.tool reversal-watch-report.json >/dev/null
+      - name: Send eligible WATCH alerts only
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python altcoin_reversal_delivery.py --report reversal-watch-report.json --state reversal-watch-state.json --summary reversal-watch-summary.json
+      - name: Save deduplication state after confirmed sends
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: reversal-watch-state.json
+          key: reversal-watch-state-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Upload non-secret diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reversal-watch-diagnostics
+          path: |
+            reversal-watch-report.json
+            reversal-watch-summary.json
+          if-no-files-found: ignore
+          retention-days: 14
