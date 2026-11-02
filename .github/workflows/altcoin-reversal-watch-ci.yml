@@ -1,0 +1,25 @@
+name: Reversal WATCH CI
+on:
+  push:
+    branches:
+      - feature/reversal-watch-delivery-57
+  pull_request:
+    paths:
+      - 'altcoin_reversal_*.py'
+      - 'tests/test_altcoin_reversal_*.py'
+      - '.github/workflows/altcoin-reversal-*.yml'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile
+        run: python -m compileall -q *.py tests
+      - name: Run complete test suite
+        run: python -m unittest discover -s tests -v
