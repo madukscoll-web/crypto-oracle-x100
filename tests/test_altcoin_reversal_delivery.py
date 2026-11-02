@@ -24,7 +24,7 @@ class DeliveryTests(unittest.TestCase):
             raise RuntimeError("delivery failure")
         with self.assertRaises(RuntimeError):
             deliver(self.report(), {"delivered": {}}, sender=fail)
-    def test_rejected_not_sent(self):
+    def test_no_receipt_rejected(self):\n        with self.assertRaises(Exception):\n            deliver(self.report(), {'delivered': {}}, sender=lambda message: None)\n    def test_per_message_persistence(self):\n        saved = []\n        state, summary = deliver(self.report(), {'delivered': {}}, sender=lambda message: True, persist=saved.append)\n        self.assertEqual(saved[-1], state)\n        self.assertEqual(summary['alerts_delivered'], 1)\n    def test_rejected_not_sent(self):
         report = self.report()
         report["results"][0]["research"]["classification"] = "DISCARD"
         sent = []
