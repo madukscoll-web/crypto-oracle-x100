@@ -14,9 +14,12 @@ class DeliveryTests(unittest.TestCase):
         }]}
     def test_delivery_then_dedup(self):
         sent = []
-        state, summary = deliver(self.report(), {"delivered": {}}, sender=sent.append)
+        def sender(message):
+            sent.append(message)
+            return True
+        state, summary = deliver(self.report(), {"delivered": {}}, sender=sender)
         self.assertEqual(summary["alerts_delivered"], 1)
-        _, summary2 = deliver(self.report(), state, sender=sent.append)
+        _, summary2 = deliver(self.report(), state, sender=sender)
         self.assertEqual(summary2["alerts_delivered"], 0)
         self.assertEqual(len(sent), 1)
     def test_failure_propagates(self):
@@ -24,7 +27,15 @@ class DeliveryTests(unittest.TestCase):
             raise RuntimeError("delivery failure")
         with self.assertRaises(RuntimeError):
             deliver(self.report(), {"delivered": {}}, sender=fail)
-    def test_no_receipt_rejected(self):\n        with self.assertRaises(Exception):\n            deliver(self.report(), {'delivered': {}}, sender=lambda message: None)\n    def test_per_message_persistence(self):\n        saved = []\n        state, summary = deliver(self.report(), {'delivered': {}}, sender=lambda message: True, persist=saved.append)\n        self.assertEqual(saved[-1], state)\n        self.assertEqual(summary['alerts_delivered'], 1)\n    def test_rejected_not_sent(self):
+    def test_no_receipt_rejected(self):
+        with self.assertRaises(Exception):
+            deliver(self.report(), {'delivered': {}}, sender=lambda message: None)
+    def test_per_message_persistence(self):
+        saved = []
+        state, summary = deliver(self.report(), {'delivered': {}}, sender=lambda message: True, persist=saved.append)
+        self.assertEqual(saved[-1], state)
+        self.assertEqual(summary['alerts_delivered'], 1)
+    def test_rejected_not_sent(self):
         report = self.report()
         report["results"][0]["research"]["classification"] = "DISCARD"
         sent = []
