@@ -40,6 +40,15 @@ jobs:
           python altcoin_reversal_cli.py --pairs "$PAIRS" --interval "$INTERVAL" > altcoin-reversal-report.json
           python -m json.tool altcoin-reversal-report.json > /dev/null
           python -c 'import json; r=json.load(open("altcoin-reversal-report.json")); bad=[x for x in r["results"] if x["status"]!="RESEARCH_ONLY"]; assert not bad, "Gate research failed for: "+", ".join(x["pair"]+": "+x.get("reason","unknown") for x in bad)'
+      - name: Produce reversal WATCH notification summary (no Telegram on manual research runs)
+        run: |
+          python - <<'PY'
+          import json
+          from altcoin_reversal_alerts import select_watches
+          r=json.load(open('altcoin-reversal-report.json'))
+          watches=select_watches(r)
+          print(json.dumps({'assessed':len(r['results']), 'research_watches':len(watches), 'buy_authorized':False}))
+          PY
       - name: Upload read-only report
         uses: actions/upload-artifact@v4
         with:
