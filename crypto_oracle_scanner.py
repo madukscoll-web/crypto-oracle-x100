@@ -827,6 +827,15 @@ def research_alert_eligible(item):
     """Independent, non-trading research notification; never changes BUY eligibility."""
     if item.get("risk_category") == "AVOID / HIGH CONCERN":
         return False
+    # Stock-backed, wrapped, pegged and other non-native investment instruments
+    # belong in separate research pipelines, never speculative DEX token alerts.
+    # A known adverse category is sufficient to suppress an alert; absence of
+    # classification does not constitute a positive identity verification.
+    if item.get("asset_category") in ("TOKENIZED_STOCK", "TOKENIZED_SECURITY", "STABLECOIN", "WRAPPED_ASSET", "PEGGED_ASSET"):
+        return False
+    reference = (item.get("verification") or {}).get("tokenized_stock_reference") or {}
+    if reference.get("status") in ("LIMITED", "CORROBORATED", "PASS", "VERIFIED"):
+        return False
     decision, _ = decision_summary(item)
     if decision == "DISCARD":
         return False
