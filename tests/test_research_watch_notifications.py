@@ -33,6 +33,20 @@ class ResearchWatchTests(unittest.TestCase):
         x=self.item();x["score"]=20
         with patch.object(scanner,"decision_summary",return_value=("WAIT AND VERIFY","Incomplete evidence")), patch.object(scanner,"setup_assessment",return_value=("WAIT","Weak market activity")):
             self.assertFalse(scanner.research_alert_eligible(x))
+    def test_tokenized_stock_reference_is_silent(self):
+        x=self.item()
+        x["verification"]={"tokenized_stock_reference":{"status":"LIMITED","reason":"stock-backed reference"}}
+        with patch.object(scanner,"decision_summary",return_value=("WAIT AND VERIFY","Pending")), patch.object(scanner,"setup_assessment",return_value=("PRIORITY VERIFY","Activity")):
+            self.assertFalse(scanner.research_alert_eligible(x))
+
+    def test_explicit_excluded_asset_categories_are_silent(self):
+        for category in ("TOKENIZED_STOCK","TOKENIZED_SECURITY","STABLECOIN","WRAPPED_ASSET","PEGGED_ASSET"):
+            with self.subTest(category=category):
+                x=self.item()
+                x["asset_category"]=category
+                with patch.object(scanner,"decision_summary",return_value=("WAIT AND VERIFY","Pending")), patch.object(scanner,"setup_assessment",return_value=("PRIORITY VERIFY","Activity")):
+                    self.assertFalse(scanner.research_alert_eligible(x))
+
     def test_unverified_identity_is_silent(self):
         x=self.item();x["token_identity_status"]="UNVERIFIED (mismatch)"
         with patch.object(scanner,"decision_summary",return_value=("WAIT AND VERIFY","Identity unknown")), patch.object(scanner,"setup_assessment",return_value=("PRIORITY VERIFY","Activity")):
