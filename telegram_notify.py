@@ -79,7 +79,8 @@ def workflow_message(mode):
                f"discovered pools deferred: {audit.get('discovery_pools_not_selected', 'unknown')}. ")
     return (f"CRYPTO-ORACLE X100 hourly scan completed at {report['completed_at']}. "
             f"Pool observations: {report['observations']}; research candidates: {report['candidates']}; "
-            f"separate candidate alerts delivered: {report['alerts_delivered']}; "
+            f"verified BUY alerts: {report['alerts_delivered']}; "
+            f"research WATCH alerts: {report.get('research_watch_delivered', 'unknown')}; "
             f"coverage warnings: {len(report['warnings'])}. "
             + details
             + ("No qualifying tokens found. " if report['candidates'] == 0 else "")
