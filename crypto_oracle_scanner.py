@@ -1105,6 +1105,7 @@ def main():
         watchlist[item["key"]]["research_alerted_at"] = item.get("observed_at")
         save_watchlist(watchlist)
         research_sent += 1
+    print(f"Research WATCH messages delivered: {research_sent}", flush=True)
     # Gate-only strategy has its own evidence, report, paper history and label.
     # Optional failure never changes the DEX decision or interrupts its delivery.
     gate_report = {}
@@ -1152,7 +1153,8 @@ def main():
               "qualified_previously_reported_pools": previously_reported_pool_count,
               "qualified_research_identities": research_identity_count,
               "observations": total_checked, "candidates": len(candidates),
-              "alerts_delivered": delivered, "successful_feeds": successful_feeds,
+              "alerts_delivered": delivered, "research_watch_delivered": research_sent,
+              "successful_feeds": successful_feeds,
               "hourly_evidence": hourly_collector.summary(),
               "gate_paper_candidates": sum(c.get("classification") == gate_spot_candidates.LABEL for c in gate_report.get("candidates", [])),
               "forward_ledger": ledger_status,
