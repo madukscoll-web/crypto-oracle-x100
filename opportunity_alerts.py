@@ -237,6 +237,13 @@ def chunks(text,limit=3600):
 
 
 def deliver(item,result,event,env,transport=telegram_validation.request,example=False,parts=None,completed=None,on_part=None):
+    if not example:
+        import canonical_outcomes
+        verified = canonical_outcomes.assess(item)
+        if (verified.get('outcome') not in ('ENTRY WATCH', 'VERIFIED BUY')
+                or verified.get('critical_gaps')
+                or evidence_audit.audit(item).get('trade_ready') is not True):
+            raise RuntimeError('Individual alert withheld: critical evidence incomplete')
     token,chat=(env.get(k,'').strip() for k in ('TELEGRAM_BOT_TOKEN','TELEGRAM_CHAT_ID'))
     if not token or not chat:raise RuntimeError('Telegram destination or authentication missing')
     # Resolve destination once and require every message to return its ID.
@@ -271,3 +278,4 @@ def send_notification(item,result,notification,state,env,persist,transport=teleg
     acknowledge(state,item['key'],notification)
     record.pop('pending_delivery',None)
     persist()
+

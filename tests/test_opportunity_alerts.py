@@ -161,13 +161,16 @@ class FormattingDeliveryTests(unittest.TestCase):
             if len(sent)==2:raise OSError('fixture transport failure')
             return {'ok':True,'result':{'message_id':1,'chat':{'id':42}}}
         env={'TELEGRAM_BOT_TOKEN':'fixture','TELEGRAM_CHAT_ID':'42'}
-        with self.assertRaises(OSError):alerts.send_notification(item,r,p,state,env,lambda:saved.append(copy.deepcopy(state)),transport=fail)
+        with patch('canonical_outcomes.assess', return_value={'outcome':'ENTRY WATCH','critical_gaps':[]}), patch('evidence_audit.audit', return_value={'trade_ready':True}), self.assertRaises(OSError):alerts.send_notification(item,r,p,state,env,lambda:saved.append(copy.deepcopy(state)),transport=fail)
         self.assertNotIn('delivered',state[item['key']]);self.assertEqual(state[item['key']]['pending_delivery']['completed'],[0])
         retry=[]
         def success(token,method,data):
             if method=='getChat':return {'ok':True,'result':{'id':42}}
             retry.append(data['text']);return {'ok':True,'result':{'message_id':2,'chat':{'id':42}}}
-        state=json.loads(json.dumps(saved[-1]));alerts.send_notification(item,r,p,state,env,lambda:None,transport=success)
+        state=json.loads(json.dumps(saved[-1]))
+        with patch('canonical_outcomes.assess', return_value={'outcome':'ENTRY WATCH','critical_gaps':[]}), patch('evidence_audit.audit', return_value={'trade_ready':True}):
+            alerts.send_notification(item,r,p,state,env,lambda:None,transport=success)
         self.assertNotIn(sent[0],retry);self.assertIn('delivered',state[item['key']]);self.assertNotIn('pending_delivery',state[item['key']])
 
 if __name__=='__main__':unittest.main()
+

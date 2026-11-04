@@ -824,36 +824,20 @@ def send_telegram(item):
 
 
 def research_alert_eligible(item):
-    """Independent, non-trading research notification; never changes BUY eligibility."""
-    if item.get("risk_category") == "AVOID / HIGH CONCERN":
+    """Only independently verified research may leave the audit pipeline.
+
+    Discovery activity, a pool relationship and a WAIT label do not establish
+    identity, sellability, liquidity controls or investment fundamentals.
+    Recompute the canonical assessment rather than trusting item labels.
+    """
+    try:
+        import evidence_audit
+        assessment = canonical_outcomes.assess(item)
+        return (assessment.get("outcome") == "ENTRY WATCH"
+                and not assessment.get("critical_gaps")
+                and evidence_audit.audit(item).get("trade_ready") is True)
+    except (ValueError, TypeError, KeyError, AttributeError, OSError):
         return False
-    # Stock-backed, wrapped, pegged and other non-native investment instruments
-    # belong in separate research pipelines, never speculative DEX token alerts.
-    # A known adverse category is sufficient to suppress an alert; absence of
-    # classification does not constitute a positive identity verification.
-    if item.get("asset_category") in ("TOKENIZED_STOCK", "TOKENIZED_SECURITY", "STABLECOIN", "WRAPPED_ASSET", "PEGGED_ASSET"):
-        return False
-    reference = (item.get("verification") or {}).get("tokenized_stock_reference") or {}
-    if reference.get("status") in ("LIMITED", "CORROBORATED", "PASS", "VERIFIED"):
-        return False
-    decision, _ = decision_summary(item)
-    if decision == "DISCARD":
-        return False
-    setup, _ = setup_assessment(item)
-    if setup not in ("PRIORITY VERIFY", "WATCH SETUP", "WAIT"):
-        return False
-    # WAIT research requires meaningful observed liquidity/activity; a weak or
-    # missing market setup alone must never create a notification.
-    if setup == "WAIT" and not (fundamental_evidence.finite(item.get("score"), minimum=0) or 0) >= 60:
-        return False
-    if setup == "WAIT" and not ((fundamental_evidence.finite(item.get("liquidity"), minimum=0) or 0) >= 100000
-                               and (fundamental_evidence.finite(item.get("volume"), minimum=0) or 0) >= 100000):
-        return False
-    if str(item.get("token_identity_status", "")).startswith("UNVERIFIED"):
-        return False
-    if missing_market_fields(item) or not price_evidence(item)[0]:
-        return False
-    return bool(item.get("network") and item.get("token_address") and item.get("address"))
 
 
 def research_alert_text(item):
@@ -1065,7 +1049,8 @@ def main():
             save_watchlist(watchlist)
             continue
         try:
-            send_telegram(item)
+            if send_telegram(item) is not True:
+                raise RuntimeError("Telegram receipt not confirmed")
         except (urllib.error.URLError, ValueError, RuntimeError, TimeoutError, OSError) as exc:
             scan_audit.increment(notification_counts, "delivery_failed")
             errors.append(f"Telegram delivery failed for {item['key']}: {type(exc).__name__}")
@@ -1098,7 +1083,8 @@ def main():
         if (watchlist.get(item["key"]) or {}).get("research_alerted_at"):
             continue
         try:
-            send_message(research_alert_text(item))
+            if send_message(research_alert_text(item)) is not True:
+                raise RuntimeError("Telegram receipt not confirmed")
         except (urllib.error.URLError, ValueError, RuntimeError, TimeoutError, OSError) as exc:
             warnings.append("Research watch delivery failed: " + type(exc).__name__)
             continue
@@ -1161,6 +1147,9 @@ def main():
               "signal_performance": {key: {"horizons": signal_tracker.outcomes(rows),
                                            "sampled_risk": signal_tracker.sampled_risk(rows)}
                                      for key, rows in history.items()},
+              "individual_alert_policy": "VERIFIED_EVIDENCE_ONLY_V2",
+              "suppression_reasons": {outcome: sum(row["canonical_assessment"]["outcome"] == outcome for row in evidence_reports)
+                                      for outcome in ("REJECT", "INSUFFICIENT EVIDENCE", "RESEARCH WATCH")},
               "classification_counts": {outcome: sum(row["canonical_assessment"]["outcome"] == outcome for row in evidence_reports)
                                         for outcome in canonical_outcomes.OUTCOMES},
               "signal_tracking_limits": {"maximum_signals": signal_tracker.MAX_TOKENS,
@@ -1209,4 +1198,5 @@ def cli():
 
 if __name__ == "__main__":
     raise SystemExit(cli())
+
 

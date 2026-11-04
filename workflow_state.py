@@ -14,7 +14,8 @@ import subprocess
 import tempfile
 
 FILES=('reported_pools.json','watchlist_state.json','signal_history.json',
-       'gate_paper_history.json','research_discovery_state.json','forward_events.jsonl')
+       'gate_paper_history.json','research_discovery_state.json','forward_events.jsonl',
+       'operational_digest_state.json','reversal_universe_state.json')
 
 
 class StateConflict(RuntimeError):pass
@@ -132,3 +133,4 @@ if __name__=='__main__':
         result={'status':'FAILED','error_type':type(exc).__name__,'reason':str(exc)}
         if args.mode=='publish':pathlib.Path(args.output).write_text(json.dumps(result,indent=2)+'\n')
         print(json.dumps(result));raise SystemExit(1)
+
