@@ -1,4 +1,5 @@
 """Telegram delivery with bounded retries and credential-safe diagnostics."""
+import datetime as dt
 import json
 import os
 import pathlib
@@ -77,7 +78,13 @@ def workflow_message(mode):
                f"delivery capped: {counts.get('delivery_cap', 0)}; failed sends: {counts.get('delivery_failed', 0)}. "
                f"Security concerns among assessed: {audit.get('security_rejections', 0)}; "
                f"discovered pools deferred: {audit.get('discovery_pools_not_selected', 'unknown')}. ")
-    return (f"CRYPTO-ORACLE X100 hourly scan completed at {report['completed_at']}. "
+    suppression = report.get('suppression_reasons') or {}
+    details += 'Suppressed by evidence outcome: ' + json.dumps(suppression, sort_keys=True) + '. '
+    reversal_path = pathlib.Path('altcoin_reversal_report.json')
+    if reversal_path.exists():
+        reversal = json.loads(reversal_path.read_text(encoding='utf-8'))
+        details += 'Reversal coverage: ' + json.dumps(reversal.get('coverage', reversal.get('status_counts', {})), sort_keys=True) + '. '
+    return (f"CRYPTO-ORACLE X100 daily pipeline health, latest scan at {report['completed_at']}. "
             f"Pool observations: {report['observations']}; research candidates: {report['candidates']}; "
             f"verified BUY alerts: {report['alerts_delivered']}; "
             f"research WATCH alerts: {report.get('research_watch_delivered', 'unknown')}; "
@@ -87,18 +94,49 @@ def workflow_message(mode):
             + "Research only; not a buy signal. Run: " + run_url)
 
 
+def notify_workflow(mode, *, now=None, state_path="operational_digest_state.json", sender=None):
+    """At most one confirmed health digest per Lagos calendar day.
+
+    State is published with scanner state by the serialized hourly workflow.
+    Failed or ambiguous sends never advance the confirmed-day marker.
+    """
+    sender = sender or send_message
+    if mode == "failure":
+        if sender(workflow_message(mode)) is not True:
+            raise NotificationError("Telegram failure receipt not confirmed")
+        return {"status": "BOT_API_CONFIRMED", "mode": "failure"}
+    if mode != "success":
+        raise ValueError("Unknown workflow notification mode")
+    report = json.loads(pathlib.Path("scan_summary.json").read_text(encoding="utf-8"))
+    if report.get("status") != "completed":
+        raise NotificationError("Refusing digest for unsuccessful scan")
+    run_id = os.environ.get("GITHUB_RUN_ID", "")
+    if run_id and report.get("github_run_id") != run_id:
+        raise NotificationError("Summary belongs to another workflow run")
+    now = now or dt.datetime.now(dt.timezone.utc)
+    if now.tzinfo is None:
+        raise ValueError("Timezone required")
+    day = now.astimezone(dt.timezone(dt.timedelta(hours=1))).date().isoformat()
+    target = pathlib.Path(state_path)
+    state = json.loads(target.read_text()) if target.exists() else {"version": 1}
+    if not isinstance(state, dict) or state.get("version") != 1:
+        raise ValueError("Invalid digest state")
+    if state.get("confirmed_day") == day:
+        return {"status": "SKIPPED_DAILY_DEDUP", "github_run_id": run_id}
+    if sender(workflow_message(mode)) is not True:
+        raise NotificationError("Telegram digest receipt not confirmed")
+    state.update(confirmed_day=day, confirmed_at=now.isoformat(), github_run_id=run_id)
+    temporary = target.with_suffix(target.suffix + ".tmp")
+    temporary.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(target)
+    return {"status": "BOT_API_CONFIRMED", "github_run_id": run_id,
+            "candidate_details_included": False, "confirmed_day": day}
+
+
 if __name__ == "__main__":
     try:
-        mode = sys.argv[1]
-        if mode != "failure":
-            report = json.loads(pathlib.Path("scan_summary.json").read_text(encoding="utf-8"))
-            if os.environ.get("GITHUB_RUN_ID") and report.get("github_run_id") != os.environ["GITHUB_RUN_ID"]:
-                raise NotificationError("Summary belongs to another workflow run")
-        send_message(workflow_message(mode))
-        if mode != "failure":
-            pathlib.Path("operational_notification.json").write_text(json.dumps({
-                "status": "BOT_API_CONFIRMED", "github_run_id": os.environ.get("GITHUB_RUN_ID", ""),
-                "candidate_details_included": False}) + "\n", encoding="utf-8")
+        result = notify_workflow(sys.argv[1])
+        pathlib.Path("operational_notification.json").write_text(json.dumps(result) + "\n", encoding="utf-8")
     except (NotificationError, OSError, ValueError, KeyError, IndexError) as exc:
         print(f"ERROR: Telegram workflow notification failed ({type(exc).__name__}). Inspect configuration and run logs.", flush=True)
         sys.exit(1)

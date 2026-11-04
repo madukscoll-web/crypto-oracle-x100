@@ -15,6 +15,7 @@ def summarize(report):
              "Scope: bounded first-page research; not the entire market.",
              f"Discovery-filter candidates: {report.get('qualified_discovery_count', 'unknown')}",
              f"Independently assessed: {len(candidates)}"]
+    counts = {"DISCARD": 0, "WAIT AND VERIFY": 0}
     for item in candidates:
         if not isinstance(item, dict):
             raise ValueError("Invalid candidate")
@@ -26,9 +27,10 @@ def summarize(report):
         blockers = item.get("mandatory_blockers")
         if not isinstance(blockers, list) or not blockers:
             raise ValueError("Missing mandatory evidence blockers")
-        lines.append(f"{network} {address}: {decision} ({len(blockers)} blockers)")
+        counts[decision] += 1
     if report.get("verified_buy_signals") not in ([], 0):
         raise ValueError("Unreviewed buy-signal schema; refusing to notify")
+    lines.append("Suppressed internal outcomes: " + ", ".join(f"{label}={count}" for label, count in counts.items()))
     lines.append("VERIFIED BUY SIGNALS: 0. No automated trades.")
     lines.append("Unknown evidence is not a pass. Check full GitHub artifact.")
     return "\n".join(lines)
@@ -41,3 +43,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

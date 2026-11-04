@@ -11,7 +11,8 @@ class ResearchSummaryTests(unittest.TestCase):
     def test_no_buy_and_blockers_visible(self):
         text=summarize(report())
         self.assertIn("VERIFIED BUY SIGNALS: 0",text)
-        self.assertIn("WAIT AND VERIFY (1 blockers)",text)
+        self.assertIn("WAIT AND VERIFY=1",text)
+        self.assertNotIn("0x"+"a"*40,text)
     def test_discard_is_reported(self):
         item=report()["candidates"][0]
         item["decision"]="DISCARD"
@@ -29,3 +30,4 @@ class ResearchSummaryTests(unittest.TestCase):
         item=report()["candidates"][0]
         item["mandatory_blockers"]=[]
         with self.assertRaises(ValueError):summarize(report([item]))
+
