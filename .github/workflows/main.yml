@@ -82,7 +82,13 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python -u crypto_oracle_scanner.py
+          ZEROX_API_KEY: ${{ secrets.ZEROX_API_KEY }}
+          ORACLE_TAKER_ADDRESS: ${{ vars.ORACLE_TAKER_ADDRESS || secrets.ORACLE_TAKER_ADDRESS }}
+          ORACLE_FUNDING_TOKEN: ${{ vars.ORACLE_FUNDING_TOKEN || secrets.ORACLE_FUNDING_TOKEN }}
+          ORACLE_ORDER_BASE_UNITS: ${{ vars.ORACLE_ORDER_BASE_UNITS || secrets.ORACLE_ORDER_BASE_UNITS }}
+        run: |
+          python -c 'import json, os; from execution_configuration import status; print(json.dumps(status(os.environ)))'
+          python -u crypto_oracle_scanner.py
       - name: Run bounded multichain discovery audit
         id: multichain
         continue-on-error: true
