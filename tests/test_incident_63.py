@@ -11,6 +11,7 @@ from unittest.mock import patch
 import crypto_oracle_scanner as scanner
 import telegram_notify as telegram
 import workflow_state
+import opportunity_alerts
 
 
 class AlertPolicyTests(unittest.TestCase):
@@ -37,6 +38,15 @@ class AlertPolicyTests(unittest.TestCase):
     def test_policy_exception_is_silent(self):
         with patch.object(scanner.canonical_outcomes, 'assess', side_effect=ValueError):
             self.assertFalse(scanner.research_alert_eligible({}))
+
+    def test_other_delivery_route_and_cached_parts_cannot_bypass_policy(self):
+        for parts in (None, ['previously formatted unverified alert']):
+            calls = []
+            with self.assertRaisesRegex(RuntimeError, 'critical evidence incomplete'):
+                opportunity_alerts.deliver({}, {'classification': 'VERIFIED BUY'}, 'NEW',
+                    {'TELEGRAM_BOT_TOKEN': 'fixture', 'TELEGRAM_CHAT_ID': '42'},
+                    transport=lambda *args: calls.append(args), parts=parts)
+            self.assertFalse(calls)
 
 
 class DailyDigestTests(unittest.TestCase):

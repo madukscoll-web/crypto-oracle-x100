@@ -27,6 +27,8 @@ on its existing branch, rather than merged as an apparent completion shortcut.
   suppression and reversal coverage counts. Publish its atomic confirmation marker
   with serialized scanner state after the send. Failure alerts remain enabled.
   The digest describes the latest scan; counts are not a fabricated 24-hour total.
+- Guard the legacy multipart notification transport as well, including retries of
+  cached message parts. A supplied classification cannot bypass canonical evidence.
 - Remove token contracts and individual WAIT/DISCARD entries from the manual
   independent-research summary, retaining aggregate outcome counts.
 - Enumerate the actual Gate Spot catalog and turnover feed; exclude stable,
@@ -40,7 +42,7 @@ on its existing branch, rather than merged as an apparent completion shortcut.
 ## Local verification
 
 `python -m compileall -q *.py tests` passed.
-`python -m unittest discover -s tests -q`: 527 tests passed.
+`python -m unittest discover -s tests -q`: 528 tests passed.
 All 10 existing workflow YAML files parsed with PyYAML. This is syntax validation,
 not proof of Actions execution. No paid dependencies or service subscriptions.
 
