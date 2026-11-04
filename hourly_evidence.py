@@ -8,6 +8,7 @@ import pathlib
 import os
 import evidence_coverage
 import execution_quotes
+import execution_configuration
 import contract_sources
 import kyber_quotes
 import re
@@ -93,7 +94,9 @@ class HourlyEvidence:
             item['hourly_evidence'] = dict(status='COLLECTED', reason='Read-only observations; complete safety and execution remain unverified')
 
     def summary(self):
-        return dict(candidates_assessed=self.assessed, **self.session.summary())
+        return dict(candidates_assessed=self.assessed,
+                    execution_configuration=execution_configuration.status(os.environ),
+                    **self.session.summary())
 
 
 def collect_safely(collector, item):
@@ -170,3 +173,4 @@ def rotate(items, watchlist):
             tokens.add(identity)
             result.append(item)
     return result
+
