@@ -23,7 +23,7 @@ from provider_session import Session
 
 
 class HourlyEvidence:
-    def __init__(self, max_candidates=6, max_seconds=240, max_requests=270, transport=None):
+    def __init__(self, max_candidates=10, max_seconds=300, max_requests=350, transport=None):
         self.max_candidates = max_candidates
         self.assessed = 0
         self.session = Session(max_requests=max_requests, max_seconds=max_seconds,
