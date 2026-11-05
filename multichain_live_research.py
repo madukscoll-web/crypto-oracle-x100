@@ -12,6 +12,7 @@ from multichain_research_audit import audit
 from stonk_launch_discovery import run as stonk_run, URL as STONK_URL
 import research_state
 import canonical_outcomes
+import project_context
 import launchpad_discovery
 
 
@@ -102,6 +103,7 @@ def run(limit=12,cursor=0,fetch=None,adapters=RESEARCH_ADAPTERS,include_profiles
             discovery_sources=sorted({str(p.get('source') or 'UNKNOWN') for p in pools}),
             launchpad='; '.join(platforms)+' — PROVIDER_ATTESTED OR SINGLE_RPC; NOT INDEPENDENTLY AUDITED' if platforms else 'UNKNOWN — no authenticated launchpad-origin evidence',
             origin_observations=[{k:p.get(k) for k in ('launchpad','launchpad_origin_status','source_url','observed_at','signature','slot')} for p in pools if p.get('launchpad')],
+            project_context=project_context.discovery_only(representative,dt.datetime.now(dt.timezone.utc).timestamp()),
             assessment=canonical_outcomes.assess(representative)))
     report=dict(observed_at=at,mode='READ_ONLY_RESEARCH',orders_allowed=False,buy_authorized=False,telegram_transmission=False,
         observed_pools=sum(bool(row.get('address')) for row in rows),unique_tokens=len(assets),
@@ -132,3 +134,4 @@ if __name__=='__main__':
     with open(args.output,'w') as stream:json.dump(report,stream,indent=2)
     if args.state:research_state.save(state,args.state)
     print(json.dumps({k:v for k,v in report.items() if k not in ('selected','provider_observations')}))
+

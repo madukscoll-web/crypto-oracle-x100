@@ -14,6 +14,7 @@ from asset_identity import GATE_CHAINS, key
 from gate_spot_research import PublicGate, analyze_book
 from altcoin_reversal_cli import run
 import verification
+import project_context
 
 ROOT = pathlib.Path(__file__).resolve().parent
 WATCHES = ('EARLY REVERSAL WATCH', 'TECHNICAL REVERSAL WATCH')
@@ -204,6 +205,7 @@ def message(row, research, screened):
         f"Sources: https://api.gateio.ws/api/v4/spot/currency_pairs/{row['pair']}\n"
         f"https://www.gate.com/trade/{row['pair']}"
     )
+    text += '\n' + project_context.summary(row.get('project_context'), expected={'pair':row['pair']})
     if len(text.encode('utf-16-le'))//2 > 3900:
         raise ValueError('Research disclosure exceeds message limit')
     return text

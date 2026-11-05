@@ -10,6 +10,7 @@ import json
 import math
 import re
 import urllib.parse
+import project_context
 
 PLATFORMS = {"eth": "ethereum", "base": "base", "bsc": "binance-smart-chain",
              "polygon_pos": "polygon-pos", "arbitrum": "arbitrum-one",
@@ -38,11 +39,13 @@ def same_address(network, left, right):
 def collect(item, fetch, now=None):
     now = now or dt.datetime.now(dt.timezone.utc)
     stamp = now.isoformat()
+    item["project_context"] = project_context.empty({k:item.get(k) for k in ("network","token_address")},now.timestamp())
     network, contract = item.get("network"), item.get("token_address")
     def datum(value=None, provider=None, source=None, reason="Reliable evidence not obtained", digest=None):
         return dict(value=value, provider=provider or "UNVERIFIED", source_url=source,
                     network=network, contract=contract, observed_at=stamp,
                     status="UNVERIFIED", reason=reason, response_sha256=digest)
+    item["project_context"] = project_context.market_observation(item["project_context"], item)
     result = {field: datum() for field in FIELDS}
     platform = PLATFORMS.get(network)
     # Never fetch a path derived from a missing identity or malformed contract.
@@ -63,6 +66,7 @@ def collect(item, fetch, now=None):
                 result[field] = datum(provider="CoinGecko", source=url, reason="Exact-contract identity mismatch")
                 result[field]["status"] = "CONFLICTING"
             return result
+        item["project_context"] = project_context.exact_contract(item, payload, url, now.timestamp())
         digest = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         market = payload.get("market_data") or {}
         values = {key: market.get(key) for key in FIELDS[:3]}
@@ -91,3 +95,4 @@ def scenario_summary():
             "At every horizon, 2x cap with 2x supply = 1x price; "
             "100x price requires 100x cap times supply growth. "
             "Future supply, valuation and probabilities: UNVERIFIED.")
+

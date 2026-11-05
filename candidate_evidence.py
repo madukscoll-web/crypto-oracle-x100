@@ -4,6 +4,8 @@ import custody_verification
 import escrow_discovery
 import kyber_quotes
 import supply_evidence
+import project_context
+import time
 import unlock_provider
 import kyber_execution
 import quote_calldata
@@ -19,6 +21,8 @@ def augment(item,report,fetch,env,native_price=None,reference_order=None):
     registry=json.loads(pathlib.Path(__file__).with_name('evidence_registry.json').read_text())
     report['unlock_provider']=unlock_provider.collect(item,registry,env)
     report['supply_comparison']=supply_evidence.collect(item,fetch)
+    source=(((report['supply_comparison'].get('raw') or {}).get('observations') or {}).get('coingecko') or {})
+    item['project_context']=project_context.exact_contract(item,source.get('raw') or {},source.get('url'),time.time())
     report['tokenized_stock_reference']=tokenized_stock_evidence.collect(item,fetch)
     report['contract_source']=contract_sources.collect(item,fetch)
     report['escrow_discovery']=escrow_discovery.collect(item,info.get('lp_holders') or [],fetch)
@@ -75,3 +79,4 @@ def blockers(item):
     if item.get('market_corroboration',{}).get('status')!='CORROBORATED':
         reasons.append('Exact-pool market corroboration: '+item.get('market_corroboration',{}).get('reason','Unavailable'))
     return reasons
+
