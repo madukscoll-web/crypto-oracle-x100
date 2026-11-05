@@ -43,7 +43,21 @@ Inspected actual JSON artifacts:
 
 Earlier [run 42015450383](https://github.com/madukscoll-web/crypto-oracle-x100/actions/runs/42015450383) independently exercised the ten-candidate expansion: 308 observations, 66 candidates, ten assessed, 188 optional-provider requests within the 350-request ceiling, no core errors. Artifact 13410145870 SHA-256: `4b5e37deee59346708f127bb66fbaaba709fa5ef45f0b6598ea3c8f89cf235cf`.
 
-Final source 66f44889aa7f9572b1482b045f7fe209f4503dda is executing in [run 42018858103](https://github.com/madukscoll-web/crypto-oracle-x100/actions/runs/42018858103). Its actual outcome must be checked before claiming final-source production validation.
+## Final-source production verification
+
+[Production run 42018858103](https://github.com/madukscoll-web/crypto-oracle-x100/actions/runs/42018858103), source **66f44889aa7f9572b1482b045f7fe209f4503dda**, job **127216191784**, completed successfully. Compilation, **620 unit tests**, core scan, multichain research, reversal research, follow-up, validation-status recording and state publication succeeded. The failure notification was skipped because the run succeeded; no deliberate production failure or fake research message was injected.
+
+Downloaded artifact **13410609060** and independently verified ZIP SHA-256: `408a68e3a152a08ae761ac1cf539fa380cabbdb05ba3d938b126164ea5aef66c`.
+
+Inspected and reconciled final artifacts:
+- Core completed at **2026-11-05 11:33:33 UTC**: **308 observations, 66 candidate pools, ten assessed, 56 deferred**. Six were REJECT and four INSUFFICIENT EVIDENCE. No core errors; **zero BUY candidates** and zero signed entry WATCH deliveries.
+- The shared optional-provider session attempted **215 requests**, below its 350-request ceiling.
+- All ten assessed candidates retained all ten project-context dimensions, used admission schema v2 and failed closed. Canonical purchase authorization and automatic orders remained false.
+- Two additional technical setups were suppressed by the exhausted daily notification quota; **zero failed sends**. The existing daily delivered count remained three.
+- The three AVAX/BNB/NEAR follow-up histories were retained **byte-for-value unchanged** from the previous successful production snapshot. All three were RECENT_SAMPLE, so no duplicate observations or fictitious new anchors were appended. Recomputed each retained raw-book SHA-256 and matched its stored source hash. No follow-up errors.
+- State publication succeeded as **d9595fc103c9198961dda44961afd0ddcc5ae6a6**, preserving the concurrent proof-document commit and all retained sample histories.
+
+This establishes final-source operational execution and retention. It does **not** establish live positive BUY admission, hourly scheduling guarantees, future Telegram payload delivery, independent investment-research accuracy or profitability. The external requirements below remain unresolved.
 
 ## Genuine unresolved requirements
 
