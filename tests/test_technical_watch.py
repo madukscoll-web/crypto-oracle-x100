@@ -66,6 +66,8 @@ class TechnicalWatchTests(unittest.TestCase):
         self.assertIn('SECURITY / FUNDAMENTALS NOT FULLY VERIFIED', sent[0])
         self.assertIn('NOT APPROVED FOR PURCHASE', sent[0])
         self.assertIn('Invalidation reference:', sent[0])
+        self.assertIn('Trigger-to-invalidation distance:', sent[0])
+        self.assertIn('Target/risk-reward: UNKNOWN', sent[0])
         self.assertIn('Sources:', sent[0])
         self.assertFalse(summary['buy_authorized'])
         self.assertEqual(self.saved[-1], updated)
