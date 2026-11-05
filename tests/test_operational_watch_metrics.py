@@ -13,7 +13,8 @@ class OperationalWatchMetricsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             report = {
                 "status": "completed", "completed_at": "2026-11-03T00:00:00Z",
-                "observations": 100, "candidates": 20, "alerts_delivered": 0,
+                "observations": 100, "candidates": 20, "alerts_delivered": 1,
+                "buy_candidates_delivered": 0, "signed_entry_watches_delivered": 1,
                 "research_watch_delivered": 2, "warnings": [],
                 "filter_audit": {"assessed_candidates": 6},
             }
@@ -25,10 +26,12 @@ class OperationalWatchMetricsTests(unittest.TestCase):
                     message = telegram_notify.workflow_message("success")
                 finally:
                     os.chdir(old)
-            self.assertIn("verified BUY alerts: 0", message)
+            self.assertIn("BUY candidates for manual review: 0", message)
+            self.assertIn("safety-reviewed entry WATCH alerts: 1", message)
             self.assertIn("research WATCH alerts: 2", message)
             self.assertIn("Assessed: 6", message)
 
 
 if __name__ == "__main__":
     unittest.main()
+

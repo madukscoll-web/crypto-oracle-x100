@@ -42,11 +42,15 @@ def fixture():
         security=dict(runtime_sha256=CODEHASH,runtime_bytecode=CODE,controls=controls,buy_tax_percent='0',sell_tax_percent='0',transfer_tax_percent='0'),
         lp_controls=dict(pool=POOL,withdrawal_authority='NO_UNCOVERED_AUTHORITY',total_units='1000',burned_units='1000',locked_units='0'),
         holders=dict(coverage='COMPLETE_BENEFICIAL_OWNERSHIP',total_units='10000',excluded_units='0',owners=[dict(owner_id=str(i),units='100') for i in range(100)]),
-        tokenomics=dict(circulating_units='10000',total_units='10000',max_units='10000',coverage='COMPLETE_ALLOCATIONS_AND_ENFORCEABLE_VESTING',
+        tokenomics=dict(token_decimals=0,circulating_units='10000',total_units='10000',max_units='10000',coverage='COMPLETE_ALLOCATIONS_AND_ENFORCEABLE_VESTING',
             allocations=dict(circulating='10000',team='0',treasury='0',other_locked='0'),schedules=[],unlock_coverage_start=at(-10),unlock_coverage_end=at(366*86400),unlock_30d_units='0',market_cap_usd='5000',fdv_usd='5000'),
         execution=dict(block_hash='0x'+'b'*64,pool=POOL,runtime_sha256=CODEHASH,snapshot={'number':'0x10','hash':'0x'+'b'*64,'timestamp':hex(NOW)},quotes=[leg(FUNDING,TOKEN,100,200),leg(TOKEN,FUNDING,200,99)],
             simulation=simulation,taker=TAKER,simulation_method='eth_simulateV1',simulation_mode='VALIDATION_NO_OVERRIDES',
             order_usd='100',minimum_exit_usd='99',gas_usd='.001',fees_usd='.01',executable_depth_usd='100000',price_impact_percent='.1',spread_percent='.1',equity_usd='10000',funding_decimals=0,funding_price_usd='1',native_price_usd='2000'))
+    metrics['execution']['trade_plan'] = dict(entry_conditions='Synthetic confirmed retest with volume',
+        invalidation_condition='Synthetic close below support invalidates thesis',
+        condition_status='CONFIRMED_WITHIN_SIGNED_SNAPSHOT', maximum_entry_price_usd='.51',
+        invalidation_price_usd='.45', risk_budget_usd='20')
     metrics['execution']['simulation_request']=request_for(metrics['execution']['quotes'],TAKER)
     evidence={}
     for name,values in metrics.items():
@@ -152,6 +156,26 @@ class AdmissionTests(unittest.TestCase):
     def test_existing_adverse_evidence_always_vetoes_signed_bundle(self):
         self.sign();self.item['verification']={'sellability':{'status':'FAIL'}}
         self.assertFalse(self.evaluate()['admitted'])
+    def test_raw_boolean_honeypot_vetoes_even_authentic_positive_bundle(self):
+        self.sign()
+        self.item['verification']={'contract_security':{
+            'status':'PASS','source':'goplus','url':'https://api.gopluslabs.io/api/v1/token_security/1',
+            'raw':{'code':1,'result':{TOKEN:{'is_honeypot':True}}}}}
+        self.assertFalse(self.evaluate()['admitted'])
+
+    def test_signed_plan_requires_entry_conditions_invalidation_and_risk_reconciliation(self):
+        original=copy.deepcopy(self.bundle)
+        for field,value in [('condition_status','PENDING'),('entry_conditions',''),
+                            ('maximum_entry_price_usd','.49'),('invalidation_price_usd','.6'),
+                            ('invalidation_price_usd','0'),('risk_budget_usd','1'),('risk_budget_usd','201')]:
+            with self.subTest(field=field,value=value):
+                self.bundle=copy.deepcopy(original);self.item['admission_bundle']=self.bundle
+                self.bundle['payload']['evidence']['execution']['metrics']['trade_plan'][field]=value
+                self.sign();self.assertFalse(self.evaluate()['admitted'])
+        self.bundle=copy.deepcopy(original);self.item['admission_bundle']=self.bundle
+        del self.bundle['payload']['evidence']['execution']['metrics']['trade_plan']
+        self.sign();self.assertFalse(self.evaluate()['admitted'])
+
     def test_complete_pipeline_to_confirmed_telegram_receipt(self):
         self.sign()
         # Freeze only the evaluator's clock; signatures and all evidence validators
@@ -174,6 +198,8 @@ class AdmissionTests(unittest.TestCase):
             message=opportunity_alerts.format_admission_alert(self.item)
             self.assertIn('MANUAL REVIEW',message);self.assertIn('minimum_exit_usd',message)
             self.assertIn('Automatic trading DISABLED',message)
+            self.assertIn('invalidation_price_usd',message)
+            self.assertIn('not guaranteed stop execution',message)
             self.assertLessEqual(len(message.encode('utf-16-le'))//2,4096)
             self.assertNotIn('UNVERIFIED RESEARCH LEAD',message)
             calls=[]

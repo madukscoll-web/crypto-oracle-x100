@@ -244,7 +244,10 @@ def format_admission_alert(item):
              'Security/LP controls/beneficial ownership/tokenomics/sequential exit: PASS within signed review scope']
     for section, metrics in admission['summary'].items():
         lines.append(section.upper()+': '+json.dumps(metrics,sort_keys=True))
-    lines += ['Unresolved mandatory evidence gaps: none within this signed review scope.',
+    lines += ['Signed risk budget is a planned reference, not guaranteed stop execution or a maximum possible loss.',
+              'Price plan uses USD per whole token; public-book USDT is not assumed equal to USD.',
+              'Final human approval is still required. Target and validated risk/reward: UNKNOWN.',
+              'Unresolved mandatory evidence gaps: none within this signed review scope.',
               'Risks: entire allocation can be lost; liquidity, authority and prices can change. Simulation cannot guarantee future execution.',
               'Recheck evidence and quote expiration before manual action. Automatic trading DISABLED.']
     import project_context

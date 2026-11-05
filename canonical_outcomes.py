@@ -5,7 +5,7 @@ import authenticated_admission
 import adverse_evidence
 
 OUTCOMES = ('VERIFIED BUY', 'ENTRY WATCH', 'RESEARCH WATCH', 'REJECT', 'INSUFFICIENT EVIDENCE')
-VERSION = 'canonical-outcomes-v1'
+VERSION = 'canonical-outcomes-v1.1-authenticated'
 
 
 def assess(item, now=None):

@@ -14,6 +14,7 @@ import time
 import urllib.error
 import urllib.parse
 
+from verification import binary_flag
 import signal_tracker
 import canonical_outcomes
 import forward_ledger
@@ -198,9 +199,9 @@ def _relationship_token(payload, relation):
 
 def _risk_indicator(label, value, positive_is_risk=True):
     """GoPlus flags: 1/0 are observations, not a full audit."""
-    if str(value) not in ("0", "1"):
+    if binary_flag(value) not in ("0", "1"):
         return None
-    risky = str(value) == ("1" if positive_is_risk else "0")
+    risky = binary_flag(value) == ("1" if positive_is_risk else "0")
     return f"{label}: {'FLAGGED' if risky else 'not flagged by provider'}"
 
 
@@ -222,11 +223,11 @@ def risk_gate(info, holder_total=None, holder_count=0):
     findings = []
     severe = False
     for field, description in critical.items():
-        if str(info.get(field)) == "1":
+        if binary_flag(info.get(field)) == "1":
             findings.append(f"{field}=1: {description}")
             severe = True
     for field, (bad, description) in concerning.items():
-        if str(info.get(field)) == bad:
+        if binary_flag(info.get(field)) == bad:
             findings.append(f"{field}={bad}: {description}")
     # Descriptive holder percentages are not themselves evidence of a contract
     # vulnerability. Keep them in holder_details, not the security-failure list.
@@ -240,7 +241,7 @@ def risk_gate(info, holder_total=None, holder_count=0):
                 "is_blacklisted", "cannot_sell_all", "is_open_source",
                 "is_mintable", "trading_cooldown")
     missing = [field for field in required
-               if str(info.get(field)) not in ("0", "1")]
+               if binary_flag(info.get(field)) not in ("0", "1")]
     if missing:
         return "WAIT / VERIFY", (["Holder concentration is descriptive only; LP/exclusions unknown."] if holder_total is not None else []) + [
             "Missing or uninterpretable provider security fields: "
@@ -992,6 +993,7 @@ def main():
         flush=True,
     )
     delivered = 0
+    delivered_by_outcome = {}
     delivered_new = 0
     delivered_existing = 0
     risk_counts = {}
@@ -1088,6 +1090,7 @@ def main():
         save_state(seen)
         save_watchlist(watchlist)
         delivered += 1
+        scan_audit.increment(delivered_by_outcome, canonical["outcome"])
         scan_audit.increment(notification_counts, "delivered")
         if item["pool_class"] == "NEW POOL":
             delivered_new += 1
@@ -1162,6 +1165,10 @@ def main():
               "qualified_research_identities": research_identity_count,
               "observations": total_checked, "candidates": len(candidates),
               "alerts_delivered": delivered, "research_watch_delivered": research_sent,
+              "delivered_by_outcome": delivered_by_outcome,
+              "buy_candidates_delivered": delivered_by_outcome.get('VERIFIED BUY', 0),
+              "signed_entry_watches_delivered": delivered_by_outcome.get('ENTRY WATCH', 0),
+              "purchase_approved": False, "orders_allowed": False,
               "successful_feeds": successful_feeds,
               "hourly_evidence": hourly_collector.summary(),
               "gate_paper_candidates": sum(c.get("classification") == gate_spot_candidates.LABEL for c in gate_report.get("candidates", [])),
