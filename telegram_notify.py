@@ -88,7 +88,8 @@ def workflow_message(mode):
         details += 'Reversal coverage: ' + json.dumps(reversal.get('coverage', reversal.get('status_counts', {})), sort_keys=True) + '. '
     return (f"CRYPTO-ORACLE X100 daily pipeline health, latest scan at {report['completed_at']}. "
             f"Pool observations: {report['observations']}; research candidates: {report['candidates']}; "
-            f"verified BUY alerts: {report['alerts_delivered']}; "
+            f"BUY candidates for manual review: {report.get('buy_candidates_delivered', 'unknown')}; "
+            f"safety-reviewed entry WATCH alerts: {report.get('signed_entry_watches_delivered', 'unknown')}; "
             f"research WATCH alerts: {report.get('research_watch_delivered', 'unknown')}; "
             f"coverage warnings: {len(report['warnings'])}. "
             + details

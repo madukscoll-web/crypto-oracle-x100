@@ -21,7 +21,7 @@ import token_unlocks
 from execution_quotes import integer, validate
 from sequential_simulation import validate_result, request_for
 
-VERSION = 'authenticated-admission-v1'
+VERSION = 'authenticated-admission-v2'
 SECTIONS = ('security', 'lp_controls', 'holders', 'tokenomics', 'execution')
 CONTROLS = ('honeypot', 'blacklist', 'balance_mutation', 'mint', 'proxy_upgrade',
             'transfer_pause', 'tax_mutation', 'privileged_wallets', 'bridge_backing')
@@ -284,6 +284,26 @@ def inspect(payload, item, now, trust):
     require(number(execution['executable_depth_usd']) >= max(Decimal('1000'), order*100), 'Trade size exceeds executable depth policy')
     require(number(execution['price_impact_percent']) <= 1 and number(execution['spread_percent']) <= 1, 'Excessive price impact/spread')
     require(number(execution['equity_usd']) >= order*10, 'Allocation exceeds 10% equity')
+    # Executability alone cannot establish an entry thesis or bounded planned loss.
+    token_decimals = tokenomics['token_decimals']
+    require(type(token_decimals) is int and 0 <= token_decimals <= 36, 'Verified token decimals required')
+    plan = execution['trade_plan']
+    require(isinstance(plan, dict), 'Signed entry/invalidation plan required')
+    for field in ('entry_conditions', 'invalidation_condition'):
+        require(isinstance(plan.get(field), str) and 10 <= len(plan[field].strip()) <= 300,
+                'Explicit bounded entry and invalidation conditions required')
+    require(plan['condition_status'] in ('CONFIRMED_WITHIN_SIGNED_SNAPSHOT', 'PENDING'), 'Entry condition status unknown')
+    if payload['entry_status'] == 'READY':
+        require(plan['condition_status'] == 'CONFIRMED_WITHIN_SIGNED_SNAPSHOT', 'Entry conditions not confirmed')
+    entry_price = order*Decimal(10)**token_decimals/Decimal(integer(legs[0]['raw']['minBuyAmount']))
+    maximum_entry = number(plan['maximum_entry_price_usd'])
+    invalidation = number(plan['invalidation_price_usd'])
+    require(0 < invalidation < entry_price <= maximum_entry, 'Quote outside signed entry/invalidation price bounds')
+    risk_budget = number(plan['risk_budget_usd'])
+    require(0 < risk_budget <= number(execution['equity_usd'])*Decimal('.02'), 'Planned risk budget exceeds 2% equity')
+    planned_loss = order*(1-invalidation/entry_price)+gas+fees
+    require(planned_loss <= risk_budget, 'Invalidation distance and costs exceed signed risk budget')
+
     return {name: 'PASS' for name in SECTIONS}
 
 
@@ -326,7 +346,8 @@ def evaluate(item, now=None):
                       authenticated_bundle=bundle,
                       expires_at=payload['expires_at'], summary={
                           'tokenomics': {k:payload['evidence']['tokenomics']['metrics'][k] for k in ('circulating_units','total_units','max_units','unlock_30d_units','market_cap_usd','fdv_usd')},
-                          'execution': {k:payload['evidence']['execution']['metrics'][k] for k in ('order_usd','minimum_exit_usd','gas_usd','fees_usd','executable_depth_usd','price_impact_percent','spread_percent')}})
+                          'execution': {k:payload['evidence']['execution']['metrics'][k] for k in ('order_usd','minimum_exit_usd','gas_usd','fees_usd','executable_depth_usd','price_impact_percent','spread_percent')},
+                          'trade_plan': dict(payload['evidence']['execution']['metrics']['trade_plan'])})
     except AdmissionError as exc:
         result['blockers'] = [str(exc)]
     except (ValueError, TypeError, KeyError, AttributeError, OverflowError, OSError, subprocess.SubprocessError, ArithmeticError):

@@ -29,6 +29,14 @@ class VerificationTests(unittest.TestCase):
         self.assertEqual(tokenomics({'total_supply': 100, 'is_mintable': '1'})[0], 'FAIL')
         self.assertEqual(tokenomics({'total_supply': 100, 'is_mintable': '0'})[0], 'UNKNOWN')
 
+    def test_boolean_provider_risks_cannot_hide_as_unknown(self):
+        for name in ('is_honeypot', 'is_mintable', 'is_proxy', 'owner_change_balance'):
+            for value in (True, 1, '1'):
+                self.assertEqual(security({name:value})[0], 'FAIL')
+        self.assertEqual(security({'is_open_source':False})[0], 'FAIL')
+        self.assertEqual(security({'is_honeypot':'true'})[0], 'UNKNOWN')
+        self.assertEqual(tokenomics({'total_supply':100,'is_mintable':True})[0], 'FAIL')
+
     def test_holder_data_does_not_prove_distribution(self):
         for rows in ([], [{'percent': '.01'}], [{'percent': 'nan'}], [{'percent': 2}]):
             self.assertEqual(holders({'holders': rows})[0], 'UNKNOWN')
@@ -91,3 +99,4 @@ class SimulationInfrastructureTests(unittest.TestCase):
         raw=dict(token=dict(address=TOKEN),simulationSuccess=True,
                  honeypotResult=dict(isHoneypot=True,honeypotReason='execution reverted: sell forbidden'))
         self.assertEqual(honeypot(raw,TOKEN)[0],'FAIL')
+

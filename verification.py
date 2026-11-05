@@ -33,15 +33,26 @@ def observation(source, url, raw, status, reason):
                 status=status, reason=reason, raw=raw)
 
 
+def binary_flag(value):
+    """Normalize explicit provider booleans/0/1 without truthiness coercion."""
+    if value is True:
+        return '1'
+    if value is False:
+        return '0'
+    if type(value) is int and value in (0, 1):
+        return str(value)
+    return value if isinstance(value, str) and value in ('0', '1') else None
+
+
 def security(info):
     required = {'is_honeypot': '0', 'cannot_sell_all': '0', 'owner_change_balance': '0',
                 'hidden_owner': '0', 'is_blacklisted': '0', 'is_open_source': '1',
                 'is_mintable': '0', 'trading_cooldown': '0', 'is_proxy': '0',
                 'transfer_pausable': '0', 'slippage_modifiable': '0',
                 'personal_slippage_modifiable': '0', 'selfdestruct': '0'}
-    if any(str(info.get(k)) in ('0', '1') and str(info[k]) != v for k, v in required.items()):
+    if any(binary_flag(info.get(k)) in ('0', '1') and binary_flag(info[k]) != v for k, v in required.items()):
         return 'FAIL', 'Contract capability or sellability concern reported'
-    if any(str(info.get(k)) != v for k, v in required.items()):
+    if any(binary_flag(info.get(k)) != v for k, v in required.items()):
         return 'UNKNOWN', 'Required contract fields absent; no audit inferred'
     return 'LIMITED', 'Provider screening clear; independent source/authority review required'
 
@@ -76,7 +87,7 @@ def tokenomics(info):
             raise ValueError('Invalid supply')
     except (KeyError, ValueError, TypeError):
         return 'UNKNOWN', 'No valid total supply'
-    if str(info.get('is_mintable')) == '1':
+    if binary_flag(info.get('is_mintable')) == '1':
         return 'FAIL', 'Mint authority creates dilution exposure'
     return 'UNKNOWN', f'Total supply {supply:g}; circulating supply, vesting and future unlocks unverified'
 
@@ -204,4 +215,5 @@ def collect(item, fetch, rpc_request=None, include_entry=True):
     report['execution'] = observation('0x', DOCS['quote'], None, 'NOT_CHECKED',
         'Executable two-way size-specific quote, taker address, API credential, gas and allowance simulation not configured')
     return report
+
 

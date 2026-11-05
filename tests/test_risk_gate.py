@@ -61,3 +61,10 @@ class RiskGateTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+
+class ProviderBooleanTests(unittest.TestCase):
+    def test_explicit_boolean_honeypot_is_adverse(self):
+        self.assertEqual(risk_gate({'is_honeypot': True})[0], 'AVOID / HIGH CONCERN')
+        self.assertEqual(risk_gate({'is_open_source': False})[0], 'WAIT / VERIFY')
