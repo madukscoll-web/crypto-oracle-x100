@@ -17,6 +17,7 @@ from asset_identity import canonical, key
 from gate_spot_research import PublicGate, analyze_book, analyze_candles
 from provider_session import Session
 import verification
+import project_context
 
 ROOT = pathlib.Path(__file__).resolve().parent
 LABEL = 'BUY CANDIDATE — MANUAL REVIEW'
@@ -198,6 +199,9 @@ class Scanner:
                       limitations=['Unvalidated paper strategy; no demonstrated profitability',
                                    'Exchange custody, account eligibility and personal fees require manual checks',
                                    'Underlying token risk remains; a candidate is not verified safety or guaranteed execution'])
+        result['project_context'] = project_context.empty(
+            {k:asset.get(k) for k in ('network','token_address')},now,
+            'Project evidence not yet collected for this assessment')
         try:
             identity = key(asset['network'], asset['token_address'])
             asset = dict(asset, asset_key=identity)
@@ -237,6 +241,7 @@ class Scanner:
                 if abs(actual-expected)/expected > 0.01:
                     raise ValueError('Live supply conflicts with documented review: '+field)
             result['evidence']['live_supply'] = dict(url=supply_url, raw=supply)
+            result['project_context'] = project_context.exact_contract(asset,supply,supply_url,now)
             # Fetch book last; the remaining signal life is bounded by its timestamp.
             candles = self.gate.get('/spot/candlesticks', dict(currency_pair=pair_id, interval='5m',limit=30))
             book = self.gate.get('/spot/order_book', dict(currency_pair=pair_id,limit=20,with_id='true'))
@@ -269,6 +274,7 @@ def format_alert(result):
                   'Planned paper loss including allowances: '+str(plan['planned_paper_loss_usdt'])+' USDT; entire allocation can be lost',
                   'Expires: '+plan['expires_at'], 'Account fees/eligibility, unexposed maximum limits and fresh depth must be checked manually']
     lines += ['Blockers: '+'; '.join(result['blockers'])] if result['blockers'] else []
+    lines += [project_context.summary(result.get('project_context'), expected={'network':result.get('network'),'token_address':result.get('token_address')})]
     lines += result['limitations']
     return '\n'.join(lines)
 
@@ -395,3 +401,4 @@ if __name__ == '__main__':
     pathlib.Path(args.output).write_text(json.dumps(report,indent=2)+'\n')
     for candidate in report['candidates']: print(format_alert(candidate))
     for error in report['errors']: print(error)
+

@@ -205,6 +205,8 @@ def format_alert(item,result,event='NEW WATCH',example=False):
     if title=='VERIFIED BUY' and not example:
         quote=item.get('execution_evidence') or {}
         lines+=['EXECUTION AND RISK EVIDENCE: '+json.dumps({k:quote.get(k,'UNKNOWN') for k in ('provider','quote_id','amount_in','amount_out','expires_at','fees','slippage','entry','invalidation','risk')},sort_keys=True)]
+    import project_context
+    lines += [project_context.summary(item.get('project_context'), expected={'network':item.get('network'),'token_address':item.get('token_address')})]
     lines+=['EXACT MISSING MANDATORY CHECKS:']+['- '+x for x in missing]+['MAJOR RISKS:']+['- '+x for x in result.get('risks',[])]+['Research: '+str(item.get('url','UNKNOWN')),'Automated trading DISABLED. Recheck fresh evidence before any decision.']
     return '\n'.join(lines)
 

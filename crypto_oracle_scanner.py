@@ -21,6 +21,7 @@ import traceback
 import evidence_audit
 import investment_gates
 import fundamental_evidence
+import project_context
 import evidence_checks
 import research_records
 import market_corroboration
@@ -776,6 +777,7 @@ def send_telegram(item):
         f"Token: {item.get('token_symbol', 'UNKNOWN')} | Network: {item['network']}\n"
         f"Contract: {item.get('token_address', 'UNKNOWN')}\n"
         f"{investment_gates.telegram_summary(item)}\n"
+        f"{project_context.summary(item.get('project_context'), expected={'network':item.get('network'),'token_address':item.get('token_address')})}\n"
         f"Network: {item['network']}\n"
         f"Pool: {item['name']}\n"
         f"Pool classification: {item['pool_class']}\n"
@@ -846,6 +848,7 @@ def research_alert_text(item):
     risks = "; ".join(item.get("risk_reasons") or []) or "Independent safety and execution verification incomplete"
     return (
         "CRYPTO-ORACLE X100 — RESEARCH WATCH ONLY\n"
+        + project_context.summary(item.get("project_context"), expected={"network":item.get("network"),"token_address":item.get("token_address")}) + "\n"
         "NOT APPROVED FOR PURCHASE. NOT A BUY SIGNAL.\n"
         f"Market setup: {setup} — {setup_reason}\n"
         f"Decision: {decision} — {reason}\n"
@@ -1003,6 +1006,7 @@ def main():
                                  "risk_category": item["risk_category"],
                                  "security": item.get("security_provider_evidence"),
                                  "source_records": item["research_records"],
+                                 "project_context": item.get("project_context"),
                                  "market_corroboration": item["market_corroboration"],
                                  "activity": {"provider": item.get("source"), "network": item["network"],
                                               "contract": item.get("token_address"), "pool": item["address"],

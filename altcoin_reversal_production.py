@@ -1,6 +1,7 @@
 """Bounded research with separately authorized technical notifications; no orders."""
 import json
 import pathlib
+import time
 from collections import Counter
 
 from altcoin_reversal_cli import run
@@ -38,6 +39,20 @@ if __name__ == '__main__':
         temporary = state_path.with_suffix('.json.tmp')
         temporary.write_text(json.dumps({'version': 1, 'cursor': report['next_cursor']}) + '\n')
         temporary.replace(state_path)
+    import project_context
+    cache_path = pathlib.Path('project_context_cache.json')
+    try:
+        cache = json.loads(cache_path.read_text())
+        if cache.get('version') != 1 or not isinstance(cache.get('entries'),dict):
+            raise ValueError('Invalid metadata cache')
+    except (OSError,ValueError,TypeError,AttributeError):
+        cache = {'version':1,'entries':{}}
+    with Session(max_requests=8,max_seconds=45,max_request_seconds=4) as session:
+        project_context.attach_gate(report,session.get,cache,time.time())
+        report['project_context_provider_session'] = session.summary()
+    temporary = cache_path.with_suffix('.json.tmp')
+    temporary.write_text(json.dumps(cache,indent=2)+'\n')
+    temporary.replace(cache_path)
     notification_path = pathlib.Path('technical_watch_state.json')
     notification_state = json.loads(notification_path.read_text()) if notification_path.exists() else {
         'version': 1, 'delivered': {}, 'daily_counts': {}}
@@ -60,6 +75,6 @@ if __name__ == '__main__':
     report['technical_delivery'] = delivery
     pathlib.Path('altcoin_reversal_report.json').write_text(json.dumps(report, indent=2)+'\n', encoding='utf-8')
     pathlib.Path('technical_watch_delivery.json').write_text(json.dumps(delivery, indent=2)+'\n')
-    print(json.dumps({key: report[key] for key in ('scope', 'coverage', 'status_counts', 'errors', 'buy_authorized', 'orders_allowed', 'telegram_eligible', 'technical_delivery')}))
+    print(json.dumps({key: report[key] for key in ('scope', 'coverage', 'status_counts', 'errors', 'buy_authorized', 'orders_allowed', 'telegram_eligible', 'technical_delivery', 'project_context_coverage')}))
     if report['errors'] or delivery['failed']:
         raise SystemExit(1)

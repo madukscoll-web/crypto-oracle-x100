@@ -4,6 +4,7 @@ Read-only, timestamped evidence and preview text only. No Telegram transmission,
 production state writes, accounts, signatures, approvals, order endpoints or trades.
 """
 import argparse
+import project_context
 import collections
 import datetime as dt
 import gzip
@@ -182,6 +183,7 @@ def run(limit=8,output='global_discovery_report.json.gz',previous=None):
         else:result['newly_observed_spot_pair_ids']=None
         for _,asset,item in chosen:
             item=dict(item);item['pool_observation_count']=len(asset['pools']);item['market_corroboration']=fallback_confirmation(item,fetch) if item['discovery_mode']=='profile_fallback' else market_corroboration.check(item,fetch)
+            item['project_context']=project_context.discovery_only(item,dt.datetime.now(dt.timezone.utc).timestamp())
             item['verification']=verification.collect(item,fetch)
             item['mandatory_blockers']=candidate_evidence.blockers(item)
             item['prelisting_score']=activity(item,config)
@@ -220,3 +222,4 @@ def main():
     print(json.dumps(result['counts']))
 
 if __name__=='__main__':main()
+

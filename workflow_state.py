@@ -15,7 +15,7 @@ import tempfile
 
 FILES=('reported_pools.json','watchlist_state.json','signal_history.json',
        'gate_paper_history.json','research_discovery_state.json','forward_events.jsonl',
-       'operational_digest_state.json','reversal_universe_state.json','technical_watch_state.json')
+       'operational_digest_state.json','reversal_universe_state.json','technical_watch_state.json','project_context_cache.json')
 
 
 class StateConflict(RuntimeError):pass

@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "scope": "Curated provider identity associations for Gate research only; not investment approvals",
+  "assets": {
+    "AAVE_USDT": {"id":"aave","symbol":"aave","kind":"token"},
+    "ADA_USDT": {"id":"cardano","symbol":"ada","kind":"native"},
+    "ALGO_USDT": {"id":"algorand","symbol":"algo","kind":"native"},
+    "ATOM_USDT": {"id":"cosmos","symbol":"atom","kind":"native"},
+    "AVAX_USDT": {"id":"avalanche-2","symbol":"avax","kind":"native"},
+    "BCH_USDT": {"id":"bitcoin-cash","symbol":"bch","kind":"native"},
+    "BNB_USDT": {"id":"binancecoin","symbol":"bnb","kind":"native"},
+    "DOT_USDT": {"id":"polkadot","symbol":"dot","kind":"native"},
+    "ETH_USDT": {"id":"ethereum","symbol":"eth","kind":"native"},
+    "FIL_USDT": {"id":"filecoin","symbol":"fil","kind":"native"},
+    "HBAR_USDT": {"id":"hedera-hashgraph","symbol":"hbar","kind":"native"},
+    "LTC_USDT": {"id":"litecoin","symbol":"ltc","kind":"native"},
+    "NEAR_USDT": {"id":"near","symbol":"near","kind":"native"},
+    "ONDO_USDT": {"id":"ondo-finance","symbol":"ondo","kind":"token"},
+    "QTUM_USDT": {"id":"qtum","symbol":"qtum","kind":"native"},
+    "RENDER_USDT": {"id":"render-token","symbol":"render","kind":"token"},
+    "SOL_USDT": {"id":"solana","symbol":"sol","kind":"native"},
+    "SUI_USDT": {"id":"sui","symbol":"sui","kind":"native"},
+    "TAO_USDT": {"id":"bittensor","symbol":"tao","kind":"native"},
+    "UNI_USDT": {"id":"uniswap","symbol":"uni","kind":"token"},
+    "XLM_USDT": {"id":"stellar","symbol":"xlm","kind":"native"},
+    "XRP_USDT": {"id":"ripple","symbol":"xrp","kind":"native"}
+  },
+  "primary_notes": {
+    "avalanche-2": {
+      "reviewed_on":"2026-11-05",
+      "source_url":"https://build.avax.network/docs/primary-network/avax-token",
+      "purpose":"Avalanche network utility: AVAX pays Primary Network fees and secures staking.",
+      "token_value_capture":"Primary Network fees are burned; staking rewards mint AVAX. Burning alone does not guarantee falling supply or price appreciation."
+    },
+    "binancecoin": {
+      "reviewed_on":"2026-11-05",
+      "source_url":"https://docs.bnbchain.org/bnb-smart-chain/introduction/",
+      "purpose":"BNB pays BNB Smart Chain execution fees and is used for network staking.",
+      "token_value_capture":"Validators receive transaction-fee rewards. Network activity is not a guaranteed dividend or return for every BNB holder."
+    },
+    "near": {
+      "reviewed_on":"2026-11-05",
+      "source_url":"https://docs.near.org/protocol/network/tokens",
+      "purpose":"NEAR pays transaction fees, covers on-chain storage and supports validator staking.",
+      "token_value_capture":"Storage balances are locked while data remains; delegated staking can earn rewards. Holding alone does not guarantee project profit sharing."
+    }
+  }
+}
