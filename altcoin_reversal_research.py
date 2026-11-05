@@ -85,19 +85,27 @@ def analyze(symbol: str, candles: list[dict], *, source: str,
     higher_low = min(lows[-10:-1]) > min(lows[-30:-10])
     recovering = close > ma20 and ma20 > mean(closes[-25:-5])
     breakout = close > prior_high and volume_ratio >= 1.5
+    # A steadily rising asset is not evidence of a reversal from a downtrend.
+    prior_peak = max(closes[:35])
+    prior_trough = min(lows[15:45])
+    prior_drawdown = 1-prior_trough/prior_peak
+    prior_downtrend = (prior_drawdown >= .08
+                       and mean(closes[20:30]) < mean(closes[:10])*.98)
     result.update(metrics=dict(close=close, ma20=ma20, ma50=ma50,
                                prior_high=prior_high, prior_low=prior_low,
                                volume_ratio=round(volume_ratio, 3),
                                higher_low=higher_low, recovering=recovering,
-                               breakout=breakout))
-    if breakout and recovering and higher_low:
+                               breakout=breakout, prior_drawdown=round(prior_drawdown, 4),
+                               prior_downtrend=prior_downtrend))
+    if prior_downtrend and breakout and recovering and higher_low:
         result.update(classification="TECHNICAL REVERSAL WATCH",
                       entry_trigger=prior_high, invalidation=prior_low,
                       reason="Closed-candle breakout with volume and improving structure; independent fundamentals, liquidity, execution and risk review still required")
-    elif recovering and higher_low:
+    elif prior_downtrend and recovering and higher_low:
         result.update(classification="EARLY REVERSAL WATCH",
                       entry_trigger=prior_high, invalidation=prior_low,
                       reason="Improving price structure without confirmed volume breakout")
     else:
         result["reason"] = "Reversal criteria not met"
     return result
+
