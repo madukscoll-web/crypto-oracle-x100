@@ -150,7 +150,10 @@ def screen(row, research, gate, currencies, negatives, now):
             finding['raw'] = raw
             info = (raw.get('result') or {}).get(contract.lower())
             if raw.get('code') == 1 and isinstance(info, dict):
-                finding['status'], finding['reason'] = verification.security(info)
+                # Boolean adverse flags are still adverse, not an UNKNOWN escape.
+                normalized = {k: ('1' if v is True else '0' if v is False else v)
+                              for k, v in info.items()}
+                finding['status'], finding['reason'] = verification.security(normalized)
         except (OSError, ValueError, TypeError, KeyError, AttributeError):
             finding['reason'] = 'Provider unavailable; security NOT VERIFIED'
         security.append(finding)
