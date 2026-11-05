@@ -29,12 +29,17 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Probe bounded public evidence adapters without secrets or notifications
         timeout-minutes: 3
-        run: python -u hourly_evidence_probe.py
+        run: |
+          python -u hourly_evidence_probe.py
+          python -u news_context.py
       - name: Retain public adapter integration evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: hourly-adapter-probe-${{ github.run_id }}
-          path: work/hourly_evidence_probe.json
+          path: |
+            work/hourly_evidence_probe.json
+            news_source_report.json
           retention-days: 7
           if-no-files-found: warn
+

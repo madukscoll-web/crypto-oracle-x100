@@ -339,4 +339,19 @@ def summary(profile, limit=1350, expected=None):
     if len(text.encode('utf-16-le'))//2 > limit and sources:
         lines[-1] = 'Full source provenance: retained project-context report.'
         text = '\n'.join(lines)
+    if p.get('news_context'):
+        import news_context
+        # Keep the existing Telegram budget. Retain purpose, supply, caveats and provenance.
+        news = news_context.summary(p)
+        compact = [lines[i] for i in (0, 1, 2, 5, 6, 8)]
+        compact.append(news)
+        text = '\n'.join(compact)
+        if len(text.encode('utf-16-le'))//2 > limit:
+            compact[1] = 'Use/value: '+purpose[:55]+' ['+d['purpose']['status']+']'
+            compact[2] = 'Token value capture: '+capture[:55]
+            text = '\n'.join(compact)
+        if len(text.encode('utf-16-le'))//2 > limit:
+            compact[-1] = 'NEWS: See project-context report for headlines and provenance. Not verified; no safety or entry signal.'
+            text = '\n'.join(compact)
     return text
+

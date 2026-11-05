@@ -23,6 +23,7 @@ import evidence_audit
 import investment_gates
 import fundamental_evidence
 import project_context
+import news_context
 import evidence_checks
 import research_records
 import market_corroboration
@@ -1000,10 +1001,14 @@ def main():
     setup_counts = {}
     evidence_reports = []
     entry_counts = {}
+    news_feed = (news_context.collect() if selected else
+                 {"status": "NOT_CHECKED_NO_CANDIDATES", "sources": [],
+                  "articles": [], "optional_providers": {}})
     hourly_collector = hourly_evidence.HourlyEvidence(max_candidates=EVIDENCE_SLOTS)
     for item in selected:
         enrich(item)
         item["fundamental_evidence"] = fundamental_evidence.collect(item, lambda url: get_json(url, headers=HEADERS, retries=0, timeout=5))
+        news_context.attach(item.get("project_context"), news_feed)
         item["research_records"], item["research_record_status"] = research_records.load_for(item)
         item["research_records"] = research_records.combine(item, item["research_records"])
         item["evidence_review"] = evidence_checks.review(item)
@@ -1170,6 +1175,8 @@ def main():
               "signed_entry_watches_delivered": delivered_by_outcome.get('ENTRY WATCH', 0),
               "purchase_approved": False, "orders_allowed": False,
               "successful_feeds": successful_feeds,
+              "news_sources": news_feed["sources"],
+              "optional_context_providers": news_feed["optional_providers"],
               "hourly_evidence": hourly_collector.summary(),
               "gate_paper_candidates": sum(c.get("classification") == gate_spot_candidates.LABEL for c in gate_report.get("candidates", [])),
               "forward_ledger": ledger_status,
@@ -1227,5 +1234,6 @@ def cli():
 
 if __name__ == "__main__":
     raise SystemExit(cli())
+
 
 
