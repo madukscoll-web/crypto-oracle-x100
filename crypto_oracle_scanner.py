@@ -467,6 +467,10 @@ def horizon_notes():
 
 def decision_summary(item):
     """Evidence-based action; never turn activity scores into buy advice."""
+    import authenticated_admission
+    if authenticated_admission.evaluate(item)['admitted']:
+        return 'BUY CANDIDATE — REVIEW ENTRY', 'Authenticated mandatory evidence passed; final human approval required. Automatic trading disabled.'
+
     risk = item.get("risk_category", "WAIT / VERIFY")
     if any(((item.get("evidence_review") or {}).get(key) or {}).get("status") == "HIGH CONCERN"
            for key in ("security", "provider_security")):
@@ -583,12 +587,9 @@ def decision_summary(item):
 
 
 def validate_execution_evidence(item):
-    """No authenticated execution adapter exists; caller claims cannot authorize.
-
-    evidence_checks.quotes reports source-bound metrics separately. Even valid
-    metrics do not prove authenticity, successful simulation, or sellability.
-    """
-    return False
+    """Validate fresh authenticated exact-order sequential buy/sell evidence."""
+    import authenticated_admission
+    return authenticated_admission.evaluate(item)['admitted']
 
 
 
@@ -743,7 +744,18 @@ def token_alert_key(item):
     return 'token:' + network + ':' + (token if network == 'solana' else token.lower())
 
 
+def decision_alert_key(item):
+    import authenticated_admission
+    admission = authenticated_admission.evaluate(item)
+    if admission['safety_verified']:
+        return 'decision:' + str(token_alert_key(item)) + ':' + admission['entry_status']
+    return None
+
+
 def already_alerted(item, seen):
+    decision_key = decision_alert_key(item)
+    if decision_key:
+        return decision_key in seen
     return item['key'] in seen or token_alert_key(item) in seen
 
 
@@ -754,11 +766,9 @@ def telegram_eligible(item):
     Gate Spot paper candidates have a separate reviewed notification path.
     """
     try:
-        import evidence_audit
-        decision, _ = decision_summary(item)
-        return (decision == "BUY CANDIDATE — REVIEW ENTRY"
-                and evidence_audit.audit(item).get("trade_ready") is True
-                and validate_execution_evidence(item) is True)
+        import authenticated_admission
+        admission = authenticated_admission.evaluate(item)
+        return admission['safety_verified'] is True and admission.get('entry_status') in ('READY', 'MONITOR')
     except (ValueError, TypeError, KeyError, AttributeError, OSError):
         return False
 
@@ -768,6 +778,10 @@ def send_telegram(item):
     chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
     if not token or not chat_id:
         raise RuntimeError("Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID")
+    import authenticated_admission
+    if authenticated_admission.evaluate(item)['safety_verified']:
+        import opportunity_alerts
+        return send_message(opportunity_alerts.format_admission_alert(item))
     flags = "; ".join(item["flags"]) if item["flags"] else "No additional activity flags triggered"
     decision, summary = decision_summary(item)
     setup, setup_reason = setup_assessment(item)
@@ -1023,6 +1037,7 @@ def main():
                                  "gate_provider_evidence": item.get("gate_provider_evidence"),
                                  "gate_execution_research": item.get("gate_execution_research"),
                                  "canonical_assessment": canonical,
+                                 "admission": __import__("authenticated_admission").evaluate(item),
                                  "assessment": investment_gates.assess(item)})
         risk_counts[item["risk_category"]] = risk_counts.get(item["risk_category"], 0) + 1
         setup = setup_assessment(item)[0]
@@ -1064,6 +1079,9 @@ def main():
             else:
                 watchlist[item["key"]] = previous_watch
             continue
+        notification_key = decision_alert_key(item)
+        if notification_key:
+            seen.add(notification_key)
         seen.add(item["key"])
         if token_alert_key(item):
             seen.add(token_alert_key(item))
