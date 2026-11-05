@@ -1,5 +1,6 @@
 import datetime as dt
 import unittest
+import pathlib
 from scanner_cadence import decide, finish
 
 
@@ -28,3 +29,12 @@ class CadenceTests(unittest.TestCase):
     def test_future_naive_and_invalid_dates_do_not_fake_health(self):
         for stamp in ['bad', '2026-11-05T12:00:00', '2026-11-06T12:00:00+00:00']:
             self.assertTrue(decide('workflow_run', {'last_core_success_at': stamp}, self.now, True)[0])
+
+
+class CadenceWorkflowFailureTests(unittest.TestCase):
+    def test_pre_guard_failure_retains_operational_notification(self):
+        workflow=(pathlib.Path(__file__).resolve().parents[1]/'.github/workflows/main.yml').read_text()
+        notification=workflow.split('      - name: Notify Telegram when workflow fails\n',1)[1].split('      - name:',1)[0]
+        self.assertIn('        if: failure()\n',notification)
+        self.assertNotIn("steps.cadence.outputs.run == 'true'",notification)
+        self.assertIn('cadence_refresh=${{ steps.cadence_refresh.outcome }}',notification)
