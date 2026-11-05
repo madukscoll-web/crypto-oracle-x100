@@ -35,6 +35,10 @@ def refresh():
 
 class MissingMarketTests(unittest.TestCase):
     def setUp(self):
+        news = patch.object(scanner.news_context, 'collect', return_value={
+            'status':'UNAVAILABLE','sources':[],'articles':[],'optional_providers':{}})
+        news.start()
+        self.addCleanup(news.stop)
         optional = patch.object(scanner.hourly_evidence, "collect_safely")
         optional.start()
         self.addCleanup(optional.stop)
@@ -202,4 +206,5 @@ class MissingMarketTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
 

@@ -53,6 +53,11 @@ if __name__ == '__main__':
     temporary = cache_path.with_suffix('.json.tmp')
     temporary.write_text(json.dumps(cache,indent=2)+'\n')
     temporary.replace(cache_path)
+    import news_context
+    news_feed = news_context.collect()
+    for row in report['results']:
+        news_context.attach(row.get('project_context'), news_feed)
+    report['news_sources'] = news_feed['sources']
     notification_path = pathlib.Path('technical_watch_state.json')
     notification_state = json.loads(notification_path.read_text()) if notification_path.exists() else {
         'version': 1, 'delivered': {}, 'daily_counts': {}}
@@ -78,3 +83,4 @@ if __name__ == '__main__':
     print(json.dumps({key: report[key] for key in ('scope', 'coverage', 'status_counts', 'errors', 'buy_authorized', 'orders_allowed', 'telegram_eligible', 'technical_delivery', 'project_context_coverage')}))
     if report['errors'] or delivery['failed']:
         raise SystemExit(1)
+
