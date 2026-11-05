@@ -2,6 +2,10 @@ name: CRYPTO-ORACLE X100 Scanner
 
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: ['Multichain read-only research', 'Gate catalog-first live discovery (research only)']
+    types: [completed]
+    branches: [main]
   push:
     branches: [main]
     paths:
@@ -17,6 +21,7 @@ on:
       - tests/test_multichain_live_research.py
       - multichain_research_audit.py
       - crypto_oracle_scanner.py
+      - scanner_cadence.py
       - hourly_evidence.py
       - scan_audit.py
       - telegram_notify.py
@@ -57,13 +62,22 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Refresh persisted scanner state
+        id: state_refresh
+        run: python workflow_state.py refresh
+      - name: Check actual scanner cadence
+        id: cadence
+        run: python scanner_cadence.py guard
       - name: Check Python source compilation
+        if: success() && steps.cadence.outputs.run == 'true'
         id: compile
         run: python -m compileall -q *.py tests
       - name: Run scanner unit tests
+        if: success() && steps.cadence.outputs.run == 'true'
         id: tests
         run: python -m unittest discover -s tests -v
       - name: Check Telegram configuration
+        if: success() && steps.cadence.outputs.run == 'true'
         id: telegram_config
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -78,10 +92,8 @@ jobs:
               sys.exit(1)
           print('Required Telegram secrets are configured (values withheld).')
           PYTHON
-      - name: Refresh persisted scanner state
-        id: state_refresh
-        run: python workflow_state.py refresh
       - name: Run scanner
+        if: success() && steps.cadence.outputs.run == 'true'
         id: scan
         timeout-minutes: 15
         env:
@@ -93,8 +105,10 @@ jobs:
           ORACLE_ORDER_BASE_UNITS: ${{ vars.ORACLE_ORDER_BASE_UNITS || secrets.ORACLE_ORDER_BASE_UNITS }}
         run: |
           python -c 'import json, os; from execution_configuration import status; print(json.dumps(status(os.environ)))'
+          python scanner_cadence.py start
           python -u crypto_oracle_scanner.py
       - name: Run bounded multichain discovery audit
+        if: success() && steps.cadence.outputs.run == 'true'
         id: multichain
         continue-on-error: true
         timeout-minutes: 4
@@ -114,6 +128,7 @@ jobs:
           print('Read-only multichain coverage:', json.dumps(audit, sort_keys=True))
           PY
       - name: Run bounded altcoin bullish-reversal research
+        if: success() && steps.cadence.outputs.run == 'true'
         id: reversal
         continue-on-error: true
         timeout-minutes: 4
@@ -122,6 +137,7 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python -u altcoin_reversal_production.py
       - name: Run read-only StonkFun launch audit
+        if: success() && steps.cadence.outputs.run == 'true'
         id: stonk_launches
         continue-on-error: true
         timeout-minutes: 2
@@ -139,23 +155,29 @@ jobs:
           print("StonkFun read-only launches:", result["count"], "invalid:", result["invalid_rows"])
           PY
       - name: Record historical research validation status
+        if: success() && steps.cadence.outputs.run == 'true'
         run: python research_validation.py --dataset historical_cohort.json --output historical_validation_report.json
       - name: Record Gate review backlog diagnostics
-        if: always()
+        if: always() && steps.cadence.outputs.run == 'true'
         run: python gate_review_backlog.py --output gate_review_backlog.json
       - name: Send daily pipeline health digest
         id: operational_summary
-        if: success()
+        if: success() && steps.cadence.outputs.run == 'true'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python telegram_notify.py success
+      - name: Record actual core scan outcome
+        if: always() && steps.cadence.outputs.run == 'true' && steps.scan.outcome != 'skipped'
+        env:
+          SCAN_OUTCOME: ${{ steps.scan.outcome }}
+        run: python scanner_cadence.py finish
       - name: Save scanner state
         id: state
-        if: always() && steps.scan.outcome != 'skipped'
+        if: always() && steps.scan.outcome != 'skipped' && steps.cadence.outputs.run == 'true'
         run: python workflow_state.py publish
       - name: Notify Telegram when workflow fails
-        if: failure()
+        if: failure() && steps.cadence.outputs.run == 'true'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -176,6 +198,8 @@ jobs:
             research_discovery_state.json
             stonk_launch_report.json
             multichain_research_report.json
+            scanner_cadence_report.json
+            scanner_runtime_state.json
             scan_summary.json
             operational_notification.json
             operational_digest_state.json
