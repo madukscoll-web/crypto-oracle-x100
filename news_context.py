@@ -21,7 +21,7 @@ MAX_AGE = 72 * 3600
 
 
 def clean(value, limit=240):
-    value = html.unescape(re.sub(r'<[^>]*>', ' ', str(value or '')))
+    value = re.sub(r'<[^>]*>', ' ', html.unescape(str(value or '')))
     value = ''.join(' ' if unicodedata.category(c).startswith('C') else c for c in value)
     return ' '.join(value.split())[:limit]
 
@@ -32,7 +32,9 @@ def safe_link(value):
         if (parts.scheme != 'https' or not parts.hostname or parts.username or parts.password
                 or parts.port not in (None, 443) or len(value) > 500):
             return None
-        return urllib.parse.urlunsplit(('https', parts.netloc, parts.path, '', ''))
+        query = urllib.parse.urlencode([(k,v) for k,v in urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
+                                       if not k.lower().startswith('utm_') and k.lower() not in ('fbclid','gclid')])
+        return urllib.parse.urlunsplit(('https', parts.netloc, parts.path, query, ''))
     except (ValueError, TypeError):
         return None
 

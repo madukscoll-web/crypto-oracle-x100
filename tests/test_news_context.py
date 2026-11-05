@@ -72,6 +72,8 @@ class NewsContextTests(unittest.TestCase):
             self.assertEqual(news.collect(lambda _:data,NOW)['status'],'UNAVAILABLE')
 
     def test_unsafe_links(self):
+        self.assertEqual(news.safe_link('https://example.com/article?id=7&utm_source=x'), 'https://example.com/article?id=7')
+        self.assertEqual(news.clean('&lt;b&gt;Headline&lt;/b&gt;'), 'Headline')
         for url in ('javascript:alert(1)','http://example.com','https://user:pass@example.com','https://example.com:5000'):
             self.assertIsNone(news.safe_link(url))
 
