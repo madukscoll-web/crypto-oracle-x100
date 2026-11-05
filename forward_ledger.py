@@ -13,7 +13,8 @@ from asset_identity import key
 
 PATH = pathlib.Path('forward_events.jsonl')
 ZERO = '0'*64
-POLICY_FILES = ('watch_policy.json','canonical_outcomes.py','crypto_oracle_scanner.py','opportunity_alerts.py')
+POLICY_FILES = ('watch_policy.json','canonical_outcomes.py','crypto_oracle_scanner.py','opportunity_alerts.py',
+                'authenticated_admission.py','admission_trust.json','adverse_evidence.py','sequential_simulation.py')
 
 
 def digest(value):
@@ -106,3 +107,4 @@ def capture(history,items,path=PATH):
     return {'status':'HASH_CHAIN_VERIFIED','events_appended':count,'events_total':len(read(path)),
             'model_version':version,'liquidity_adjusted_returns':None,
             'false_positive_rate':None,'limitation':'No authenticated size-specific round-trip execution costs or mature labelled cohort; no adjusted return or false-positive rate inferred'}
+

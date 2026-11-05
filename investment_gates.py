@@ -20,6 +20,16 @@ def _threshold(name, default):
 def assess(item, now=None):
     """Missing independent evidence is UNKNOWN, not zero or PASS."""
     now = now or dt.datetime.now(dt.timezone.utc)
+    import authenticated_admission
+    admission = authenticated_admission.evaluate(item, now=now)
+    if admission['safety_verified']:
+        return dict(decision='BUY CANDIDATE — MANUAL REVIEW' if admission['admitted'] else 'WATCHLIST', buy_eligible=admission['admitted'],
+                    security='VERIFIED WITHIN SIGNED REVIEW SCOPE', fundamentals='TOKENOMICS VERIFIED WITHIN SIGNED SCOPE; PROJECT CLAIMS SEPARATE',
+                    trade_readiness='VERIFIED UNTIL '+admission['expires_at'],
+                    blockers=[] if admission['admitted'] else ['Signed entry monitoring required'], warnings=['Manual review required; capital can be lost'],
+                    evidence=item.get('fundamental_evidence') or {},
+                    activity={'score':item.get('score'),'meaning':'Activity only; not safety'},
+                    admission=admission, orders_allowed=False)
     blockers = []
     warnings = []
     risk = item.get("risk_category", "WAIT / VERIFY")
@@ -162,13 +172,16 @@ def assess(item, now=None):
         warnings.append("Excessive adjusted holder concentration: " + str(reviewed_holders.get("adjusted_top10_fraction")) + "; snapshot authenticity UNVERIFIED")
     for flag in (review.get("execution") or {}).get("flags", []):
         warnings.append("Quote observation: " + flag)
+    import canonical_outcomes
+    canonical = canonical_outcomes.assess(item, now=now.timestamp())
     return {
+        "admission": admission,
         "source_review": review,
         "live_findings": findings,
-        "decision": "AVOID / HIGH CONCERN" if risk == "AVOID / HIGH CONCERN" else "WAIT / VERIFY",
+        "decision": 'AVOID / HIGH CONCERN' if canonical['outcome'] == 'REJECT' else 'WAIT / VERIFY',
         "evidence": evidence,
         "activity": {"score": item.get("score"), "meaning": "Observed pool activity ONLY; not safety"},
-        "security": "HIGH CONCERN" if risk == "AVOID / HIGH CONCERN" else "INCOMPLETE",
+        "security": "HIGH CONCERN" if canonical["outcome"] == "REJECT" else "INCOMPLETE",
         "fundamentals": "INCOMPLETE" if any("supply" in x or "FDV" in x or "unlock" in x for x in blockers) else "REVIEW",
         "trade_readiness": "NOT VERIFIED",
         "blockers": list(dict.fromkeys(blockers)),
@@ -184,7 +197,13 @@ def telegram_summary(item):
     from fundamental_evidence import scenario_summary
     lines = ["DECISION: " + result["decision"],
              "Activity is NOT safety. Security/fundamentals: " + result["security"] + "/" + result["fundamentals"],
-             "Trade readiness: NOT VERIFIED — automatic trading disabled"]
+             "Trade readiness: " + result['trade_readiness'] + " — automatic trading disabled"]
+    if result.get('admission',{}).get('safety_verified'):
+        return '\n'.join(lines + ['Evidence bundle SHA-256: '+result['admission']['bundle_sha256'],
+            'Independent reviewers: '+', '.join(result['admission']['reviewers']),
+            'Quote expires: '+result['admission']['expires_at'],
+            'Security, LP controls, beneficial holders, tokenomics and sequential exit: PASS within signed review scope',
+            'Manual review required; entire allocation can be lost.'])
     lines.append("BLOCKERS: partial findings below do not establish complete safety or execution.")
     lines.extend(hourly_evidence.telegram_lines(item))
     lines.append("Pool observed: " + str(item.get("observed_at", "UNKNOWN")))
@@ -203,5 +222,6 @@ def telegram_summary(item):
         lines.append("Full evidence: https://github.com/" + repo + "/actions/runs/" + run)
     lines.append(scenario_summary())
     return "\n".join(lines)
+
 
 
