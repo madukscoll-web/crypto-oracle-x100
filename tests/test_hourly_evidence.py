@@ -51,6 +51,12 @@ class HourlyEvidenceTests(unittest.TestCase):
         self.assertEqual(x['verification']['onchain']['status'], 'NOT_CHECKED')
         self.assertIsNone(CURRENT.get())
 
+    def test_default_expansion_keeps_shared_provider_limits(self):
+        collector = h.HourlyEvidence()
+        self.assertEqual(collector.max_candidates, 10)
+        self.assertEqual(collector.session.max_seconds, 300)
+        self.assertEqual(collector.session.max_requests, 350)
+
     def test_candidate_budget_is_explicit(self):
         collector = h.HourlyEvidence(max_candidates=0)
         x = item()
@@ -106,3 +112,4 @@ class HourlyEvidenceTests(unittest.TestCase):
         self.assertIn('actions/runs/123', text)
         self.assertIn('automatic trading disabled', text)
         self.assertNotIn('further evidence gaps', text)
+

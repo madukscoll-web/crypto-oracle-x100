@@ -54,14 +54,14 @@ PAGES_PER_NETWORK = max(1, min(3, int(os.environ.get("ORACLE_PAGES", "1"))))
 REQUEST_DELAY_SECONDS = 8
 MAX_ALERTS_PER_RUN = max(1, min(10, int(os.environ.get("ORACLE_MAX_ALERTS", "4"))))
 # Evidence assessment capacity is distinct from alert delivery capacity.
-# Default remains production-tested at six; opt-in expansion is capped to eight.
+# Ten rotating candidates share bounded read-only provider budgets.
 def evidence_capacity(value):
     try:
-        return max(1, min(8, int(value)))
+        return max(1, min(10, int(value)))
     except (TypeError, ValueError, OverflowError):
-        return 6
+        return 10
 
-EVIDENCE_SLOTS = evidence_capacity(os.environ.get("ORACLE_EVIDENCE_SLOTS", "6"))
+EVIDENCE_SLOTS = evidence_capacity(os.environ.get("ORACLE_EVIDENCE_SLOTS", "10"))
 NEW_POOL_TARGET_SHARE = 0.70  # Minimum priority allocation when enough new candidates qualify.
 STATE_FILE = pathlib.Path("reported_pools.json")
 WATCH_STATE_FILE = pathlib.Path("watchlist_state.json")
