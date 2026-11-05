@@ -194,6 +194,8 @@ def message(row, research, screened):
         f"Last closed candle: {research['metrics']['close']} USDT\n"
         f"Trigger reference: {research['entry_trigger']} USDT; require a fresh close/retest and volume confirmation.\n"
         f"Invalidation reference: {research['invalidation']} USDT; withdraw the hypothesis if this level fails.\n"
+        f"Trigger-to-invalidation distance: {(1-float(research['invalidation'])/float(research['entry_trigger']))*100:.1f}%; "
+        'this is price distance, not a position-loss limit or guaranteed stop. Target/risk-reward: UNKNOWN.\n'
         f"Volume / baseline: {research['metrics']['volume_ratio']}x\n"
         f"Displayed spread: {float(book['spread_bps']):.1f} bps; bid/ask depth within 1%: "
         f"{float(book['bid_depth_quote_within_1pct']):,.0f}/{float(book['ask_depth_quote_within_1pct']):,.0f} USDT\n"

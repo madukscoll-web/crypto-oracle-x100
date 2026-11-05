@@ -15,7 +15,7 @@ import tempfile
 
 FILES=('reported_pools.json','watchlist_state.json','signal_history.json',
        'gate_paper_history.json','research_discovery_state.json','forward_events.jsonl',
-       'operational_digest_state.json','reversal_universe_state.json','technical_watch_state.json','project_context_cache.json','scanner_runtime_state.json')
+       'operational_digest_state.json','reversal_universe_state.json','technical_watch_state.json','project_context_cache.json','scanner_runtime_state.json','technical_followup_state.json')
 
 
 class StateConflict(RuntimeError):pass
@@ -83,6 +83,18 @@ def validate_extension(manifest,computed):
         for identity,rows in before.items():
             if identity not in after or after[identity][:len(rows)]!=rows:
                 raise StateConflict('Refusing signal history rewrite')
+    name='technical_followup_state.json'
+    if baseline.get(name) and computed.get(name) is None:
+        raise StateConflict('Refusing follow-up history deletion')
+    if baseline.get(name) and computed.get(name) is not None:
+        before=json.loads(content(revision,name))['hypotheses']
+        after=json.loads(computed[name])['hypotheses']
+        for identity,row in before.items():
+            current=after.get(identity)
+            if (not current or current.get('pair')!=row.get('pair') or
+                    current.get('alert')!=row.get('alert') or
+                    current.get('samples',[])[:len(row['samples'])]!=row['samples']):
+                raise StateConflict('Refusing follow-up history rewrite')
 
 
 def publish(manifest_path):

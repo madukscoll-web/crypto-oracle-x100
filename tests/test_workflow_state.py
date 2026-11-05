@@ -61,6 +61,15 @@ class WorkflowStateTests(unittest.TestCase):
             pathlib.Path('research_discovery_state.json').write_text(json.dumps({'version':1,'cursor':1,'seen':{}}))
             with self.assertRaises(state.StateConflict):state.publish('base.json')
         self.assertEqual(json.loads(self.cmd(self.origin,'show','main:research_discovery_state.json'))['cursor'],5)
+    def test_followup_history_rewrite_is_refused(self):
+        original={'version':1,'hypotheses':{'h':{'pair':'BNB_USDT','alert':{'at':'fixed'},'samples':[{'at':'first'}]}}}
+        self.push_writer('technical_followup_state.json',json.dumps(original))
+        with self.cwd(self.worker):
+            state.refresh('main','base.json')
+            rewritten={'version':1,'hypotheses':{'h':{'pair':'BNB_USDT','alert':{'at':'fixed'},'samples':[]}}}
+            pathlib.Path('technical_followup_state.json').write_text(json.dumps(rewritten))
+            with self.assertRaises(state.StateConflict):state.publish('base.json')
+
     def test_ledger_rewrite_is_refused(self):
         with self.cwd(self.worker):
             state.refresh('main','base.json');pathlib.Path('forward_events.jsonl').write_text('')
@@ -78,3 +87,4 @@ class WorkflowStateTests(unittest.TestCase):
         self.assertEqual(first['status'],'PUBLISHED')
         self.assertEqual(again['status'],'ALREADY_PUBLISHED')
         self.assertEqual(first['commit'],again['commit'])
+

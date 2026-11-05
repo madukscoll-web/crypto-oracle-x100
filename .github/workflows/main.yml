@@ -28,6 +28,7 @@ on:
       - admission_evidence/**
       - adverse_evidence.py
       - sequential_simulation.py
+      - technical_followup.py
       - scanner_cadence.py
       - hourly_evidence.py
       - scan_audit.py
@@ -148,6 +149,12 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python -u altcoin_reversal_production.py
+      - name: Sample delivered technical hypotheses prospectively
+        id: technical_followup
+        if: success() && steps.cadence.outputs.run == 'true'
+        continue-on-error: true
+        timeout-minutes: 1
+        run: python -u technical_followup.py
       - name: Run read-only StonkFun launch audit
         if: success() && steps.cadence.outputs.run == 'true'
         id: stonk_launches
@@ -220,6 +227,8 @@ jobs:
             reversal_universe_state.json
             technical_watch_state.json
             technical_watch_delivery.json
+            technical_followup_state.json
+            technical_followup_report.json
             project_context_cache.json
             evidence_report.json
             gate_candidate_report.json
