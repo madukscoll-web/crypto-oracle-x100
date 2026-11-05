@@ -26,7 +26,7 @@ def active_pair(row, now):
                     for k in ('buy_start', 'sell_start')))
 
 
-def collect(*, fetch=None, now=None, cursor=0, batch_size=6):
+def collect(*, fetch=None, now=None, cursor=0, batch_size=6, allowed_pairs=None):
     if type(batch_size) is not int or not 1 <= batch_size <= 10:
         raise ValueError('Research batch must contain 1 to 10 pairs')
     if type(cursor) is not int or cursor < 0:
@@ -34,7 +34,7 @@ def collect(*, fetch=None, now=None, cursor=0, batch_size=6):
     if fetch is None:
         with Session(max_requests=2 + 4*batch_size, max_seconds=100,
                      max_request_seconds=5) as session:
-            result = collect(fetch=session.get, now=now, cursor=cursor, batch_size=batch_size)
+            result = collect(fetch=session.get, now=now, cursor=cursor, batch_size=batch_size, allowed_pairs=allowed_pairs)
             result['provider_session'] = session.summary()
             return result
     now = dt.datetime.now(dt.timezone.utc).timestamp() if now is None else now
@@ -73,13 +73,18 @@ def collect(*, fetch=None, now=None, cursor=0, batch_size=6):
         active = sorted(row['id'] for row in metadata
                         if active_pair(row, now) and ids[row['id']] == 1)
         eligible = [pair for pair in active if volumes.get(pair, -1) >= 1_000_000]
+        all_liquid = len(eligible)
+        if allowed_pairs is not None:
+            eligible = [pair for pair in eligible if pair in allowed_pairs]
         unknown = sum(pair not in volumes for pair in active)
         start = cursor % len(eligible) if eligible else 0
         selected = (eligible[start:] + eligible[:start])[:batch_size]
         report['coverage'] = dict(catalog_records=len(metadata), active_altcoin_pairs=len(active),
                                   liquid_eligible_pairs=len(eligible), unknown_turnover=unknown,
                                   selected_pairs=len(selected), deferred_pairs=len(eligible)-len(selected),
-                                  minimum_reported_quote_volume_usdt=1_000_000)
+                                  minimum_reported_quote_volume_usdt=1_000_000,
+                                  all_liquid_eligible_pairs=all_liquid,
+                                  restricted_research_scope=allowed_pairs is not None)
         report['next_cursor'] = (start + len(selected)) % len(eligible) if eligible else 0
         for interval in ('1d', '1w'):
             rows = run(selected, interval, fetch=fetch, now=now)['results']

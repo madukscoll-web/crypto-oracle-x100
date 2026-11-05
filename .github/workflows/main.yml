@@ -22,6 +22,8 @@ on:
       - telegram_notify.py
       - altcoin_reversal_*.py
       - reversal_universe.py
+      - technical_watch.py
+      - technical_watch_policy.json
       - evidence_coverage.py
       - solana_evidence.py
       - verification.py
@@ -111,7 +113,10 @@ jobs:
       - name: Run bounded altcoin bullish-reversal research
         id: reversal
         continue-on-error: true
-        timeout-minutes: 2
+        timeout-minutes: 4
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python -u altcoin_reversal_production.py
       - name: Run read-only StonkFun launch audit
         id: stonk_launches
@@ -173,6 +178,8 @@ jobs:
             operational_digest_state.json
             altcoin_reversal_report.json
             reversal_universe_state.json
+            technical_watch_state.json
+            technical_watch_delivery.json
             evidence_report.json
             gate_candidate_report.json
             gate_review_backlog.json

@@ -83,6 +83,8 @@ def workflow_message(mode):
     reversal_path = pathlib.Path('altcoin_reversal_report.json')
     if reversal_path.exists():
         reversal = json.loads(reversal_path.read_text(encoding='utf-8'))
+        technical = reversal.get('technical_delivery') or {}
+        details += f"Technical channel: {technical.get('delivered', 0)} delivered, {technical.get('failed', 0)} failed; separate from verified BUY. "
         details += 'Reversal coverage: ' + json.dumps(reversal.get('coverage', reversal.get('status_counts', {})), sort_keys=True) + '. '
     return (f"CRYPTO-ORACLE X100 daily pipeline health, latest scan at {report['completed_at']}. "
             f"Pool observations: {report['observations']}; research candidates: {report['candidates']}; "

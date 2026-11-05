@@ -1,4 +1,4 @@
-"""Bounded production research artifact. Never sends messages or places orders."""
+"""Bounded research with separately authorized technical notifications; no orders."""
 import json
 import pathlib
 from collections import Counter
@@ -28,12 +28,38 @@ if __name__ == '__main__':
     state = json.loads(state_path.read_text()) if state_path.exists() else {'version': 1, 'cursor': 0}
     if not isinstance(state, dict) or state.get('version') != 1:
         raise ValueError('Invalid reversal universe state')
-    report = collect_universe(cursor=state.get('cursor', 0))
+    import technical_watch
+    from telegram_notify import send_message
+    from provider_session import Session
+    notification_policy = technical_watch.policy()
+    report = collect_universe(cursor=state.get('cursor', 0), allowed_pairs=notification_policy['pairs'])
     pathlib.Path('altcoin_reversal_report.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
     if not report['errors']:
         temporary = state_path.with_suffix('.json.tmp')
         temporary.write_text(json.dumps({'version': 1, 'cursor': report['next_cursor']}) + '\n')
         temporary.replace(state_path)
-    print(json.dumps({key: report[key] for key in ('scope', 'coverage', 'status_counts', 'errors', 'buy_authorized', 'orders_allowed', 'telegram_eligible')}))
-    if report['errors']:
+    notification_path = pathlib.Path('technical_watch_state.json')
+    notification_state = json.loads(notification_path.read_text()) if notification_path.exists() else {
+        'version': 1, 'delivered': {}, 'daily_counts': {}}
+    def persist(snapshot):
+        temporary = notification_path.with_suffix('.json.tmp')
+        temporary.write_text(json.dumps(snapshot, indent=2)+'\n')
+        temporary.replace(notification_path)
+    delivery = {'enabled': notification_policy['enabled'], 'delivered': 0, 'failed': 0,
+                'buy_authorized': False, 'orders_allowed': False}
+    try:
+        negatives = technical_watch.known_adverse([
+            'validation/live-candidates-2026-10-21.json', 'evidence_report.json'])
+        with Session(max_requests=35, max_seconds=75, max_request_seconds=4) as session:
+            _, delivery = technical_watch.deliver(report, notification_state, session.get,
+                send_message, persist, p=notification_policy, negatives=negatives)
+            delivery['provider_session'] = session.summary()
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as exc:
+        delivery['failed'] += 1
+        delivery['error_type'] = type(exc).__name__
+    report['technical_delivery'] = delivery
+    pathlib.Path('altcoin_reversal_report.json').write_text(json.dumps(report, indent=2)+'\n', encoding='utf-8')
+    pathlib.Path('technical_watch_delivery.json').write_text(json.dumps(delivery, indent=2)+'\n')
+    print(json.dumps({key: report[key] for key in ('scope', 'coverage', 'status_counts', 'errors', 'buy_authorized', 'orders_allowed', 'telegram_eligible', 'technical_delivery')}))
+    if report['errors'] or delivery['failed']:
         raise SystemExit(1)
