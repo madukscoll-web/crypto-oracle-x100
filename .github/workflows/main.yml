@@ -196,11 +196,11 @@ jobs:
         if: always() && steps.scan.outcome != 'skipped' && steps.cadence.outputs.run == 'true'
         run: python workflow_state.py publish
       - name: Notify Telegram when workflow fails
-        if: failure() && steps.cadence.outputs.run == 'true'
+        if: failure()
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          FAILED_STAGES: compile=${{ steps.compile.outcome }}, tests=${{ steps.tests.outcome }}, config=${{ steps.telegram_config.outcome }}, state_refresh=${{ steps.state_refresh.outcome }}, scan=${{ steps.scan.outcome }}, state=${{ steps.state.outcome }}
+          FAILED_STAGES: cadence_refresh=${{ steps.cadence_refresh.outcome }}, cadence=${{ steps.cadence.outcome }}, compile=${{ steps.compile.outcome }}, tests=${{ steps.tests.outcome }}, config=${{ steps.telegram_config.outcome }}, state_refresh=${{ steps.state_refresh.outcome }}, scan=${{ steps.scan.outcome }}, state=${{ steps.state.outcome }}
         run: python telegram_notify.py failure
       - name: Retain scan diagnostics and state snapshot
         if: always()
