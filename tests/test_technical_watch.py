@@ -180,3 +180,14 @@ class TechnicalWatchTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'state persistence failed'):
             alerts.deliver(report, state(), fetch, lambda _:True, cannot_save,
                            now=lambda:NOW, negatives=set())
+
+    def test_boolean_honeypot_flag_cannot_escape_the_adverse_veto(self):
+        report, source = fixture(adverse=True)
+        def fetch(url):
+            raw = source(url)
+            if urlsplit(url).hostname == 'api.gopluslabs.io':
+                raw['result']['0x'+'a'*40]['is_honeypot'] = True
+            return raw
+        _, summary = self.deliver(report, fetch)
+        self.assertEqual(summary['delivered'], 0)
+        self.assertIn('Adverse contract capability/sellability finding', summary['suppressed'])
