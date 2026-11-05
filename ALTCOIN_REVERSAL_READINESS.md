@@ -1,6 +1,8 @@
 # Altcoin reversal module: operational readiness
 
-**Status: research prototype; no validated trading edge, no live alerts, no order execution.**
+**Status: authorized technical research notifications are live; no validated trading edge, verified BUY admission or order execution is established.**
+
+See [production evidence, 5 November 2026](TECHNICAL_CHANNEL_PRODUCTION_2026-11-05.md). AVAX, BNB and NEAR technical WATCH messages were accepted by Telegram in two successful live production runs. All disclose incomplete security/fundamentals and are not approved purchases.
 
 ## What is implemented
 - Daily and weekly closed-candle technical WATCH detection with read-only Gate public API integration.
@@ -8,6 +10,7 @@
 - Rolling 10-candle forward paper evaluation using next-bar open, illustrative fees and slippage.
 - Hourly bounded production research stage with a retained JSON artifact. Each pair reports RESEARCH_ONLY or UNAVAILABLE; unavailable market data never passes verification.
 - Manual read-only CLI for daily/weekly research; no standalone manual workflow is imported into main.
+- Separate screened technical notification policy: bounded established-market scope, known-adverse vetoes, fresh order-book checks, at most two messages per run and three per Lagos day, durable receipt-based deduplication and prominent unverified-check disclosures.
 - Existing BUY approval and trading controls are unchanged.
 
 ## Evidence required before investment use
