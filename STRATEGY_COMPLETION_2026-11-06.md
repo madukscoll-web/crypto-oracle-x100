@@ -105,7 +105,7 @@ separately below when available.
 | Venue-specific investment admission | BLOCKED | Existing Gate vs DEX paths preserved | Reviewed Gate cohort and strategy validation binding; no policy weakened |
 | Explicit stage-health reporting | Implemented/tested | pipeline_health.py; main workflow | Post-deployment failure/health evidence |
 | BUY CANDIDATE delivery | BLOCKED | Empty trust/review registries | Genuinely qualifying reviewed evidence plus validated strategy |
-| Final CI and production | Pending | PR/run links to be recorded after execution | Inspect final-head checks and actual artifacts |
+| Final feature CI and production | VERIFIED for this increment | PR77, CI42172956076, production42173065869; details below | Full directive remains blocked, not certified |
 
 ## First local public-data experiment
 
@@ -132,3 +132,74 @@ lifecycle notifications remain engineering/research work, not merely credentials
 Rollback: revert this feature's source/workflow changes while preserving retained
 strategy_lab_state.json and existing mutable histories. Never reset main or erase
 old adverse/forward evidence. No account/order/signing API is introduced.
+
+
+## Final-head CI and actual production verification
+
+[PR77](https://github.com/madukscoll-web/crypto-oracle-x100/pull/77) final source
+**5658ba43632b5ed7c21b5b7bb8e2f55608eddefd**, merged as
+**244028865a9be149a57033c72ca0d853a2b319de**.
+
+- [Final-head CI42172956076](https://github.com/madukscoll-web/crypto-oracle-x100/actions/runs/42172956076)
+  and CI42172948376 succeeded. Logs independently confirm **663 passing tests**
+  and a COMPLETED real public-data probe for three daily Gate pairs.
+- Downloaded/inspected CI artifact13481534377; ZIP SHA-256
+  `4d51df756d8479883938ffee819afddf9e378eb44e7c6423e3b6d0eea1a81410`.
+- [Main CI42173066040](https://github.com/madukscoll-web/crypto-oracle-x100/actions/runs/42173066040)
+  succeeded on the merged application source.
+- [Production42173065869](https://github.com/madukscoll-web/crypto-oracle-x100/actions/runs/42173065869)
+  completed successfully at approximately **06:24 UTC / 07:24 Nigerian time**,
+  6 November. Production logs confirm compilation, **663 tests**, all research
+  stages, explicit health recording and concurrency-safe state publication.
+- Downloaded/inspected production artifact13482600775. ZIP SHA-256
+  `6e5c16f6d60c5cca63c30a4b69fa158231cd1fac97ee2afa01307453e178a139`.
+
+Actual reconciled production observations:
+
+1. Core: 317 observations, **63 discovery-qualified pools**, ten assessed,
+   **53 deferred**; five REJECT and five INSUFFICIENT EVIDENCE. Zero core
+   candidate alerts and zero BUY candidates; no core errors.
+2. Reversal: NEAR, ONDO, SOL, SUI, TAO and UNI daily/weekly, **12 observations**,
+   five technical setups; **SOL_USDT and SUI_USDT weekly TECHNICAL WATCH messages
+   accepted by Telegram**, with two actual Bot API receipt confirmations and no
+   failed sends. Other setups were withheld for unchanged setup, adverse contract
+   findings or notification budget. These wide weekly hypotheses do NOT meet the
+   new narrow paper-plan stop limit; no claim of a live delivered experimental
+   2R plan is made. Those plans have replayed formatter tests, not live wire proof.
+3. Strategy lab: **12 retained-source evaluations**, six portfolio evaluations,
+   **36 prospective paper accounts**, no errors. Thirty-three completed
+   strategy/asset/timeframe screens report INSUFFICIENT EVIDENCE. ONDO weekly
+   has insufficient history; all three weekly portfolios lack adequate common
+   history. No strategy is promoted.
+4. All 36 accounts bootstrap at first observation without historical fills;
+   no closed prospective trades. Independently verified every event hash chain.
+   State publication3870f97c8dfe968308535e99a91082b20f0045fb persisted
+   strategy_lab_state.json as blobc93c2d5e2432212675159eb862fd8298fe322325;
+   the actual main tree matches that blob. Prior histories were preserved by
+   publication checks.
+5. All required stages completed; health report explicitly retains admission and
+   historical validation BLOCKED, strategy_validated=false, orders_allowed=false.
+   Stage completion does not imply complete source coverage: the separate
+   multichain audit retained six provider failures/cooldowns including HTTP429.
+6. Execution bindings and trust/review enrollment remain missing. No real live
+   positive BUY admission, purchase authorization, or order submission occurred.
+
+Durable reproduction snapshots (personal research, not investment certification):
+
+- [CI source data and results](validation/strategy-lab-ci-2026-11-06.json.gz),
+  gzip SHA-256 `443ce98b5cf91ece053f7ab626915c20fb11e2e2e291265caaabe752159f2857`.
+- [Production source data, results and state](validation/strategy-lab-production-2026-11-06.json.gz),
+  gzip SHA-256 `60424adf4069dd5b011ee9541fd32cb8730979ed957adf635c1936dc3e7c087e`.
+
+These preserve exact raw observations and results beyond seven-day Actions
+artifact expiry. Unpack with Python gzip/json. Re-evaluate using the pinned source
+and policy; never treat the retained present-survivor universe as a historical
+point-in-time launch cohort. Changes to source data, policy or program invalidate
+comparison to these hashes.
+
+**Final status: this engineering increment is implemented, tested, merged and
+production-verified. The complete directive remains BLOCKED/PARTIAL** for the
+explicit remaining engineering, real evidence and strategy-validation requirements.
+No code-only change can supply genuine independent reviewers or matured future
+observations. Existing workflows now run the experiment; no claim is made that an
+engineering agent continues outside the active session.
