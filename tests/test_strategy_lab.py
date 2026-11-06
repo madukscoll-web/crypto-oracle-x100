@@ -38,11 +38,24 @@ class PaperTests(unittest.TestCase):
         self.assertLessEqual(pos['quantity']*pos['entry'],100.)
         self.assertLess(self.a['equity'],1000.)
 
-    def test_ambiguous_preentry_stop_cancels(self):
+    def test_ambiguous_entry_stop_uses_adverse_fill_path(self):
         pending(self.a)
         lab.step(self.a,bar(high=115.,low=94.),self.p)
-        self.assertIsNone(self.a['position']);self.assertEqual(self.a['trades'],[])
+        self.assertIsNone(self.a['position'])
+        self.assertLess(self.a['trades'][0]['net_pnl_usdt'],0)
+        self.assertIn('STOP',self.a['trades'][0]['reason'])
+
+    def test_invalidation_without_trigger_cancels(self):
+        pending(self.a,entry=110.,target=120.)
+        lab.step(self.a,bar(o=100.,high=105.,low=94.),self.p)
+        self.assertIsNone(self.a['position'])
+        self.assertEqual(self.a['trades'],[])
         self.assertEqual(self.a['events'][-1]['kind'],'CANCELLED')
+
+    def test_gap_open_above_entry_cannot_avoid_samebar_stop_loss(self):
+        pending(self.a,target=120.)
+        lab.step(self.a,bar(o=101.,high=105.,low=94.),self.p)
+        self.assertLess(self.a['trades'][0]['net_pnl_usdt'],0)
 
     def test_expiry(self):
         pending(self.a,entry=110.,target=120.)

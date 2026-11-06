@@ -19,7 +19,7 @@ def main():
     result['as_of']=dt.datetime.fromtimestamp(at,dt.timezone.utc).isoformat()
     result['source_as_of']=report['as_of']
     result['source_report_sha256']=strategy_lab.digest(report)
-    result['errors']=[r for r in result['rows'] if r.get('status')=='UNAVAILABLE']
+    result['errors']=[r for r in result['rows']+result['portfolio_evaluations'] if r.get('status')=='UNAVAILABLE']
     result['status']='DEGRADED' if result['errors'] else 'COMPLETED' if result['rows'] else 'UNAVAILABLE'
     pathlib.Path('strategy_lab_report.json').write_text(json.dumps(result,indent=2,allow_nan=False)+'\n')
     if result['errors'] or not result['rows']:

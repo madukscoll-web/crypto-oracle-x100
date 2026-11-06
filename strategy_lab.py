@@ -144,9 +144,10 @@ def step(a, bar, p, cost_multiplier=1):
     pending, position = a['pending'], a['position']
     if pending and at >= pending.get('eligible_after', 0):
         pending['age'] += 1
-        if low <= pending['stop']:
-            # Unknown path could have invalidated before entry; do not assume fill.
-            event(a, 'CANCELLED', at, reason='Pre-entry invalidation or ambiguous path')
+        if low <= pending['stop'] and high < pending['entry']:
+            # No trigger reached; invalidation cancels the pending setup. If both
+            # trigger and stop occur, assume entry then stop (adverse path).
+            event(a, 'CANCELLED', at, reason='Pre-entry invalidation without trigger')
             a['pending'] = None
         elif pending['age'] > p['entry_expiry_bars']:
             event(a, 'EXPIRED', at)

@@ -42,8 +42,9 @@ partial fills, cancelled remainders, pre-entry invalidation, expiry, open
 positions, gap-sensitive stops, target/time exits, fees/slippage, marked drawdown,
 exposure, turnover and closed-trade statistics. A limit touch is never treated as
 a fill: the experiment explicitly uses next-bar-or-later buy-stop assumptions.
-Same-bar target profit is withheld on entry; ambiguous pre-entry invalidation
-cancels and ambiguous exits use stop-first. These are conservative assumptions,
+Same-bar target profit is withheld on entry; invalidation without a trigger
+cancels; bars touching both entry and stop assume the adverse entry-then-stop
+path, and ambiguous exits use stop-first. These are conservative assumptions,
 not reconstructions of actual executions or guaranteed worst-case loss bounds.
 
 Prospective accounts start on first real observation, never historical fills.
@@ -82,7 +83,7 @@ COMPLETED stage execution remains distinct from BLOCKED overall admission.
 
 ## Local validation
 
-Compilation, **661 unit tests**, workflow YAML parsing and whitespace checks pass.
+Compilation, **663 unit tests**, workflow YAML parsing and whitespace checks pass.
 Tests include replayed experimental message plans, causality, gap losses, partial
 fills, absent capacity, expiry, split embargo, prefix-preserving state publication,
 shared portfolio capital and global position caps. CI and production are recorded
