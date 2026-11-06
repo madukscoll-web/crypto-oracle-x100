@@ -195,7 +195,7 @@ def message(row, research, screened):
         f"Trigger reference: {research['entry_trigger']} USDT; require a fresh close/retest and volume confirmation.\n"
         f"Invalidation reference: {research['invalidation']} USDT; withdraw the hypothesis if this level fails.\n"
         f"Trigger-to-invalidation distance: {(1-float(research['invalidation'])/float(research['entry_trigger']))*100:.1f}%; "
-        'this is price distance, not a position-loss limit or guaranteed stop. Target/risk-reward: UNKNOWN.\n'
+        'this is price distance, not a position-loss limit or guaranteed stop. Validated Target/risk-reward: UNKNOWN.\n'
         f"Volume / baseline: {research['metrics']['volume_ratio']}x\n"
         f"Displayed spread: {float(book['spread_bps']):.1f} bps; bid/ask depth within 1%: "
         f"{float(book['bid_depth_quote_within_1pct']):,.0f}/{float(book['ask_depth_quote_within_1pct']):,.0f} USDT\n"
@@ -207,6 +207,24 @@ def message(row, research, screened):
         f"Sources: https://api.gateio.ws/api/v4/spot/currency_pairs/{row['pair']}\n"
         f"https://www.gate.com/trade/{row['pair']}"
     )
+    # A bounded research plan is separate from evidence-qualified admission.
+    # Recompute from exact retained candles, never trust an attached caller plan.
+    import strategy_lab
+    from altcoin_reversal_gate import gate_candles
+    p = strategy_lab.policy()
+    evidence = [e for e in row.get('provider_evidence', []) if '/spot/candlesticks?' in e.get('url', '')]
+    if len(evidence) == 1:
+        now = stamp(screened['observed_at'])
+        candles = gate_candles(evidence[0]['raw'], interval_seconds=86400 if row['interval']=='1d' else 604800, now=now)
+        strategy_lab.candles_valid(candles, 86400 if row['interval']=='1d' else 604800)
+        plan = strategy_lab.plan(row['pair'], 'reversal_baseline', candles, p)
+        if plan:
+            text += (f"\nEXPERIMENTAL PAPER PLAN {p['policy_id']}: next-bar buy-stop reference {plan['entry']:.8g}; "
+                     f"stop {plan['stop']:.8g}; hypothetical 2R target {plan['target']:.8g} USDT. "
+                     f"Entry expires after {p['entry_expiry_bars']} bars; hold at most {p['maximum_holding_bars']} bars. "
+                     'Assumed fee/slippage: 20/20 bps per side; costs reduce R. '
+                     'Paper risk 1% and allocation 10% of hypothetical equity; gaps can exceed planned loss. '
+                     'Not validated, executable, or approved. Target is a formula, not a price forecast.')
     text += '\n' + project_context.summary(row.get('project_context'), expected={'pair':row['pair']})
     if len(text.encode('utf-16-le'))//2 > 3900:
         raise ValueError('Research disclosure exceeds message limit')
@@ -291,3 +309,4 @@ def deliver(report, state, fetch, sender, persist, *, now=None, p=None, negative
     summary['suppressed'] = dict(reasons)
     report['technical_screen_sources'] = gate.evidence
     return state, summary
+
