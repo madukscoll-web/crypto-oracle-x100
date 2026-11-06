@@ -72,6 +72,21 @@ class TechnicalWatchTests(unittest.TestCase):
         self.assertFalse(summary['buy_authorized'])
         self.assertEqual(self.saved[-1], updated)
 
+    def test_replayed_bounded_paper_plan_is_explicitly_experimental(self):
+        report, fetch = fixture()
+        for source in report['results'][0]['provider_evidence']:
+            if '/spot/candlesticks?' in source['url']:
+                for candle in source['raw']:
+                    for i in (2,3,4,5):
+                        candle[i] = str(100+(float(candle[i])-100)*.3)
+        sent=[]
+        _, summary=self.deliver(report,fetch,sender=lambda text:sent.append(text) or True)
+        self.assertEqual(summary['delivered'],1)
+        self.assertIn('EXPERIMENTAL PAPER PLAN',sent[0])
+        self.assertIn('Not validated, executable, or approved',sent[0])
+        self.assertIn('Entry expires after 3 bars',sent[0])
+        self.assertLessEqual(len(sent[0].encode('utf-16-le'))//2,3900)
+
     def test_no_repeat_on_later_closed_candle_or_next_day_without_material_change(self):
         report, fetch = fixture()
         old, _ = self.deliver(report, fetch)
@@ -193,3 +208,4 @@ class TechnicalWatchTests(unittest.TestCase):
         _, summary = self.deliver(report, fetch)
         self.assertEqual(summary['delivered'], 0)
         self.assertIn('Adverse contract capability/sellability finding', summary['suppressed'])
+

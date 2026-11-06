@@ -29,6 +29,11 @@ on:
       - adverse_evidence.py
       - sequential_simulation.py
       - technical_followup.py
+      - strategy_lab.py
+      - strategy_portfolio.py
+      - strategy_lab_runner.py
+      - strategy_lab_policy.json
+      - pipeline_health.py
       - scanner_cadence.py
       - hourly_evidence.py
       - scan_audit.py
@@ -150,6 +155,12 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python -u altcoin_reversal_production.py
+      - name: Evaluate fixed strategies and advance prospective paper accounts
+        id: strategy_lab
+        if: success() && steps.cadence.outputs.run == 'true' && steps.reversal.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 3
+        run: python -u strategy_lab_runner.py
       - name: Sample delivered technical hypotheses prospectively
         id: technical_followup
         if: success() && steps.cadence.outputs.run == 'true'
@@ -180,6 +191,12 @@ jobs:
       - name: Record Gate review backlog diagnostics
         if: always() && steps.cadence.outputs.run == 'true'
         run: python gate_review_backlog.py --output gate_review_backlog.json
+      - name: Report research stage health
+        id: research_health
+        if: always() && steps.cadence.outputs.run == 'true'
+        env:
+          RESEARCH_STAGE_OUTCOMES: '{"scan":"${{ steps.scan.outcome }}","multichain":"${{ steps.multichain.outcome }}","reversal":"${{ steps.reversal.outcome }}","technical_followup":"${{ steps.technical_followup.outcome }}","strategy_lab":"${{ steps.strategy_lab.outcome }}","stonk_launches":"${{ steps.stonk_launches.outcome }}"}'
+        run: python pipeline_health.py
       - name: Send daily pipeline health digest
         id: operational_summary
         if: success() && steps.cadence.outputs.run == 'true'
@@ -201,7 +218,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          FAILED_STAGES: cadence_refresh=${{ steps.cadence_refresh.outcome }}, cadence=${{ steps.cadence.outcome }}, compile=${{ steps.compile.outcome }}, tests=${{ steps.tests.outcome }}, config=${{ steps.telegram_config.outcome }}, state_refresh=${{ steps.state_refresh.outcome }}, scan=${{ steps.scan.outcome }}, state=${{ steps.state.outcome }}
+          FAILED_STAGES: cadence_refresh=${{ steps.cadence_refresh.outcome }}, cadence=${{ steps.cadence.outcome }}, compile=${{ steps.compile.outcome }}, tests=${{ steps.tests.outcome }}, config=${{ steps.telegram_config.outcome }}, state_refresh=${{ steps.state_refresh.outcome }}, scan=${{ steps.scan.outcome }}, state=${{ steps.state.outcome }}, research_health=${{ steps.research_health.outcome }}
         run: python telegram_notify.py failure
       - name: Retain scan diagnostics and state snapshot
         if: always()
@@ -230,6 +247,10 @@ jobs:
             technical_watch_delivery.json
             technical_followup_state.json
             technical_followup_report.json
+            strategy_lab_state.json
+            strategy_lab_report.json
+            pipeline_health_report.json
+            strategy_lab_policy.json
             project_context_cache.json
             evidence_report.json
             gate_candidate_report.json
@@ -238,6 +259,7 @@ jobs:
             reported_pools.json
             watchlist_state.json
             signal_history.json
+
 
 
 

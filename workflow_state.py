@@ -15,7 +15,7 @@ import tempfile
 
 FILES=('reported_pools.json','watchlist_state.json','signal_history.json',
        'gate_paper_history.json','research_discovery_state.json','forward_events.jsonl',
-       'operational_digest_state.json','reversal_universe_state.json','technical_watch_state.json','project_context_cache.json','scanner_runtime_state.json','technical_followup_state.json')
+       'operational_digest_state.json','reversal_universe_state.json','technical_watch_state.json','project_context_cache.json','scanner_runtime_state.json','technical_followup_state.json','strategy_lab_state.json')
 
 
 class StateConflict(RuntimeError):pass
@@ -97,6 +97,27 @@ def validate_extension(manifest,computed):
                 raise StateConflict('Refusing follow-up history rewrite')
 
 
+    name='strategy_lab_state.json'
+    if computed.get(name) is not None:
+        from strategy_lab import verify_events
+        after=json.loads(computed[name])
+        if after.get('version')!=1 or not isinstance(after.get('accounts'),dict):
+            raise StateConflict('Invalid strategy paper state')
+        for row in after['accounts'].values():
+            verify_events(row['account']['events'])
+        if baseline.get(name):
+            before=json.loads(content(revision,name))['accounts']
+            for identity,row in before.items():
+                current=after['accounts'].get(identity)
+                if (not current or current['monitoring_started_at']!=row['monitoring_started_at']
+                        or current['policy_sha256']!=row['policy_sha256']
+                        or current['last_timestamp']<row['last_timestamp']
+                        or current['account']['events'][:len(row['account']['events'])]!=row['account']['events']
+                        or current['account']['trades'][:len(row['account']['trades'])]!=row['account']['trades']
+                        or current['account']['marks'][:len(row['account']['marks'])]!=row['account']['marks']):
+                    raise StateConflict('Refusing strategy paper history rewrite')
+
+
 def publish(manifest_path):
     manifest=json.loads(pathlib.Path(manifest_path).read_text())
     if manifest.get('version')!=1 or set(manifest.get('baseline_blobs',{}))!=set(FILES):
@@ -145,4 +166,5 @@ if __name__=='__main__':
         result={'status':'FAILED','error_type':type(exc).__name__,'reason':str(exc)}
         if args.mode=='publish':pathlib.Path(args.output).write_text(json.dumps(result,indent=2)+'\n')
         print(json.dumps(result));raise SystemExit(1)
+
 

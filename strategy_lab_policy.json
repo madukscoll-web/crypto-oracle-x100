@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "policy_id": "spot-lab-20261106-v1",
+  "strategies": ["reversal_baseline", "trend_pullback", "range_breakout"],
+  "warmup": 55,
+  "entry_expiry_bars": 3,
+  "maximum_holding_bars": 10,
+  "reward_risk": 2.0,
+  "maximum_stop_fraction": 0.15,
+  "starting_equity_usdt": 1000.0,
+  "risk_fraction": 0.01,
+  "allocation_fraction": 0.10,
+  "fee_bps_per_side": 20.0,
+  "slippage_bps_per_side": 20.0,
+  "maximum_quote_volume_fraction": 0.0001,
+  "split_fractions": [0.5, 0.25, 0.25],
+  "minimum_test_closed_trades": 30,
+  "minimum_test_profit_factor": 1.2,
+  "maximum_test_drawdown_fraction": 0.10,
+  "minimum_test_expectancy_usdt": 0.0,
+  "buy_authorized": false,
+  "orders_allowed": false
+}

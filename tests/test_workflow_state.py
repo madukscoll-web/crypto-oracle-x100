@@ -88,3 +88,31 @@ class WorkflowStateTests(unittest.TestCase):
         self.assertEqual(again['status'],'ALREADY_PUBLISHED')
         self.assertEqual(first['commit'],again['commit'])
 
+
+    def test_strategy_history_rewrite_is_refused(self):
+        import strategy_lab
+        a=strategy_lab.account(strategy_lab.policy())
+        strategy_lab.event(a,'BOOTSTRAP',123)
+        row=dict(monitoring_started_at=123,policy_sha256='fixed',last_timestamp=100,account=a)
+        original={'version':1,'accounts':{'asset':row}}
+        self.push_writer('strategy_lab_state.json',json.dumps(original))
+        with self.cwd(self.worker):
+            state.refresh('main','base.json')
+            original['accounts']['asset']['account']['events']=[]
+            pathlib.Path('strategy_lab_state.json').write_text(json.dumps(original))
+            with self.assertRaises(state.StateConflict):state.publish('base.json')
+
+    def test_strategy_append_is_published(self):
+        import strategy_lab
+        a=strategy_lab.account(strategy_lab.policy())
+        strategy_lab.event(a,'BOOTSTRAP',123)
+        row=dict(monitoring_started_at=123,policy_sha256='fixed',last_timestamp=100,account=a)
+        original={'version':1,'accounts':{'asset':row}}
+        self.push_writer('strategy_lab_state.json',json.dumps(original))
+        with self.cwd(self.worker):
+            state.refresh('main','base.json')
+            strategy_lab.event(a,'AWAITING_ENTRY',124)
+            original['accounts']['asset']['last_timestamp']=101
+            pathlib.Path('strategy_lab_state.json').write_text(json.dumps(original))
+            result=state.publish('base.json')
+        self.assertEqual(result['status'],'PUBLISHED')
