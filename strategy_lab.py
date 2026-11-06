@@ -342,6 +342,7 @@ def attach(report, state, p, observed_at):
     """Replay retained exact public candles, with no additional network requests."""
     from altcoin_reversal_gate import gate_candles
     rows=[]
+    portfolio_series={}
     updated=copy.deepcopy(state)
     for row in report.get('results',[]):
         if row.get('status')!='RESEARCH_ONLY':
@@ -354,15 +355,24 @@ def attach(report, state, p, observed_at):
                 raise ValueError('Exact candle provenance missing')
             candles=gate_candles(evidence[0]['raw'],interval_seconds=period,now=observed_at)
             result['evaluation']=evaluate(row['pair'],row['interval'],candles,p)
+            portfolio_series.setdefault(row['interval'],{})[row['pair']]=candles
             result['prospective']=prospective(updated,row['pair'],row['interval'],candles,p,observed_at)
         except (ValueError,KeyError,TypeError,OverflowError) as exc:
             result.update(status='UNAVAILABLE',reason=str(exc)[:180])
         rows.append(result)
-    return updated,dict(scope='EXPERIMENTAL_PAPER_ONLY',policy_id=p['policy_id'],policy_sha256=digest(p),
+    import strategy_portfolio
+    portfolios=[]
+    for interval,series in portfolio_series.items():
+        for strategy in p['strategies']:
+            try:
+                portfolios.append(dict(interval=interval,**strategy_portfolio.replay(series,strategy,p)))
+            except (ValueError,KeyError,TypeError) as exc:
+                portfolios.append(dict(interval=interval,strategy=strategy,status='UNAVAILABLE',reason=str(exc)[:180]))
+    return updated,dict(portfolio_evaluations=portfolios,scope='EXPERIMENTAL_PAPER_ONLY',policy_id=p['policy_id'],policy_sha256=digest(p),
                         rows=rows,buy_authorized=False,orders_allowed=False,
                         strategy_validated=False,
                         limitations=['Current-survivor selection; no strategy certified.',
-                                     'Independent per-pair/strategy paper accounts; not aggregated portfolio returns.',
+                                     'Prospective per-pair accounts are independent; separate retrospective static-sleeve portfolio results are explicitly labelled.',
                                      'Candle fills and capacity are assumptions; real depth/fills unknown.',
                                      'Prospective entries require a full bar starting after observation; no backdated intrabar fills.',
                                      'Missed scans never create intermediate historical entry decisions.',

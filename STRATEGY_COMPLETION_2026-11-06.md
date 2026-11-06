@@ -53,8 +53,13 @@ historical entry decisions. Closed-bar results are delayed research, not a live
 stop service. Each account has a hash-linked event log; state publication rejects
 rewritten event/trade/mark prefixes and preserves concurrent code changes.
 
-Each pair/timeframe/strategy is an independent hypothetical USDT 1,000 account.
-No aggregate portfolio performance is claimed. Allocation is at most 10%, planned
+Prospective pair/timeframe/strategy accounts are independent hypothetical USDT 1,000 accounts.
+A separate retrospective strategy_portfolio.py replay partitions ONE USDT 1,000
+balance into nonoverlapping static cash sleeves across the observed cohort. It
+limits total pending/open positions to three, treats all pairs as one correlated
+risk group, rotates deterministic simultaneous-signal order and reports aggregate
+marked equity, closed trades, turnover and equal-weight buy-and-hold. No cash is
+counted twice. It neither estimates empirical covariance nor claims optimal allocation. Allocation is at most 10%, planned
 risk 1%, with gap loss explicitly unbounded by a guaranteed stop. The assumed
 quote-volume participation cap does not establish historical depth or queue fills.
 
@@ -75,6 +80,14 @@ research stages fail or required reports are absent. Artifacts and state still
 publish under existing always conditions. Failure notification includes health.
 COMPLETED stage execution remains distinct from BLOCKED overall admission.
 
+## Local validation
+
+Compilation, **661 unit tests**, workflow YAML parsing and whitespace checks pass.
+Tests include replayed experimental message plans, causality, gap losses, partial
+fills, absent capacity, expiry, split embargo, prefix-preserving state publication,
+shared portfolio capital and global position caps. CI and production are recorded
+separately below when available.
+
 ## Acceptance status
 
 | Requirement | Status | Code/evidence | Remaining requirement |
@@ -83,7 +96,7 @@ COMPLETED stage execution remains distinct from BLOCKED overall admission.
 | Three strategy hypotheses and frozen policy | Implemented/tested | strategy_lab.py; strategy_lab_policy.json | Broader representative data and independent review |
 | Shared replay/prospective plan and lifecycle | Implemented/tested | strategy_lab_runner.py; tests/test_strategy_lab.py | Production state/artifacts; mature real observations |
 | Partial fills/costs/gaps/ambiguity | Modeled under disclosed assumptions | strategy_lab.step | Historical executable depth/queue evidence |
-| Portfolio capital/correlation controls | Partial | Independent per-account allocation/risk limits | Shared portfolio reservation, correlation/exposure evaluation |
+| Portfolio capital/correlation controls | Implemented/tested under conservative static assumptions | strategy_portfolio.py; tests/test_strategy_portfolio.py | Dynamic allocation, empirical correlation and prospective portfolio validation |
 | Chronological splits/bias disclosure/benchmarks | Implemented/tested | strategy_lab.evaluate | Point-in-time universe, delisted failures, regime/asset robustness and confidence |
 | Historical/prospective strategy validation | BLOCKED | Numerical screen cannot promote | Adequate observations and preregistered independent validation |
 | Complete research plan | Partial | technical_watch.message | Executable live sizing, validated targets, lifecycle notifications |
@@ -111,7 +124,7 @@ The full directive cannot be declared complete. External signed evidence and
 real independent reviewers cannot be manufactured. Time-dependent forward results
 cannot be accelerated. An alternative admission assurance policy requires explicit
 user approval; this change proposes none and leaves all existing BUY gates intact.
-The broader representative historical study, shared portfolio simulator,
+The broader representative historical study, dynamic/prospective portfolio validation,
 independent strategy-validation authority, provider coverage and complete live
 lifecycle notifications remain engineering/research work, not merely credentials.
 
