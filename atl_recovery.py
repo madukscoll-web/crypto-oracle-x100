@@ -50,7 +50,7 @@ def assess_recovery(candles, *, comparable=False, venue_verified=False,
     prior = parsed[-21:-1]
     higher_low = min(x[1] for x in parsed[-5:]) > min(x[1] for x in parsed[-10:-5])
     breakout = parsed[-1][3] > max(x[3] for x in prior)
-    volume_confirmed = parsed[-1][4] > sum(x[4] for x in prior) / len(prior) * 1.5
+    volume_confirmed = parsed[-1][4] > sum(x[4] for x in prior) / len(prior) * 3 / 2
     status = "TECHNICAL WATCH" if all((higher_low, breakout, volume_confirmed)) else "NO_TRIGGER"
     return {"status": status, "higher_low": higher_low, "breakout": breakout,
             "volume_confirmed": volume_confirmed, "buy_approved": False,
