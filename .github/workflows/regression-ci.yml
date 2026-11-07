@@ -1,0 +1,35 @@
+name: Python regression checks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**/*.py'
+      - '*.py'
+      - 'tests/**'
+      - '.github/workflows/**'
+      - '*.json'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile source and tests
+        run: python -m compileall -q .
+      - name: Run test suite under tests directory
+        run: python -m unittest discover -s tests -v
+      - name: Run root classification regression tests
+        run: python -m unittest -v test_classification_policy
