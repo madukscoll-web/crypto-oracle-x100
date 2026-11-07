@@ -9,51 +9,12 @@ on:
   push:
     branches: [main]
     paths:
-      - .github/workflows/main.yml
-      - stonk_launch_discovery.py
-      - multichain_live_research.py
-      - canonical_outcomes.py
-      - research_state.py
-      - forward_ledger.py
-      - workflow_state.py
-      - launchpad_discovery.py
-      - research_validation.py
-      - tests/test_multichain_live_research.py
-      - multichain_research_audit.py
-      - crypto_oracle_scanner.py
-      - authenticated_admission.py
-      - admission_feed.py
-      - admission_preflight.py
-      - admission_trust.json
-      - admission_evidence/**
-      - adverse_evidence.py
-      - sequential_simulation.py
-      - technical_followup.py
-      - strategy_lab.py
-      - strategy_portfolio.py
-      - strategy_lab_runner.py
-      - strategy_lab_policy.json
-      - pipeline_health.py
-      - scanner_cadence.py
-      - hourly_evidence.py
-      - scan_audit.py
-      - telegram_notify.py
-      - classification_policy.py
-      - tests/test_classification_policy.py
-      - altcoin_reversal_*.py
-      - reversal_universe.py
-      - technical_watch.py
-      - project_context.py
-      - news_context.py
-      - project_context_assets.json
-      - fundamental_evidence.py
-      - technical_watch_policy.json
-      - evidence_coverage.py
-      - solana_evidence.py
-      - verification.py
-      - provider_session.py
-      - execution_quotes.py
-      - kyber_quotes.py
+      - '**/*.py'
+      - '*.py'
+      - 'tests/**'
+      - '.github/workflows/**'
+      - '*.json'
+      - 'admission_evidence/**'
   schedule:
     - cron: '7 * * * *'
 
