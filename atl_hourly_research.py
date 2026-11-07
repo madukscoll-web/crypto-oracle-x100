@@ -51,6 +51,16 @@ def run(fetch=None, *, now=None):
                 continue
             if market_cap < 100000000:
                 continue
+            updated = row.get("last_updated")
+            try:
+                updated_at = dt.datetime.fromisoformat(updated.replace("Z", "+00:00"))
+                fresh = updated_at.tzinfo is not None and 0 <= (now - updated_at).total_seconds() <= 7200
+            except (ValueError, TypeError, AttributeError):
+                fresh = False
+            if not fresh or positive(row.get("circulating_supply")) is None:
+                report["market_cap_unverified"] += 1
+                continue
+            report["eligible_verified"] += 1
             # Provider-reported ATL is useful for discovery, but is not
             # independently validated lifetime trading history.
             reported_atl = positive(row.get("atl"))
@@ -68,12 +78,11 @@ def run(fetch=None, *, now=None):
                                  "telegram_eligible": False}
             if candidate is not None:
                 report["provider_atl_candidates"] += 1
-            report["market_cap_unverified"] += 1
             report["observations"].append({
                 "provider_id": identifier, "symbol_hint": row.get("symbol"),
                 "market_cap_usd": str(market_cap), "indicative_price_usd": str(price),
                 "provider_last_updated": row.get("last_updated"),
-                "cap_classification": cap_class(market_cap),
+                "cap_classification": cap_class(market_cap, verified=True, fresh=True),
                 "history_status": "UNVALIDATED",
                 "atl_status": "UNAVAILABLE",
                 "telegram_eligible": False, "provider_atl_candidate": candidate})
