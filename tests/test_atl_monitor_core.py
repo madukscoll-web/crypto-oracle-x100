@@ -25,7 +25,7 @@ class ATLCoreTests(unittest.TestCase):
         self.assertEqual(classify_low(1, 2)["status"], "UNAVAILABLE")
     def test_labels(self):
         for label in LABELS:
-            self.assertTrue(labeled_message(label, "Research only").startswith(label + "\\n"))
+            self.assertTrue(labeled_message(label, "Research only").startswith(label + "\n"))
         with self.assertRaises(ValueError):
             labeled_message("VERIFIED BUY", "x")
 
