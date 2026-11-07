@@ -24,7 +24,7 @@ def classify_existing_message(message):
         return "BUY CANDIDATE — MANUAL REVIEW"
     if "TECHNICAL WATCH" in upper:
         # This is a documented research hypothesis, NOT a confirmed reversal.
-        return "RESEARCH WATCH"
+        return "BULLISH REVERSAL"
     if "RESEARCH WATCH" in upper or "UNVERIFIED RESEARCH LEAD" in upper:
         return "RESEARCH WATCH"
     # Unknown paths are deliberately not promoted to NEW COIN / ATL / BUY.
