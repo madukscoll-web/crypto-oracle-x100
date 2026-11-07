@@ -10,6 +10,16 @@ class HourlyATLTests(unittest.TestCase):
         self.assertEqual(result["assets_checked_against_validated_low"], 0)
         self.assertFalse(result["observations"][0]["telegram_eligible"])
         self.assertFalse(result["buy_authorized"])
+    def test_published_atl_is_discovery_not_verified_signal(self):
+        result = run(fetch=lambda url: [dict(id="example", symbol="ex",
+            market_cap=200000000, current_price=1.02, atl=1,
+            atl_date="2025-01-01T00:00:00Z",
+            last_updated="2026-11-07T00:00:00Z")])
+        self.assertEqual(result["provider_atl_candidates"], 1)
+        candidate = result["observations"][0]["provider_atl_candidate"]
+        self.assertEqual(candidate["source"], "CoinGecko")
+        self.assertFalse(candidate["independently_verified"])
+        self.assertFalse(candidate["telegram_eligible"])
     def test_provider_failure_is_explicit(self):
         def failure(url):
             raise TimeoutError()
