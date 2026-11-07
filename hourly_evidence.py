@@ -26,6 +26,7 @@ class HourlyEvidence:
     def __init__(self, max_candidates=10, max_seconds=300, max_requests=350, transport=None):
         self.max_candidates = max_candidates
         self.assessed = 0
+        self.active_seconds = 0.0
         self.session = Session(max_requests=max_requests, max_seconds=max_seconds,
                                transport=transport, max_request_seconds=3)
         self.gate = PublicGate(self.fetch)
@@ -44,6 +45,17 @@ class HourlyEvidence:
             return evidence_coverage.unavailable(name, '', exc)
 
     def collect(self, item):
+        # Enrichment and discovery use other clients between candidates. Charge
+        # this shared budget only for collector work, while retaining request
+        # counts, provider cooldowns, and every candidate/stage limit.
+        started = self.session.clock()
+        self.session.started = started - self.active_seconds
+        try:
+            return self._collect(item)
+        finally:
+            self.active_seconds += max(0.0, self.session.clock() - started)
+
+    def _collect(self, item):
         # The session is shared across candidates, including RPC calls made by
         # collectors. Restore any outer context even when a collector fails.
         if self.assessed >= self.max_candidates:
@@ -95,6 +107,8 @@ class HourlyEvidence:
 
     def summary(self):
         return dict(candidates_assessed=self.assessed,
+                    budget_scope='ACTIVE_EVIDENCE_COLLECTION',
+                    active_seconds=self.active_seconds,
                     execution_configuration=execution_configuration.status(os.environ),
                     **self.session.summary())
 
@@ -172,4 +186,5 @@ def rotate(items, watchlist):
             tokens.add(identity)
             result.append(item)
     return result
+
 
