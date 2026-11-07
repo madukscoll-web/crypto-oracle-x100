@@ -67,7 +67,7 @@ def workflow_message(mode):
     run_url = ("https://github.com/" + os.environ.get("GITHUB_REPOSITORY", "")
                + "/actions/runs/" + os.environ.get("GITHUB_RUN_ID", ""))
     if mode == "failure":
-        return ("CRYPTO-ORACLE X100: workflow FAILED. No successful scan should be assumed. "
+        return ("BOT HEALTH | OPERATIONAL\nCRYPTO-ORACLE X100: workflow FAILED. No successful scan should be assumed. "
                 "Failed stage(s): " + os.environ.get("FAILED_STAGES", "see run logs") + ". Inspect: " + run_url)
     report = json.loads(pathlib.Path("scan_summary.json").read_text(encoding="utf-8"))
     if report.get("status") != "completed":
@@ -87,7 +87,16 @@ def workflow_message(mode):
         technical = reversal.get('technical_delivery') or {}
         details += f"Technical channel: {technical.get('delivered', 0)} delivered, {technical.get('failed', 0)} failed; separate from verified BUY. "
         details += 'Reversal coverage: ' + json.dumps(reversal.get('coverage', reversal.get('status_counts', {})), sort_keys=True) + '. '
-    return (f"CRYPTO-ORACLE X100 daily pipeline health, latest scan at {report['completed_at']}. "
+    atl_path = pathlib.Path("atl_coverage_report.json")
+    if atl_path.exists():
+        atl = json.loads(atl_path.read_text(encoding="utf-8"))
+        details += ("ATL research: " + str(atl.get("provider_atl_candidates", 0))
+                    + " provider-reported near-low candidates; "
+                    + str(atl.get("historical_baselines_validated", 0))
+                    + " independently validated baselines; "
+                    + str(atl.get("alerts_delivered", 0))
+                    + " ATL token alerts. Coverage incomplete. ")
+    return (f"BOT HEALTH | OPERATIONAL\nCRYPTO-ORACLE X100 daily pipeline health, latest scan at {report['completed_at']}. "
             f"Pool observations: {report['observations']}; research candidates: {report['candidates']}; "
             f"BUY candidates for manual review: {report.get('buy_candidates_delivered', 'unknown')}; "
             f"safety-reviewed entry WATCH alerts: {report.get('signed_entry_watches_delivered', 'unknown')}; "
