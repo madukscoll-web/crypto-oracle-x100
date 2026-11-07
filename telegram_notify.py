@@ -87,6 +87,10 @@ def workflow_message(mode):
         technical = reversal.get('technical_delivery') or {}
         details += f"Technical channel: {technical.get('delivered', 0)} delivered, {technical.get('failed', 0)} failed; separate from verified BUY. "
         details += 'Reversal coverage: ' + json.dumps(reversal.get('coverage', reversal.get('status_counts', {})), sort_keys=True) + '. '
+    health_path = pathlib.Path('pipeline_health_report.json')
+    if health_path.exists():
+        health = json.loads(health_path.read_text())
+        details += f"Research data health: {health.get('status','UNKNOWN')}; provider gaps: {json.dumps(health.get('data_degradation',{}),sort_keys=True)}. "
     atl_path = pathlib.Path('atl_coverage_report.json')
     if atl_path.exists():
         atl = json.loads(atl_path.read_text())

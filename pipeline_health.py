@@ -13,13 +13,23 @@ def summarize(stages, reports):
     atl=reports.get('atl',{})
     if 'atl' in stages and atl.get('status') != 'OBSERVATIONS_UNVERIFIED':
         failures['atl_data']=atl.get('status','MISSING')
+    data_degradation={}
+    if 'multichain' in stages:
+        market=reports.get('multichain')
+        if not isinstance(market,dict):
+            missing.append('multichain')
+        else:
+            count=(market.get('coverage_audit') or {}).get('discovery_failure_count')
+            if (type(count) is not int or count < 0 or count > 0 or market.get('failures')
+                    or any(x.get('status')=='DEGRADED' for x in market.get('provider_health',[]))):
+                data_degradation['multichain']='Provider failures or incomplete coverage diagnostics'
     historical=reports.get('historical',{})
     admission=reports.get('admission',{})
     # A partial script that emitted an artifact before failing is still degraded.
-    degraded=bool(failures or missing)
+    degraded=bool(failures or missing or data_degradation)
     return dict(version=1,status='DEGRADED' if degraded else 'COMPLETED',
                 stage_outcomes=stages,failed_or_skipped_stages=failures,
-                missing_reports=missing,
+                missing_reports=missing,data_degradation=data_degradation,
                 atl_history_status=atl.get('status','NOT_RUN'),
                 atl_lifetime_baselines=atl.get('historical_baselines_validated',0),
                 admission_status=admission.get('status','UNKNOWN'),
@@ -32,7 +42,7 @@ def main():
     stages=json.loads(os.environ.get('RESEARCH_STAGE_OUTCOMES','{}'))
     paths={'scan':'scan_summary.json','reversal':'altcoin_reversal_report.json',
            'technical_followup':'technical_followup_report.json','strategy_lab':'strategy_lab_report.json',
-           'atl':'atl_coverage_report.json','historical':'historical_validation_report.json','admission':'work/admission_preflight.json'}
+           'multichain':'multichain_research_report.json','atl':'atl_coverage_report.json','historical':'historical_validation_report.json','admission':'work/admission_preflight.json'}
     reports={}
     for name,path in paths.items():
         try:
@@ -49,7 +59,9 @@ def main():
             for name,outcome in stages.items():
                 stream.write(f'- {name}: {outcome}\n')
     print(json.dumps(result))
-    return int(result['status']=='DEGRADED')
+    # Coverage degradation stays visible in artifacts/digest without presenting
+    # a completed scan as a crashed workflow or sending repeated failure alerts.
+    return int(bool(result['failed_or_skipped_stages'] or result['missing_reports']))
 
 
 if __name__=='__main__':

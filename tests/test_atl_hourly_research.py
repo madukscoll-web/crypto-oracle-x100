@@ -117,3 +117,21 @@ class ATLWorkflowTests(unittest.TestCase):
         self.assertIn('atl_research_state.json',workflow_state.FILES)
         # Stage timeouts total 30 minutes before setup, state publish and artifacts.
         self.assertIn('    timeout-minutes: 35',source)
+
+
+class ProviderHealthTests(unittest.TestCase):
+    def test_successful_process_with_provider_failures_is_degraded(self):
+        reports={k:{} for k in ('scan','reversal','technical_followup','strategy_lab')}
+        reports['multichain']={'coverage_audit':{'discovery_failure_count':2},'failures':[{'error_type':'HTTPError'}]}
+        stages={k:'success' for k in reports}
+        result=pipeline_health.summarize(stages,reports)
+        self.assertEqual(result['status'],'DEGRADED')
+        self.assertIn('multichain',result['data_degradation'])
+        self.assertFalse(result['live_buy_admission_verified'])
+
+    def test_no_provider_failure_is_still_not_objective_completion(self):
+        reports={k:{} for k in ('scan','reversal','technical_followup','strategy_lab')}
+        reports['multichain']={'coverage_audit':{'discovery_failure_count':0},'failures':[]}
+        result=pipeline_health.summarize({k:'success' for k in reports},reports)
+        self.assertEqual(result['status'],'COMPLETED')
+        self.assertEqual(result['overall_objective'],'BLOCKED')
