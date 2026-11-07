@@ -15,11 +15,6 @@ def classify_opportunity(candidate_data: dict, admission_result: dict = None) ->
     if not isinstance(candidate_data, dict):
         raise TypeError("candidate_data must be a dictionary")
     # admission_result is intentionally not trusted: a caller can forge its keys.
-    if (candidate_data.get("bullish_reversal_confirmed") is True
-            and candidate_data.get("volume_validated") is True
-            and candidate_data.get("evidence_authenticated") is True):
-        # A self-asserted evidence flag is not independent verification.
-        return "RESEARCH WATCH"
     return "RESEARCH WATCH"
 
 
