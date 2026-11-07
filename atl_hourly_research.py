@@ -66,7 +66,9 @@ def run(fetch=None, *, now=None):
                                  "source_atl_date": reported_date,
                                  "independently_verified": False,
                                  "telegram_eligible": False}
-            if candidate is not None:\n                report["provider_atl_candidates"] += 1\n            report["market_cap_unverified"] += 1
+            if candidate is not None:
+                report["provider_atl_candidates"] += 1
+            report["market_cap_unverified"] += 1
             report["observations"].append({
                 "provider_id": identifier, "symbol_hint": row.get("symbol"),
                 "market_cap_usd": str(market_cap), "indicative_price_usd": str(price),
