@@ -17,6 +17,52 @@ def item():
 
 
 class HourlyEvidenceTests(unittest.TestCase):
+    def test_external_enrichment_does_not_exhaust_collection_time(self):
+        now = [0.0]
+        collector = h.HourlyEvidence()
+        collector.session = Session(max_seconds=5, clock=lambda: now[0],
+                                    sleeper=lambda _: None, transport=lambda *args: {})
+        def work(_):
+            collector.session.get('https://example.test/evidence')
+            now[0] += 2
+        with patch.object(collector, '_collect', side_effect=work):
+            collector.collect(item())
+            now[0] += 600  # Slow unrelated enrichment between exact tokens.
+            collector.collect(item())
+        self.assertEqual(collector.session.requests, 2)
+        self.assertEqual(collector.active_seconds, 4)
+        self.assertEqual(collector.summary()['budget_scope'], 'ACTIVE_EVIDENCE_COLLECTION')
+
+    def test_active_time_and_request_caps_remain_shared(self):
+        for seconds, requests in ((2, 10), (100, 1)):
+            now = [0.0]
+            collector = h.HourlyEvidence()
+            collector.session = Session(max_seconds=seconds, max_requests=requests,
+                clock=lambda: now[0], sleeper=lambda _: None, transport=lambda *args: {})
+            def work(_):
+                collector.session.get('https://example.test/evidence')
+                now[0] += 2
+            with patch.object(collector, '_collect', side_effect=work):
+                collector.collect(item())
+                now[0] += 600
+                with self.assertRaises(ProviderUnavailable):
+                    collector.collect(item())
+            self.assertEqual(collector.session.requests, 1)
+
+    def test_failed_collection_charges_time_and_keeps_provider_cooldown(self):
+        now = [0.0]
+        collector = h.HourlyEvidence()
+        collector.session = Session(max_seconds=5, clock=lambda: now[0])
+        collector.session.cooldown['example.test'] = 100
+        def work(_):
+            now[0] += 2
+            raise ValueError('failed evidence')
+        with patch.object(collector, '_collect', side_effect=work):
+            with self.assertRaises(ValueError):
+                collector.collect(item())
+        self.assertEqual(collector.active_seconds, 2)
+        self.assertEqual(collector.session.cooldown['example.test'], 100)
+
     def test_collects_existing_adapters_and_gate_without_authorizing_buy(self):
         x = item()
         report = dict(sellability=dict(status='LIMITED', reason='Exact-pool simulation succeeded'),
@@ -112,4 +158,5 @@ class HourlyEvidenceTests(unittest.TestCase):
         self.assertIn('actions/runs/123', text)
         self.assertIn('automatic trading disabled', text)
         self.assertNotIn('further evidence gaps', text)
+
 
