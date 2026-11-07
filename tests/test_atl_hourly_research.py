@@ -12,7 +12,7 @@ class HourlyATLTests(unittest.TestCase):
         self.assertFalse(result["observations"][0]["telegram_eligible"])
         self.assertFalse(result["buy_authorized"])
     def test_published_atl_is_discovery_not_verified_signal(self):
-        result = run(fetch=lambda url: [dict(id="example", symbol="ex",
+        result = run(now=datetime(2026, 11, 7, 1, tzinfo=timezone.utc), fetch=lambda url: [dict(id="example", symbol="ex",
             market_cap=200000000, circulating_supply=100000000, current_price=1.02, atl=1,
             atl_date="2025-01-01T00:00:00Z",
             last_updated="2026-11-07T00:00:00Z")])
