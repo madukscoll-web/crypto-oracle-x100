@@ -9,7 +9,7 @@ import os
 import pathlib
 import urllib.parse
 import urllib.request
-from atl_monitor_core import cap_class, positive
+from atl_monitor_core import cap_class, positive, classify_low
 
 API = "https://api.coingecko.com/api/v3/coins/markets"
 MAX_PAGES = 1
@@ -21,7 +21,7 @@ def run(fetch=None, *, now=None):
               "source": "CoinGecko public coins/markets",
               "observed_at": now.isoformat(), "pages_attempted": 0,
               "assets_received": 0, "eligible_verified": 0,
-              "market_cap_unverified": 0, "historical_baselines_validated": 0,
+              "market_cap_unverified": 0, "provider_atl_candidates": 0, "historical_baselines_validated": 0,
               "assets_checked_against_validated_low": 0,
               "alerts_delivered": 0, "orders_allowed": False,
               "buy_authorized": False, "coverage_complete": False,
@@ -51,7 +51,22 @@ def run(fetch=None, *, now=None):
                 continue
             if market_cap < 100000000:
                 continue
-            report["market_cap_unverified"] += 1
+            # Provider-reported ATL is useful for discovery, but is not
+            # independently validated lifetime trading history.
+            reported_atl = positive(row.get("atl"))
+            reported_date = row.get("atl_date")
+            candidate = None
+            if reported_atl is not None and isinstance(reported_date, str) and reported_date:
+                finding = classify_low(price, reported_atl, lifetime_complete=False,
+                                       comparable=True, corroborated=False)
+                if finding["status"] in ("NEAR OBSERVED LOW", "UNVALIDATED_LOW"):
+                    candidate = {"label": "PROVIDER-REPORTED ATL | RESEARCH CANDIDATE",
+                                 "percent_above": str(finding["percent_above"]),
+                                 "source": "CoinGecko", "source_atl_usd": str(reported_atl),
+                                 "source_atl_date": reported_date,
+                                 "independently_verified": False,
+                                 "telegram_eligible": False}
+            if candidate is not None:\n                report["provider_atl_candidates"] += 1\n            report["market_cap_unverified"] += 1
             report["observations"].append({
                 "provider_id": identifier, "symbol_hint": row.get("symbol"),
                 "market_cap_usd": str(market_cap), "indicative_price_usd": str(price),
@@ -59,7 +74,7 @@ def run(fetch=None, *, now=None):
                 "cap_classification": cap_class(market_cap),
                 "history_status": "UNVALIDATED",
                 "atl_status": "UNAVAILABLE",
-                "telegram_eligible": False})
+                "telegram_eligible": False, "provider_atl_candidate": candidate})
         report["status"] = "OBSERVATIONS_UNVERIFIED"
     except Exception as exc:
         report["errors"].append(type(exc).__name__)
