@@ -11,7 +11,7 @@ class ClassificationPolicyTests(unittest.TestCase):
     def test_technical_hypothesis_is_not_confirmed_reversal(self):
         msg = "CRYPTO-ORACLE | TECHNICAL WATCH — NOT APPROVED FOR PURCHASE\nSetup: EARLY REVERSAL WATCH"
         out = format_message(msg)
-        self.assertTrue(out.startswith("BULLISH REVERSAL\n"))
+        self.assertTrue(out.startswith("RESEARCH WATCH\n"))
         self.assertIn("NOT APPROVED FOR PURCHASE", out)
 
     def test_unverified_pool_not_new_coin(self):
@@ -23,9 +23,9 @@ class ClassificationPolicyTests(unittest.TestCase):
         msg = "Pool price down 99%; historical low UNKNOWN"
         self.assertEqual(classify_existing_message(msg), "RESEARCH WATCH")
 
-    def test_buy_label_preserved_from_existing_admission_path(self):
+    def test_untrusted_buy_label_not_promoted(self):
         msg = "CRYPTO-ORACLE X100 — BUY CANDIDATE — MANUAL REVIEW\nAuthenticated review"
-        self.assertTrue(format_message(msg).startswith("BUY CANDIDATE — MANUAL REVIEW\n"))
+        self.assertTrue(format_message(msg).startswith("RESEARCH WATCH\n"))
 
     def test_existing_heading_not_duplicated(self):
         msg = "RESEARCH WATCH\nExisting report"
