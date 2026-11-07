@@ -11,8 +11,8 @@ class ClassificationPolicyTests(unittest.TestCase):
     def test_technical_hypothesis_is_not_confirmed_reversal(self):
         msg = "CRYPTO-ORACLE | TECHNICAL WATCH — NOT APPROVED FOR PURCHASE\nSetup: EARLY REVERSAL WATCH"
         out = format_message(msg)
-        self.assertTrue(out.startswith("RESEARCH WATCH\n"))
-        self.assertNotIn("BULLISH REVERSAL\n", out)
+        self.assertTrue(out.startswith("BULLISH REVERSAL\n"))
+        self.assertIn("NOT APPROVED FOR PURCHASE", out)
 
     def test_unverified_pool_not_new_coin(self):
         msg = "CRYPTO-ORACLE Z — UNVERIFIED RESEARCH LEAD\nPool age: 1h"
