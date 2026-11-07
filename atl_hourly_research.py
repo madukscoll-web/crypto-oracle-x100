@@ -5,7 +5,6 @@ diagnostics only, and deliberately sends no token alerts or BUY decisions.
 """
 import datetime as dt
 import json
-import os
 import pathlib
 import urllib.parse
 import urllib.request
@@ -60,7 +59,7 @@ def run(fetch=None, *, now=None):
             if not fresh or positive(row.get("circulating_supply")) is None:
                 report["market_cap_unverified"] += 1
                 continue
-            report["eligible_verified"] += 1
+            report["eligible_verified"] += 1  # Fresh cap/supply observations, not independently audited.
             # Provider-reported ATL is useful for discovery, but is not
             # independently validated lifetime trading history.
             reported_atl = positive(row.get("atl"))
@@ -83,8 +82,8 @@ def run(fetch=None, *, now=None):
                 "market_cap_usd": str(market_cap), "indicative_price_usd": str(price),
                 "provider_last_updated": row.get("last_updated"),
                 "cap_classification": cap_class(market_cap, verified=True, fresh=True),
-                "history_status": "UNVALIDATED",
-                "atl_status": "UNAVAILABLE",
+                "history_status": "PROVIDER_REPORTED_NOT_CORROBORATED",
+                "atl_status": "PROVIDER_REPORTED_NEAR_LOW" if candidate else "NO_ATL_EVENT",
                 "telegram_eligible": False, "provider_atl_candidate": candidate})
         report["status"] = "OBSERVATIONS_UNVERIFIED"
     except Exception as exc:
