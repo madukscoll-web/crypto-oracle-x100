@@ -67,4 +67,4 @@ def labeled_message(label, body):
         raise ValueError("Unknown Telegram classification")
     if not isinstance(body, str) or not body.strip():
         raise ValueError("Missing message body")
-    return label + "\\n" + body.strip()
+    return label + "\n" + body.strip()
