@@ -8,6 +8,11 @@ def summarize(stages, reports):
     required=('scan','reversal','technical_followup','strategy_lab')
     failures={k:v for k,v in stages.items() if v not in ('success',)}
     missing=[k for k in required if k not in reports or not isinstance(reports[k],dict)]
+    if 'atl' in stages and not isinstance(reports.get('atl'),dict):
+        missing.append('atl')
+    atl=reports.get('atl',{})
+    if 'atl' in stages and atl.get('status') != 'OBSERVATIONS_UNVERIFIED':
+        failures['atl_data']=atl.get('status','MISSING')
     historical=reports.get('historical',{})
     admission=reports.get('admission',{})
     # A partial script that emitted an artifact before failing is still degraded.
@@ -15,6 +20,8 @@ def summarize(stages, reports):
     return dict(version=1,status='DEGRADED' if degraded else 'COMPLETED',
                 stage_outcomes=stages,failed_or_skipped_stages=failures,
                 missing_reports=missing,
+                atl_history_status=atl.get('status','NOT_RUN'),
+                atl_lifetime_baselines=atl.get('historical_baselines_validated',0),
                 admission_status=admission.get('status','UNKNOWN'),
                 historical_validation_status=historical.get('status','UNKNOWN'),
                 strategy_validated=False,live_buy_admission_verified=False,
@@ -25,7 +32,7 @@ def main():
     stages=json.loads(os.environ.get('RESEARCH_STAGE_OUTCOMES','{}'))
     paths={'scan':'scan_summary.json','reversal':'altcoin_reversal_report.json',
            'technical_followup':'technical_followup_report.json','strategy_lab':'strategy_lab_report.json',
-           'historical':'historical_validation_report.json','admission':'work/admission_preflight.json'}
+           'atl':'atl_coverage_report.json','historical':'historical_validation_report.json','admission':'work/admission_preflight.json'}
     reports={}
     for name,path in paths.items():
         try:
@@ -47,3 +54,4 @@ def main():
 
 if __name__=='__main__':
     raise SystemExit(main())
+
