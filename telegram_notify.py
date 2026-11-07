@@ -10,6 +10,7 @@ import urllib.parse
 import urllib.request
 
 from oracle_http import retry_delay
+from classification_policy import format_message
 
 
 class NotificationError(RuntimeError):
@@ -26,7 +27,7 @@ def send_message(message):
     chat = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
     if not token or not chat:
         raise NotificationError("Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID")
-    payload = urllib.parse.urlencode({"chat_id": chat, "text": bounded_text(message)}).encode()
+    payload = urllib.parse.urlencode({"chat_id": chat, "text": bounded_text(format_message(message))}).encode()
     request = urllib.request.Request(
         "https://api.telegram.org/bot" + token + "/sendMessage", data=payload, method="POST")
     failure = "Telegram delivery unconfirmed"
