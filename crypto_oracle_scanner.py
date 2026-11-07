@@ -31,7 +31,7 @@ import evidence_coverage
 import hourly_evidence
 import gate_spot_candidates
 import scan_audit
-from oracle_http import get_json
+from oracle_http import get_json, ProviderRateLimited
 from telegram_notify import send_message
 
 API = "https://api.geckoterminal.com/api/v2"
@@ -924,7 +924,8 @@ def main():
                         break
                 except (urllib.error.URLError, ValueError, KeyError, TypeError, AttributeError, TimeoutError, OSError) as exc:
                     detail = f"{network} {mode} page {page}: {type(exc).__name__}"
-                    if (isinstance(exc, urllib.error.HTTPError) and exc.code == 429
+                    if ((isinstance(exc, ProviderRateLimited) or
+                         isinstance(exc, urllib.error.HTTPError) and exc.code == 429)
                             and total_checked > 0):
                         warnings.append(f"Incomplete scan after rate limiting: {detail}")
                     else:
@@ -1234,6 +1235,7 @@ def cli():
 
 if __name__ == "__main__":
     raise SystemExit(cli())
+
 
 
 
