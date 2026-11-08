@@ -66,9 +66,17 @@ def observe(pair, receipt, previous, gate, now, clock=None):
             metadata.get('quote') != 'USDT' or metadata.get('type') != 'normal' or
             metadata.get('trade_status') != 'tradable' or metadata.get('st_tag') is not False):
         raise ValueError('Pair no longer eligible for observation')
-    raw = gate.get('/spot/order_book', {'currency_pair': pair, 'limit': 20, 'with_id': 'true'})
-    now = clock() if clock else now
-    metrics = analyze_book(raw, '100', now)
+    # Retry only an expired snapshot, once, inside the caller's request budget.
+    # Malformed or contradictory books remain rejected without a retry loop.
+    for attempt in range(2):
+        raw = gate.get('/spot/order_book', {'currency_pair': pair, 'limit': 20, 'with_id': 'true'})
+        now = clock() if clock else now
+        try:
+            metrics = analyze_book(raw, '100', now)
+            break
+        except ValueError as exc:
+            if attempt or str(exc) != 'Stale/future order book':
+                raise
     provider_at = metrics['provider_current_ms']/1000
     if samples and provider_at <= samples[-1]['provider_current_ms']/1000:
         return identifier, row, 'NONADVANCING_PROVIDER_SNAPSHOT'
@@ -157,7 +165,7 @@ def deliver_invalidations(state, sender, persist, *, now=None, allowed=(), max_p
     if type(max_per_run) is not int or not 1 <= max_per_run <= 2:
         raise ValueError('Invalidation delivery budget must be one or two attempts')
     summary = dict(delivered=0, failed=0, stale=0, attempted=0,
-                   buy_authorized=False, orders_allowed=False)
+                   buy_authorized=False, orders_allowed=False, errors={})
     if state.get('version') != 1 or not isinstance(state.get('hypotheses'), dict):
         raise ValueError('Malformed follow-up state')
     for identifier, row in state['hypotheses'].items():
@@ -168,19 +176,23 @@ def deliver_invalidations(state, sender, persist, *, now=None, allowed=(), max_p
         samples = row.get('samples') or []
         if not samples:
             continue
-        sample = samples[-1]
-        if not 0 <= now-timestamp(sample['observed_at']) <= 900:
-            summary['stale'] += 1
-            continue
-        # Never trust attached at_or_below flags or an unbound state key.
-        expected, _ = identity(row['pair'], row['alert'])
-        if identifier != expected:
-            raise ValueError('Invalidation hypothesis binding mismatch')
-        raw = sample['raw_book']
-        if hashlib.sha256(canonical(raw)).hexdigest() != sample['raw_sha256']:
-            raise ValueError('Invalidation book digest mismatch')
-        book = analyze_book(raw, '100', now)
-        if decimal(book['best_bid']) > decimal(row['alert']['invalidation']):
+        try:
+            sample = samples[-1]
+            if not 0 <= now-timestamp(sample['observed_at']) <= 900:
+                summary['stale'] += 1
+                continue
+            # Never trust attached at_or_below flags or an unbound state key.
+            expected, _ = identity(row['pair'], row['alert'])
+            if identifier != expected:
+                raise ValueError('Invalidation hypothesis binding mismatch')
+            raw = sample['raw_book']
+            if hashlib.sha256(canonical(raw)).hexdigest() != sample['raw_sha256']:
+                raise ValueError('Invalidation book digest mismatch')
+            book = analyze_book(raw, '100', now)
+            if decimal(book['best_bid']) > decimal(row['alert']['invalidation']):
+                continue
+        except (ValueError, TypeError, KeyError, AttributeError, ArithmeticError) as exc:
+            summary['errors'][identifier] = type(exc).__name__
             continue
         text = ('INVALIDATED SETUP\n'
                 f"Gate Spot: {row['pair']} | timeframe {row['alert']['interval']}\n"
@@ -210,7 +222,7 @@ if __name__ == '__main__':
     state_path = pathlib.Path('technical_followup_state.json')
     state = load(state_path)
     receipts = json.loads(pathlib.Path('technical_watch_state.json').read_text())['delivered']
-    with Session(max_requests=6, max_seconds=20, max_request_seconds=3) as session:
+    with Session(max_requests=9, max_seconds=20, max_request_seconds=3) as session:
         report = collect(receipts, state, session.get, allowed=technical_watch.policy()['pairs'])
         report['provider_session'] = session.summary()
     def persist(snapshot):
@@ -223,6 +235,6 @@ if __name__ == '__main__':
         state, send_research_message, persist, allowed=technical_watch.policy()['pairs'])
     pathlib.Path('technical_followup_report.json').write_text(json.dumps(report, indent=2)+'\n')
     print(json.dumps(report))
-    if report['errors'] or report['invalidation_delivery']['failed']:
+    if report['errors'] or report['invalidation_delivery']['failed'] or report['invalidation_delivery']['errors']:
         raise SystemExit(1)
 

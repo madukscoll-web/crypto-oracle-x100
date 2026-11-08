@@ -7,6 +7,7 @@ import pathlib
 def summarize(stages, reports):
     required=('scan','reversal','technical_followup','strategy_lab')
     failures={k:v for k,v in stages.items() if v not in ('success',)}
+    failures.update({k:'NOT_REPORTED' for k in required if k not in stages})
     missing=[k for k in required if k not in reports or not isinstance(reports[k],dict)]
     if 'atl' in stages and not isinstance(reports.get('atl'),dict):
         missing.append('atl')
@@ -14,6 +15,22 @@ def summarize(stages, reports):
     if 'atl' in stages and atl.get('status') != 'OBSERVATIONS_UNVERIFIED':
         failures['atl_data']=atl.get('status','MISSING')
     data_degradation={}
+    # A zero exit code establishes computation, not complete provider coverage.
+    scan=reports.get('scan',{})
+    if isinstance(scan,dict) and scan.get('warnings'):
+        data_degradation['scan']='Core discovery reported incomplete coverage; inspect scan warnings'
+    for name in ('scan','reversal','technical_followup','strategy_lab'):
+        report=reports.get(name)
+        if not isinstance(report,dict):
+            continue
+        if report.get('errors') or report.get('status') in ('DEGRADED','UNAVAILABLE','FAILED'):
+            data_degradation[name]='Stage report contains errors or unavailable observations'
+        for channel in ('technical_delivery','invalidation_delivery'):
+            delivery=report.get(channel) or {}
+            if delivery.get('failed'):
+                failures[name+'_delivery']='Unconfirmed Telegram delivery'
+            if delivery.get('errors'):
+                data_degradation[name]='Some observations could not be safely validated for delivery'
     if atl.get('enrichment_errors'):
         data_degradation['atl']='Metadata/history enrichment unavailable or invalid; no verified lifetime claim'
     lifetime=atl.get('lifetime_validation') or {}
@@ -36,6 +53,8 @@ def summarize(stages, reports):
     degraded=bool(failures or missing or data_degradation)
     return dict(version=1,status='DEGRADED' if degraded else 'COMPLETED',
                 stage_outcomes=stages,failed_or_skipped_stages=failures,
+                execution_status='FAILED_OR_INCOMPLETE' if failures or missing else 'COMPLETED',
+                coverage_status='DEGRADED' if data_degradation else 'NO_REPORTED_PROVIDER_ERRORS',
                 missing_reports=missing,data_degradation=data_degradation,
                 atl_history_status=atl.get('status','NOT_RUN'),
                 atl_lifetime_baselines=atl.get('historical_baselines_validated',0),

@@ -132,5 +132,6 @@ class ReversalCompletionTests(unittest.TestCase):
         summary=followup.deliver_invalidations(state,lambda _:self.fail('Forged flag'),lambda _:None,now=NOW,allowed=[PAIR])
         self.assertEqual(summary['delivered'],0)
         sample['raw_book']['bids']=[['70','100']]
-        with self.assertRaisesRegex(ValueError,'digest mismatch'):
-            followup.deliver_invalidations(state,lambda _:True,lambda _:None,now=NOW,allowed=[PAIR])
+        summary=followup.deliver_invalidations(state,lambda _:self.fail('Tampered book'),lambda _:self.fail('No state advancement'),now=NOW,allowed=[PAIR])
+        self.assertEqual(summary['delivered'],0)
+        self.assertEqual(list(summary['errors'].values()),['ValueError'])

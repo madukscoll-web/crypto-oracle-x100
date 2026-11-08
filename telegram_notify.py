@@ -32,6 +32,18 @@ def send_research_message(notice):
     return _send_message(verified_text(notice), max_attempts=1, request_timeout=8)
 
 
+def send_admission_message(item):
+    """Recompute authenticated admission at transport, never trust supplied text.
+
+    Generic send_message intentionally downgrades caller-provided BUY labels.
+    Passing a freshly formatted admission through that path also downgraded
+    genuine signed candidates. Keep the privileged path bound to the asset and
+    its current evidence rather than adding a bypass flag to generic transport.
+    """
+    from opportunity_alerts import format_admission_alert
+    return _send_message(format_admission_alert(item), max_attempts=1, request_timeout=8)
+
+
 def _send_message(message, *, max_attempts=3, request_timeout=20):
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
     chat = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
