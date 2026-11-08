@@ -73,6 +73,12 @@ jobs:
         id: state_refresh
         if: success() && steps.cadence.outputs.run == 'true'
         run: python workflow_state.py refresh
+      - name: Run bounded ATL universe research diagnostics
+        id: atl_research
+        if: success() && steps.cadence.outputs.run == 'true'
+        continue-on-error: true
+        timeout-minutes: 1
+        run: python -u atl_hourly_research.py
       - name: Run scanner
         if: success() && steps.cadence.outputs.run == 'true'
         id: scan
@@ -118,12 +124,6 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python -u altcoin_reversal_production.py
-      - name: Run bounded ATL universe research diagnostics
-        id: atl_research
-        if: success() && steps.cadence.outputs.run == 'true'
-        continue-on-error: true
-        timeout-minutes: 1
-        run: python -u atl_hourly_research.py
       - name: Evaluate fixed strategies and advance prospective paper accounts
         id: strategy_lab
         if: success() && steps.cadence.outputs.run == 'true' && steps.reversal.outcome == 'success'

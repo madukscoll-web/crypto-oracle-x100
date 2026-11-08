@@ -112,6 +112,7 @@ class ATLWorkflowTests(unittest.TestCase):
         source=(Path(__file__).resolve().parents[1]/'.github/workflows/main.yml').read_text()
         self.assertIn("cron: '7 * * * *'",source)
         self.assertIn('python -u atl_hourly_research.py',source)
+        self.assertLess(source.index('python -u atl_hourly_research.py'),source.index('python -u crypto_oracle_scanner.py'))
         self.assertIn('"atl":"${{ steps.atl_research.outcome }}"',source)
         self.assertIn('            atl_coverage_report.json',source)
         self.assertIn('atl_research_state.json',workflow_state.FILES)
