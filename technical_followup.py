@@ -148,7 +148,13 @@ def collect(receipts, state, fetch, now=None, allowed=()):
             report['outcomes'][pair] = status
         except (OSError, ValueError, TypeError, KeyError, AttributeError, ArithmeticError) as exc:
             report['errors'][pair] = type(exc).__name__
-    report['hypotheses'] = [summarize(row) for row in rows.values() if row.get('samples')]
+    report['hypotheses'] = []
+    for key, row in rows.items():
+        try:
+            if row.get('samples'):
+                report['hypotheses'].append(summarize(row))
+        except (ValueError, TypeError, KeyError, AttributeError, ArithmeticError, IndexError) as exc:
+            report['errors'][key] = type(exc).__name__
     report['limitations'] = ['Selection is delivered technical watches, not all launches or an unbiased historical cohort.',
                             'No original alert fill is reconstructed; monitoring starts at first fresh observation.',
                             'Sampled midpoint changes exclude fees, execution and between-sample excursions.']
@@ -171,12 +177,12 @@ def deliver_invalidations(state, sender, persist, *, now=None, allowed=(), max_p
     for identifier, row in state['hypotheses'].items():
         if summary['attempted'] >= max_per_run:
             break
-        if row.get('pair') not in allowed or row.get('invalidation_notified_at'):
-            continue
-        samples = row.get('samples') or []
-        if not samples:
-            continue
         try:
+            if row.get('pair') not in allowed or row.get('invalidation_notified_at'):
+                continue
+            samples = row.get('samples') or []
+            if not samples:
+                continue
             sample = samples[-1]
             if not 0 <= now-timestamp(sample['observed_at']) <= 900:
                 summary['stale'] += 1
@@ -191,18 +197,18 @@ def deliver_invalidations(state, sender, persist, *, now=None, allowed=(), max_p
             book = analyze_book(raw, '100', now)
             if decimal(book['best_bid']) > decimal(row['alert']['invalidation']):
                 continue
-        except (ValueError, TypeError, KeyError, AttributeError, ArithmeticError) as exc:
+            text = ('INVALIDATED SETUP\n'
+                    f"Gate Spot: {row['pair']} | timeframe {row['alert']['interval']}\n"
+                    f"Previously delivered technical hypothesis: {row['alert']['delivered_at']}\n"
+                    f"Fresh observed best bid {book['best_bid']} USDT is at/below invalidation "
+                    f"reference {row['alert']['invalidation']} USDT. Withdraw this hypothesis.\n"
+                    f"Observed UTC: {sample['observed_at']}\n"
+                    'Sampled book observation only; between-sample path and actual trade execution are unknown. '
+                    'No stop fill, realized loss, security approval or purchase authority is inferred.\n'
+                    f"Source: {sample['source_url']}")
+        except (ValueError, TypeError, KeyError, AttributeError, ArithmeticError, IndexError) as exc:
             summary['errors'][identifier] = type(exc).__name__
             continue
-        text = ('INVALIDATED SETUP\n'
-                f"Gate Spot: {row['pair']} | timeframe {row['alert']['interval']}\n"
-                f"Previously delivered technical hypothesis: {row['alert']['delivered_at']}\n"
-                f"Fresh observed best bid {book['best_bid']} USDT is at/below invalidation "
-                f"reference {row['alert']['invalidation']} USDT. Withdraw this hypothesis.\n"
-                f"Observed UTC: {sample['observed_at']}\n"
-                'Sampled book observation only; between-sample path and actual trade execution are unknown. '
-                'No stop fill, realized loss, security approval or purchase authority is inferred.\n'
-                f"Source: {sample['source_url']}")
         summary['attempted'] += 1
         try:
             if sender(_issue('INVALIDATED SETUP', text)) is not True:

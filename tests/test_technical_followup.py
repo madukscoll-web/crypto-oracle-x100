@@ -175,3 +175,29 @@ class SnapshotRefreshTests(unittest.TestCase):
         self.assertEqual(len(calls), 3)
         self.assertEqual(report['errors'][PAIR], 'ValueError')
         self.assertEqual(state['hypotheses'], {})
+
+
+class MalformedHypothesisTests(unittest.TestCase):
+    state = InvalidationDeliveryBudgetTests.state
+
+    def test_malformed_row_does_not_abort_fresh_invalidations(self):
+        state = self.state()
+        state['hypotheses'] = {'corrupt':None, **state['hypotheses']}
+        result=f.deliver_invalidations(state,lambda _:True,lambda _:None,now=NOW,allowed=[PAIR])
+        self.assertEqual(result['delivered'],2)
+        self.assertIn('corrupt',result['errors'])
+
+    def test_missing_source_does_not_send_or_abort_siblings(self):
+        state=self.state()
+        first=next(iter(state['hypotheses'].values()))
+        del first['samples'][-1]['source_url']
+        result=f.deliver_invalidations(state,lambda _:True,lambda _:None,now=NOW,allowed=[PAIR])
+        self.assertEqual(result['delivered'],2)
+        self.assertEqual(len(result['errors']),1)
+        self.assertNotIn('invalidation_notified_at',first)
+
+    def test_corrupt_retained_row_is_reported_without_erasing_it(self):
+        state={'version':1,'hypotheses':{'corrupt':None}}
+        result=f.collect({},state,lambda _:None,NOW,[])
+        self.assertIn('corrupt',result['errors'])
+        self.assertIn('corrupt',state['hypotheses'])
