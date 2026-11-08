@@ -55,6 +55,7 @@ def build(report, *, now=None, maximum=3):
                 liquidity_observation=screening.get('book') or {'status':'UNKNOWN_NOT_SCREENED_IN_THIS_RUN'},
                 liquidity_observed_at=screening.get('observed_at','UNKNOWN'),
                 liquidity_scope='Recorded displayed depth, not a current or funded execution guarantee',
+                recorded_screening=copy.deepcopy(screening),
                 provider_security_findings=findings,
                 project_context=profile,sources=sources,
                 unresolved=['Independent security/authority and sellability review',

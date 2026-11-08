@@ -51,3 +51,17 @@ class DossierTests(unittest.TestCase):
         reports={k:{} for k in stages if k!='dossiers'}
         result=pipeline_health.summarize(stages,reports)
         self.assertIn('dossiers',result['missing_reports'])
+
+
+    def test_raw_screening_is_retained_for_durable_replay(self):
+        report,_=fixture()
+        snapshot={'book':{'best_bid':'100','best_ask':'101'},
+                  'raw_book':{'current':123,'bids':[['100','20']],'asks':[['101','30']]},
+                  'currency_metadata':{'currency':'BCH','chains':[]},
+                  'observed_at':'2026-11-08T20:00:00+00:00','security':[]}
+        report['results'][0]['technical_screen']=copy.deepcopy(snapshot)
+        item=d.build(report,now=NOW)['dossiers'][0]
+        self.assertEqual(item['recorded_screening'],snapshot)
+        report['results'][0]['technical_screen']['raw_book']['bids'][0][0]='999'
+        self.assertEqual(item['recorded_screening']['raw_book']['bids'][0][0],'100')
+        self.assertFalse(item['buy_authorized'])
