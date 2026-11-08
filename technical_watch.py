@@ -246,7 +246,8 @@ def deliver(report, state, fetch, sender, persist, *, now=None, p=None, negative
     clock = now or (lambda: dt.datetime.now(dt.timezone.utc).timestamp())
     state = json.loads(json.dumps(state))
     if (state.get('version') != 1 or not isinstance(state.get('delivered'), dict)
-            or not isinstance(state.get('daily_counts'), dict)):
+            or not isinstance(state.get('daily_counts'), dict)
+            or not isinstance(state.get('delivered_by_setup', {}), dict)):
         raise ValueError('Invalid technical notification state')
     summary = dict(enabled=p['enabled'], assessed=0, delivered=0, suppressed={}, failed=0,
                    buy_authorized=False, orders_allowed=False)
@@ -254,6 +255,15 @@ def deliver(report, state, fetch, sender, persist, *, now=None, p=None, negative
         return state, summary
     if negatives is None:
         raise ValueError('Known-adverse screening must be supplied')
+    # Retain each market/timeframe receipt. A weekly thesis cannot suppress a
+    # distinct daily/intraday setup, nor can alternating timeframes reset dedup.
+    setup_receipts = dict(state.get('delivered_by_setup', {}))
+    for pair, receipt in state['delivered'].items():
+        if not isinstance(receipt, dict):
+            raise ValueError('Invalid retained technical receipt')
+        interval = receipt.get('interval')
+        if interval in INTERVAL_SECONDS:
+            setup_receipts.setdefault(pair+'|'+interval, dict(receipt))
     gate = PublicGate(fetch)
     currencies = gate.get('/spot/currencies')
     if not isinstance(currencies, list):
@@ -278,7 +288,13 @@ def deliver(report, state, fetch, sender, persist, *, now=None, p=None, negative
                 reasons['notification_budget'] += 1
                 continue
             research = validated_research(row, report, at, p)
-            previous = state['delivered'].get(row['pair'])
+            setup_key = row['pair']+'|'+row['interval']
+            previous = setup_receipts.get(setup_key)
+            legacy = state['delivered'].get(row['pair'])
+            # Unknown legacy timeframe remains conservative rather than being
+            # silently treated as a new setup.
+            if previous is None and legacy and legacy.get('interval') is None:
+                previous = legacy
             if previous:
                 if at-stamp(previous['delivered_at']) < p['cooldown_seconds']:
                     reasons['cooldown'] += 1
@@ -309,6 +325,8 @@ def deliver(report, state, fetch, sender, persist, *, now=None, p=None, negative
                 delivered_at=dt.datetime.fromtimestamp(clock(), dt.timezone.utc).isoformat(),
                 classification=research['classification'], entry_trigger=research['entry_trigger'],
                 invalidation=research['invalidation'], interval=row['interval'])
+            setup_receipts[setup_key] = dict(state['delivered'][row['pair']])
+            state['delivered_by_setup'] = setup_receipts
             state['daily_counts'][day] = count+1
             # Bound old counters; retained per-pair receipts remain the dedup authority.
             state['daily_counts'] = {k:v for k,v in state['daily_counts'].items() if k >= day}

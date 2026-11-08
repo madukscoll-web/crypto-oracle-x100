@@ -209,3 +209,32 @@ class TechnicalWatchTests(unittest.TestCase):
         self.assertEqual(summary['delivered'], 0)
         self.assertIn('Adverse contract capability/sellability finding', summary['suppressed'])
 
+
+
+class TimeframeReceiptTests(unittest.TestCase):
+    def test_weekly_receipt_does_not_suppress_new_daily_setup(self):
+        report, fetch = fixture()
+        previous = state()
+        previous['delivered']['BCH_USDT'] = dict(delivered_at=dt.datetime.fromtimestamp(NOW,dt.timezone.utc).isoformat(),
+            classification='EARLY REVERSAL WATCH',entry_trigger=200,invalidation=50,interval='1w')
+        sent=[]
+        updated, summary=alerts.deliver(report,previous,fetch,lambda text:sent.append(text) or True,
+            lambda _:None,now=lambda:NOW,negatives=set())
+        self.assertEqual(summary['delivered'],1)
+        self.assertEqual(len(sent),1)
+        self.assertIn('BCH_USDT|1w',updated['delivered_by_setup'])
+        self.assertIn('BCH_USDT|1d',updated['delivered_by_setup'])
+        # The same daily setup remains suppressed after the legacy pair pointer
+        # is changed by a weekly delivery.
+        updated['delivered']['BCH_USDT']=updated['delivered_by_setup']['BCH_USDT|1w']
+        _, summary=alerts.deliver(report,updated,fetch,lambda _:self.fail('Duplicate daily delivery'),
+            lambda _:None,now=lambda:NOW,negatives=set())
+        self.assertEqual(summary['delivered'],0)
+        self.assertEqual(summary['suppressed']['cooldown'],1)
+
+    def test_corrupt_setup_receipts_refuse_transport(self):
+        report, fetch=fixture()
+        previous=state();previous['delivered_by_setup']=[]
+        with self.assertRaises(ValueError):
+            alerts.deliver(report,previous,fetch,lambda _:self.fail('Corrupt dedup state'),
+                lambda _:None,now=lambda:NOW,negatives=set())
