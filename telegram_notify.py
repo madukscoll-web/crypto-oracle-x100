@@ -87,6 +87,17 @@ def workflow_message(mode):
         technical = reversal.get('technical_delivery') or {}
         details += f"Technical channel: {technical.get('delivered', 0)} delivered, {technical.get('failed', 0)} failed; separate from verified BUY. "
         details += 'Reversal coverage: ' + json.dumps(reversal.get('coverage', reversal.get('status_counts', {})), sort_keys=True) + '. '
+    health_path = pathlib.Path('pipeline_health_report.json')
+    if health_path.exists():
+        health = json.loads(health_path.read_text())
+        details += f"Research data health: {health.get('status','UNKNOWN')}; provider gaps: {json.dumps(health.get('data_degradation',{}),sort_keys=True)}. "
+    atl_path = pathlib.Path('atl_coverage_report.json')
+    if atl_path.exists():
+        atl = json.loads(atl_path.read_text())
+        details += (f"ATL collector: {atl.get('status', 'UNKNOWN')}; "
+                    f"{atl.get('provider_atl_candidates', 0)} provider-reported near-low candidates; "
+                    f"{atl.get('historical_baselines_validated', 0)} validated lifetime baselines; "
+                    f"{atl.get('alerts_delivered', 0)} ATL alerts. ")
     return (f"CRYPTO-ORACLE X100 daily pipeline health, latest scan at {report['completed_at']}. "
             f"Pool observations: {report['observations']}; research candidates: {report['candidates']}; "
             f"BUY candidates for manual review: {report.get('buy_candidates_delivered', 'unknown')}; "
@@ -144,3 +155,4 @@ if __name__ == "__main__":
     except (NotificationError, OSError, ValueError, KeyError, IndexError) as exc:
         print(f"ERROR: Telegram workflow notification failed ({type(exc).__name__}). Inspect configuration and run logs.", flush=True)
         sys.exit(1)
+

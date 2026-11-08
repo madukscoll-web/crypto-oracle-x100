@@ -28,7 +28,7 @@ concurrency:
 jobs:
   scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
       - name: Download repository
         uses: actions/checkout@v4
@@ -73,6 +73,12 @@ jobs:
         id: state_refresh
         if: success() && steps.cadence.outputs.run == 'true'
         run: python workflow_state.py refresh
+      - name: Run bounded ATL universe research diagnostics
+        id: atl_research
+        if: success() && steps.cadence.outputs.run == 'true'
+        continue-on-error: true
+        timeout-minutes: 1
+        run: python -u atl_hourly_research.py
       - name: Run scanner
         if: success() && steps.cadence.outputs.run == 'true'
         id: scan
@@ -158,7 +164,7 @@ jobs:
         id: research_health
         if: always() && steps.cadence.outputs.run == 'true'
         env:
-          RESEARCH_STAGE_OUTCOMES: '{"scan":"${{ steps.scan.outcome }}","multichain":"${{ steps.multichain.outcome }}","reversal":"${{ steps.reversal.outcome }}","technical_followup":"${{ steps.technical_followup.outcome }}","strategy_lab":"${{ steps.strategy_lab.outcome }}","stonk_launches":"${{ steps.stonk_launches.outcome }}"}'
+          RESEARCH_STAGE_OUTCOMES: '{"scan":"${{ steps.scan.outcome }}","multichain":"${{ steps.multichain.outcome }}","reversal":"${{ steps.reversal.outcome }}","atl":"${{ steps.atl_research.outcome }}","technical_followup":"${{ steps.technical_followup.outcome }}","strategy_lab":"${{ steps.strategy_lab.outcome }}","stonk_launches":"${{ steps.stonk_launches.outcome }}"}'
         run: python pipeline_health.py
       - name: Send daily pipeline health digest
         id: operational_summary
@@ -205,6 +211,8 @@ jobs:
             operational_notification.json
             operational_digest_state.json
             altcoin_reversal_report.json
+            atl_coverage_report.json
+            atl_research_state.json
             reversal_universe_state.json
             technical_watch_state.json
             technical_watch_delivery.json
@@ -222,6 +230,7 @@ jobs:
             reported_pools.json
             watchlist_state.json
             signal_history.json
+
 
 
 
