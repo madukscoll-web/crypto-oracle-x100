@@ -182,7 +182,8 @@ def screen(row, research, gate, currencies, negatives, now, retain_adverse=None,
     warning_keys,unresolved=market_warning_keys(pair,currencies,negatives,retained_state)
     if warning_keys:
         row['technical_screen']={'retained_adverse':sorted(warning_keys),
-            'identity_scope':'PRIOR_WARNING_CURRENT_IDENTITY_UNRESOLVED' if unresolved else 'CURRENT_EXACT_ASSET_KEYS'}
+            'identity_scope':'PRIOR_WARNING_CURRENT_IDENTITY_UNRESOLVED' if unresolved else 'CURRENT_EXACT_ASSET_KEYS',
+            'buy_authorized':False,'orders_allowed':False}
         raise ValueError('Prior warning; current asset identity unresolved' if unresolved else 'Retained exact-contract adverse evidence')
     matches = [c for c in currencies if isinstance(c, dict) and c.get('currency') == pair[:-5]]
     if len(matches) != 1:
@@ -385,7 +386,8 @@ def deliver(report, state, fetch, sender, persist, *, now=None, p=None, negative
         warning_keys,unresolved=market_warning_keys(row['pair'],currencies,negative_keys,state)
         if warning_keys:
             row['technical_screen']={'retained_adverse':sorted(warning_keys),
-                'identity_scope':'PRIOR_WARNING_CURRENT_IDENTITY_UNRESOLVED' if unresolved else 'CURRENT_EXACT_ASSET_KEYS'}
+                'identity_scope':'PRIOR_WARNING_CURRENT_IDENTITY_UNRESOLVED' if unresolved else 'CURRENT_EXACT_ASSET_KEYS',
+            'buy_authorized':False,'orders_allowed':False}
             reasons['Prior warning; current asset identity unresolved' if unresolved else 'Retained exact-contract adverse evidence'] += 1
             continue
         try:
