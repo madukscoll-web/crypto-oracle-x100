@@ -21,12 +21,12 @@ def response(payload):
 
 class TelegramTests(unittest.TestCase):
     def setUp(self):
-        self.env = patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "private-test-token", "TELEGRAM_CHAT_ID": "private-test-chat"})
+        self.env = patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "private-test-token", "TELEGRAM_CHAT_ID": "-123"})
         self.env.start()
         self.addCleanup(self.env.stop)
 
     def test_delivery_requires_message_id(self):
-        with patch('telegram_notify.urllib.request.urlopen', return_value=response({"ok": True, "result": {"message_id": 1}})) as send:
+        with patch('telegram_notify.urllib.request.urlopen', return_value=response({"ok": True, "result": {"message_id": 1, "chat": {"id": -123}}})) as send:
             self.assertTrue(telegram.send_message("test"))
             self.assertEqual(send.call_args.kwargs['timeout'], 20)
             self.assertEqual(send.call_args.args[0].method, 'POST')
@@ -44,7 +44,7 @@ class TelegramTests(unittest.TestCase):
 
     def test_429_respects_retry_after(self):
         limited = urllib.error.HTTPError('secret-url', 429, 'limited', {'Retry-After': '3'}, None)
-        with patch('telegram_notify.urllib.request.urlopen', side_effect=[limited, response({"ok": True, "result": {"message_id": 2}})]), patch('telegram_notify.time.sleep') as sleep:
+        with patch('telegram_notify.urllib.request.urlopen', side_effect=[limited, response({"ok": True, "result": {"message_id": 2, "chat": {"id": -123}}})]), patch('telegram_notify.time.sleep') as sleep:
             self.assertTrue(telegram.send_message('test'))
             sleep.assert_called_once_with(3)
 
@@ -219,5 +219,6 @@ class ScanOperationTests(unittest.TestCase):
     def test_malformed_corroboration_remains_unknown(self):
         result = market_corroboration.check({'network': 'base', 'address': '0xpool'}, lambda _: {'pairs': [None]})
         self.assertEqual(result['status'], 'UNKNOWN')
+
 
 

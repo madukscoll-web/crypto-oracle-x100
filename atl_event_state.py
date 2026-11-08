@@ -7,7 +7,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
-from atl_monitor_core import LABELS
+from telegram_receipts import confirmed
 
 WATCH_LABELS = frozenset({
     "ALL-TIME LOW | WATCH", "NEAR ALL-TIME LOW | WATCH",
@@ -46,17 +46,15 @@ def eligible_event(state, key, *, identity_verified, observation_fresh,
             and evidence_qualified and security_passed
             and key not in state["confirmed"])
 
-def confirm_delivery(path, key, receipt, observed_at):
+def confirm_delivery(path, key, receipt, observed_at, *, expected_chat_id):
     """Record only a positive Telegram Bot API receipt; caller serializes writes.
 
     Ambiguous sends are NOT marked delivered. Caller must coordinate a
     single writer to prevent concurrent updates.
     """
-    if not isinstance(receipt, dict) or receipt.get("ok") is not True:
+    if not confirmed(receipt, expected_chat_id):
         return False
-    result = receipt.get("result")
-    if not isinstance(result, dict) or type(result.get("message_id")) is not int or result["message_id"] <= 0:
-        return False
+    result = receipt['result']
     if not isinstance(observed_at, str) or not observed_at:
         raise ValueError("Missing observation timestamp")
     state = load_state(path)

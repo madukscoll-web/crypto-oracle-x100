@@ -11,6 +11,7 @@ import os
 import pathlib
 import urllib.parse
 import urllib.request
+from telegram_receipts import confirmed
 
 
 def request(token, method, data):
@@ -48,9 +49,8 @@ def validate(env, send_test=False, transport=request):
         result.update(status='PREFLIGHT_OK', reason='Bot and destination checked; delivery not attempted')
         if send_test:
             response = transport(token, 'sendMessage', {'chat_id': chat, 'text':
-                'CRYPTO-ORACLE deployment validation: notification delivery test. NO BUY SIGNAL. Automated trading remains disabled.'})
-            delivered = response.get('result') or {}
-            if response.get('ok') is not True or not delivered.get('message_id') or str(delivered.get('chat', {}).get('id')) != returned_chat_id:
+                'SYSTEM HEALTH REPORT\nCRYPTO-ORACLE deployment validation: notification delivery test. NO BUY SIGNAL. Automated trading remains disabled.'})
+            if not confirmed(response, returned_chat_id):
                 raise ValueError('Delivery not confirmed for configured destination')
             result.update(status='DELIVERY_CONFIRMED', delivery_confirmed=True,
                           reason='Telegram confirmed diagnostic message delivery; this is not a trade signal')
@@ -71,3 +71,4 @@ def main():
 
 if __name__ == '__main__':
     raise SystemExit(main())
+
