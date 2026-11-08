@@ -208,9 +208,21 @@ class AdmissionTests(unittest.TestCase):
                 return {'ok':True,'result':{'id':123}} if method=='getChat' else {'ok':True,'result':{'message_id':99,'chat':{'id':123}}}
             self.assertTrue(opportunity_alerts.deliver(self.item,result,'SYNTHETIC TEST',{'TELEGRAM_BOT_TOKEN':'fixture-only','TELEGRAM_CHAT_ID':'123'},transport=transport,parts=[message]))
             self.assertEqual(calls,['getChat','sendMessage'])
-            with patch.dict(os.environ,TELEGRAM_BOT_TOKEN='fixture-only',TELEGRAM_CHAT_ID='123'), patch.object(scanner,'send_message',return_value=True) as send:
+            with patch.dict(os.environ,TELEGRAM_BOT_TOKEN='fixture-only',TELEGRAM_CHAT_ID='123'), patch('telegram_notify._send_message',return_value=True) as send:
                 self.assertTrue(scanner.send_telegram(self.item))
-                self.assertIn('MANUAL REVIEW',send.call_args.args[0])
+                self.assertEqual(send.call_args.args[0].splitlines()[0],'BUY CANDIDATE — MANUAL REVIEW')
+                self.assertEqual(send.call_args.kwargs['max_attempts'],1)
+
+    def test_admission_transport_rejects_unsigned_and_expired_evidence(self):
+        from telegram_notify import send_admission_message
+        with patch('telegram_notify._send_message') as send:
+            with self.assertRaises(ValueError):
+                send_admission_message({'network':'base','token_address':'0x'+'1'*40})
+            self.sign()
+            evaluate=admission.evaluate
+            with patch.object(admission,'evaluate',side_effect=lambda item,now=None:evaluate(item,now=NOW+100000)):
+                with self.assertRaises(ValueError):send_admission_message(self.item)
+            send.assert_not_called()
     def test_sources_must_be_independent_fresh_and_consistent(self):
         original=copy.deepcopy(self.bundle)
         for mutation in ('same_org','stale','digest','conflict','metrics'):

@@ -242,7 +242,8 @@ def format_admission_alert(item):
     admission = authenticated_admission.evaluate(item)
     if not admission['safety_verified']:
         raise ValueError('Authenticated BUY admission unavailable or expired')
-    lines = ['CRYPTO-ORACLE X100 — '+('BUY CANDIDATE — MANUAL REVIEW' if admission['admitted'] else 'WATCHLIST — SIGNED ENTRY MONITORING; NO BUY SIGNAL'),
+    lines = [('BUY CANDIDATE — MANUAL REVIEW' if admission['admitted'] else 'RESEARCH WATCH'),
+             'CRYPTO-ORACLE X100 — '+('Authenticated candidate; final owner approval required' if admission['admitted'] else 'Signed entry monitoring; no BUY signal'),
              'Network: '+str(item['network']), 'Contract: '+str(item['token_address']),
              'Pool: '+str(item['address']), 'Discovery source: '+str(item.get('source','UNKNOWN'))[:160],
              'Independent reviewers: '+', '.join(admission['reviewers']),

@@ -193,7 +193,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          FAILED_STAGES: cadence_refresh=${{ steps.cadence_refresh.outcome }}, cadence=${{ steps.cadence.outcome }}, compile=${{ steps.compile.outcome }}, tests=${{ steps.tests.outcome }}, config=${{ steps.telegram_config.outcome }}, state_refresh=${{ steps.state_refresh.outcome }}, scan=${{ steps.scan.outcome }}, state=${{ steps.state.outcome }}, research_health=${{ steps.research_health.outcome }}
+          FAILED_STAGES: cadence_refresh=${{ steps.cadence_refresh.outcome }}, cadence=${{ steps.cadence.outcome }}, compile=${{ steps.compile.outcome }}, tests=${{ steps.tests.outcome }}, config=${{ steps.telegram_config.outcome }}, state_refresh=${{ steps.state_refresh.outcome }}, scan=${{ steps.scan.outcome }}, state=${{ steps.state.outcome }}, research_health=${{ steps.research_health.outcome }}, atl=${{ steps.atl_research.outcome }}, multichain=${{ steps.multichain.outcome }}, reversal=${{ steps.reversal.outcome }}, strategy_lab=${{ steps.strategy_lab.outcome }}, technical_followup=${{ steps.technical_followup.outcome }}, stonk_launches=${{ steps.stonk_launches.outcome }}
         run: python telegram_notify.py failure
       - name: Retain scan diagnostics and state snapshot
         if: always()

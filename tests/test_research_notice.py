@@ -17,9 +17,24 @@ class ResearchNoticeTests(unittest.TestCase):
         notice = _issue('UNVERIFIED ATL RESEARCH WATCH', 'Evidence gaps remain')
         with patch('telegram_notify._send_message', return_value=True) as send:
             self.assertTrue(send_research_message(notice))
-            self.assertEqual(send.call_args.args[0].splitlines()[0], 'UNVERIFIED ATL RESEARCH WATCH')
+            self.assertEqual(send.call_args.args[0].splitlines()[0], 'ALL-TIME LOW WATCH')
+            self.assertEqual(send.call_args.args[0].splitlines()[1], 'Research subtype: UNVERIFIED ATL RESEARCH WATCH')
         notice._signature = b'forged'
         with self.assertRaises(ValueError): verified_text(notice)
+
+    def test_umbrella_prefix_preserves_computed_subtype_and_cannot_be_raw_authority(self):
+        for subtype, prefix in (
+                ('EARLY REVERSAL WATCH','BULLISH REVERSAL WATCH'),
+                ('CONFIRMED TECHNICAL REVERSAL','BULLISH REVERSAL WATCH'),
+                ('ALL TIME LOW','ALL-TIME LOW WATCH'),
+                ('NEAR ALL TIME LOW','ALL-TIME LOW WATCH'),
+                ('ATL RECOVERY WATCH','ALL-TIME LOW WATCH')):
+            notice=_issue(subtype,subtype+'\nOriginal evidence limitations')
+            text=verified_text(notice)
+            self.assertEqual(text.splitlines()[:2],[prefix,'Research subtype: '+subtype])
+            self.assertIn('Original evidence limitations',text)
+            with self.assertRaises(ValueError):verified_text(str(notice))
+            with self.assertRaises(ValueError):_issue(prefix,'Caller supplied umbrella')
 
     def test_research_transport_is_one_bounded_attempt(self):
         import urllib.error

@@ -10,8 +10,16 @@ import secrets
 
 _KEY = secrets.token_bytes(32)
 _CONSTRUCTOR = object()
-LABELS = frozenset({'ALL TIME LOW', 'NEAR ALL TIME LOW', 'ATL RECOVERY WATCH', 'UNVERIFIED ATL RESEARCH WATCH', 'EARLY REVERSAL WATCH',
+LABELS = frozenset({'NEW TOKEN DISCOVERY', 'ALL TIME LOW', 'NEAR ALL TIME LOW', 'ATL RECOVERY WATCH', 'UNVERIFIED ATL RESEARCH WATCH', 'EARLY REVERSAL WATCH',
                     'CONFIRMED TECHNICAL REVERSAL', 'INVALIDATED SETUP'})
+PREFIXES = {
+    'ALL TIME LOW': 'ALL-TIME LOW WATCH',
+    'NEAR ALL TIME LOW': 'ALL-TIME LOW WATCH',
+    'ATL RECOVERY WATCH': 'ALL-TIME LOW WATCH',
+    'UNVERIFIED ATL RESEARCH WATCH': 'ALL-TIME LOW WATCH',
+    'EARLY REVERSAL WATCH': 'BULLISH REVERSAL WATCH',
+    'CONFIRMED TECHNICAL REVERSAL': 'BULLISH REVERSAL WATCH',
+}
 
 
 class ResearchNotice(str):
@@ -31,7 +39,11 @@ def _issue(classification, body):
         body = '\n'.join(body.splitlines()[1:]).strip()
     if not body:
         raise ValueError('Missing research body')
-    return ResearchNotice(classification+'\n'+body, _capability=_CONSTRUCTOR)
+    prefix = PREFIXES.get(classification, classification)
+    # The umbrella is navigation, not stronger evidence. Preserve the exact
+    # computed subtype so provider-reported lows never become lifetime claims.
+    subtype = 'Research subtype: '+classification+'\n' if prefix != classification else ''
+    return ResearchNotice(prefix+'\n'+subtype+body, _capability=_CONSTRUCTOR)
 
 
 def verified_text(notice):
@@ -41,6 +53,6 @@ def verified_text(notice):
     expected = hmac.digest(_KEY, text.encode(), hashlib.sha256)
     if not hmac.compare_digest(getattr(notice, '_signature', b''), expected):
         raise ValueError('Invalid research capability')
-    if text.splitlines()[0] not in LABELS:
+    if text.splitlines()[0] not in {PREFIXES.get(label, label) for label in LABELS}:
         raise ValueError('Unsupported research classification')
     return text

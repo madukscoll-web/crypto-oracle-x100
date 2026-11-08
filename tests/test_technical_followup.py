@@ -114,3 +114,90 @@ class InvalidationDeliveryBudgetTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 f.deliver_invalidations(self.state(), lambda _: self.fail('No send'),
                                         lambda _: None, now=NOW, allowed=[PAIR], max_per_run=cap)
+
+
+class InvalidationIsolationTests(unittest.TestCase):
+    state = InvalidationDeliveryBudgetTests.state
+    def test_stale_provider_book_does_not_abort_other_hypotheses(self):
+        state = self.state()
+        first = next(iter(state['hypotheses'].values()))
+        raw = first['samples'][-1]['raw_book']
+        raw['update'] -= 60000
+        first['samples'][-1]['raw_sha256'] = f.hashlib.sha256(f.canonical(raw)).hexdigest()
+        sent = []
+        result = f.deliver_invalidations(state, lambda notice: sent.append(notice) or True,
+                                        lambda _: None, now=NOW, allowed=[PAIR])
+        self.assertEqual(len(result['errors']), 1)
+        self.assertEqual(result['delivered'], 2)
+        self.assertEqual(len(sent), 2)
+        self.assertNotIn('invalidation_notified_at', first)
+
+    def test_tampered_book_is_isolated_and_never_delivered(self):
+        state = self.state()
+        first = next(iter(state['hypotheses'].values()))
+        first['samples'][-1]['raw_sha256'] = 'invalid'
+        result = f.deliver_invalidations(state, lambda _: True, lambda _: None,
+                                        now=NOW, allowed=[PAIR])
+        self.assertEqual(len(result['errors']), 1)
+        self.assertEqual(result['delivered'], 2)
+        self.assertNotIn('invalidation_notified_at', first)
+
+    def test_persistence_failure_still_surfaces(self):
+        def fail(_):
+            raise OSError('state storage unavailable')
+        with self.assertRaises(OSError):
+            f.deliver_invalidations(self.state(), lambda _: True, fail,
+                                    now=NOW, allowed=[PAIR])
+
+
+class SnapshotRefreshTests(unittest.TestCase):
+    run_sample = FollowupTests.run_sample
+    def test_one_stale_book_is_refreshed_before_sampling(self):
+        calls = []
+        def transport(url):
+            if '/currency_pairs/' in url:
+                return fetch(NOW)(url)
+            calls.append(url)
+            return fetch(NOW-60 if len(calls)==1 else NOW)(url)
+        state = {'version': 1, 'hypotheses': {}}
+        report = self.run_sample(state, transport=transport)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(report['errors'], {})
+        self.assertEqual(report['outcomes'][PAIR], 'OBSERVED')
+
+    def test_persistently_stale_book_is_bounded_and_preserves_state(self):
+        calls = []
+        def transport(url):
+            calls.append(url)
+            return fetch(NOW-60)(url)
+        state = {'version': 1, 'hypotheses': {}}
+        report = self.run_sample(state, transport=transport)
+        self.assertEqual(len(calls), 3)
+        self.assertEqual(report['errors'][PAIR], 'ValueError')
+        self.assertEqual(state['hypotheses'], {})
+
+
+class MalformedHypothesisTests(unittest.TestCase):
+    state = InvalidationDeliveryBudgetTests.state
+
+    def test_malformed_row_does_not_abort_fresh_invalidations(self):
+        state = self.state()
+        state['hypotheses'] = {'corrupt':None, **state['hypotheses']}
+        result=f.deliver_invalidations(state,lambda _:True,lambda _:None,now=NOW,allowed=[PAIR])
+        self.assertEqual(result['delivered'],2)
+        self.assertIn('corrupt',result['errors'])
+
+    def test_missing_source_does_not_send_or_abort_siblings(self):
+        state=self.state()
+        first=next(iter(state['hypotheses'].values()))
+        del first['samples'][-1]['source_url']
+        result=f.deliver_invalidations(state,lambda _:True,lambda _:None,now=NOW,allowed=[PAIR])
+        self.assertEqual(result['delivered'],2)
+        self.assertEqual(len(result['errors']),1)
+        self.assertNotIn('invalidation_notified_at',first)
+
+    def test_corrupt_retained_row_is_reported_without_erasing_it(self):
+        state={'version':1,'hypotheses':{'corrupt':None}}
+        result=f.collect({},state,lambda _:None,NOW,[])
+        self.assertIn('corrupt',result['errors'])
+        self.assertIn('corrupt',state['hypotheses'])

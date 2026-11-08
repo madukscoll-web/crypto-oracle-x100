@@ -792,8 +792,8 @@ def send_telegram(item):
         raise RuntimeError("Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID")
     import authenticated_admission
     if authenticated_admission.evaluate(item)['safety_verified']:
-        import opportunity_alerts
-        return send_message(opportunity_alerts.format_admission_alert(item))
+        from telegram_notify import send_admission_message
+        return send_admission_message(item)
     flags = "; ".join(item["flags"]) if item["flags"] else "No additional activity flags triggered"
     decision, summary = decision_summary(item)
     setup, setup_reason = setup_assessment(item)
@@ -851,19 +851,21 @@ def send_telegram(item):
 
 
 
-def research_alert_eligible(item):
-    """Only independently verified research may leave the audit pipeline.
+def research_alert_eligible(item, now=None):
+    """Apply preliminary research evidence rules independently of BUY admission.
 
-    Discovery activity, a pool relationship and a WAIT label do not establish
-    identity, sellability, liquidity controls or investment fundamentals.
-    Recompute the canonical assessment rather than trusting item labels.
+    Exact identity, fresh corroborated market data and the provider security
+    screen are required. Missing advanced evidence remains disclosed and can
+    never grant BUY; known adverse findings reject before activity scoring.
     """
     try:
-        import evidence_audit
-        assessment = canonical_outcomes.assess(item)
-        return (assessment.get("outcome") == "ENTRY WATCH"
-                and not assessment.get("critical_gaps")
-                and evidence_audit.audit(item).get("trade_ready") is True)
+        import opportunity_alerts
+        if item.get('asset_category') in ('TOKENIZED_STOCK', 'TOKENIZED_SECURITY', 'STABLECOIN', 'WRAPPED_ASSET', 'PEGGED_ASSET'):
+            return False
+        if (item.get('verification') or {}).get('tokenized_stock_reference'):
+            return False
+        assessment = opportunity_alerts.classify(item, now=now)
+        return assessment['classification'] in ('HIGH-PRIORITY WATCH', 'ENTRY WATCH') and not assessment['eligible_for_buy']
     except (ValueError, TypeError, KeyError, AttributeError, OSError):
         return False
 
@@ -873,7 +875,7 @@ def research_alert_text(item):
     setup, setup_reason = setup_assessment(item)
     risks = "; ".join(item.get("risk_reasons") or []) or "Independent safety and execution verification incomplete"
     return (
-        "CRYPTO-ORACLE X100 — RESEARCH WATCH ONLY\n"
+        "NEW TOKEN DISCOVERY\n"
         + project_context.summary(item.get("project_context"), expected={"network":item.get("network"),"token_address":item.get("token_address")}) + "\n"
         "NOT APPROVED FOR PURCHASE. NOT A BUY SIGNAL.\n"
         f"Market setup: {setup} — {setup_reason}\n"
@@ -886,11 +888,23 @@ def research_alert_text(item):
         f"24h volume USD: {display_measurement(item.get('volume'), ',.0f')}\n"
         f"1h trades: {display_measurement(item.get('trades'), '.0f')}\n"
         f"Discovery score (not safety): {item.get('score', 'UNKNOWN')}\n"
+        f"Discovery source: {item.get('source', 'UNKNOWN')}\n"
+        "Token launch origin/age: not established by pool discovery.\n"
+        f"Source: {item.get('url', 'UNKNOWN')}\n"
         f"Unresolved evidence: {risks[:700]}\n"
         f"Observed UTC: {item.get('observed_at', 'UNKNOWN')}\n"
         "Independent sellability, LP controls, holders, vesting and executable entry "
         "must be verified before any purchase."
     )
+
+
+def send_discovery_research(item):
+    """Recheck evidence immediately before issuing a research-only capability."""
+    if not research_alert_eligible(item):
+        raise ValueError('Discovery research evidence unavailable or expired')
+    from research_notice import _issue
+    from telegram_notify import send_research_message
+    return send_research_message(_issue('NEW TOKEN DISCOVERY', research_alert_text(item)))
 
 
 def main():
@@ -1142,7 +1156,7 @@ def main():
         if (watchlist.get(item["key"]) or {}).get("research_alerted_at"):
             continue
         try:
-            if send_message(research_alert_text(item)) is not True:
+            if send_discovery_research(item) is not True:
                 raise RuntimeError("Telegram receipt not confirmed")
         except (urllib.error.URLError, ValueError, RuntimeError, TimeoutError, OSError) as exc:
             warnings.append("Research watch delivery failed: " + type(exc).__name__)

@@ -32,6 +32,18 @@ def send_research_message(notice):
     return _send_message(verified_text(notice), max_attempts=1, request_timeout=8)
 
 
+def send_admission_message(item):
+    """Recompute authenticated admission at transport, never trust supplied text.
+
+    Generic send_message intentionally downgrades caller-provided BUY labels.
+    Passing a freshly formatted admission through that path also downgraded
+    genuine signed candidates. Keep the privileged path bound to the asset and
+    its current evidence rather than adding a bypass flag to generic transport.
+    """
+    from opportunity_alerts import format_admission_alert
+    return _send_message(format_admission_alert(item), max_attempts=1, request_timeout=8)
+
+
 def _send_message(message, *, max_attempts=3, request_timeout=20):
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
     chat = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
@@ -75,8 +87,17 @@ def workflow_message(mode):
     run_url = ("https://github.com/" + os.environ.get("GITHUB_REPOSITORY", "")
                + "/actions/runs/" + os.environ.get("GITHUB_RUN_ID", ""))
     if mode == "failure":
-        return ("CRYPTO-ORACLE X100: workflow FAILED. No successful scan should be assumed. "
-                "Failed stage(s): " + os.environ.get("FAILED_STAGES", "see run logs") + ". Inspect: " + run_url)
+        outcomes = {}
+        for entry in os.environ.get('FAILED_STAGES', '').split(','):
+            name, separator, outcome = entry.strip().partition('=')
+            if separator:
+                outcomes[name] = outcome
+        failed = [name + '=' + value for name, value in outcomes.items()
+                  if value in ('failure', 'cancelled', 'timed_out')]
+        core = outcomes.get('scan', 'unknown')
+        return ("CRYPTO-ORACLE X100: workflow FAILED. Core scan outcome: " + core + ". "
+                "Failed stage(s): " + (', '.join(failed) or 'see run logs') +
+                ". Full pipeline completion and alert delivery are not established. Inspect: " + run_url)
     report = json.loads(pathlib.Path("scan_summary.json").read_text(encoding="utf-8"))
     if report.get("status") != "completed":
         raise NotificationError("Refusing completion summary for an unsuccessful scan")
