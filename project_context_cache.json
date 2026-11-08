@@ -1862,7 +1862,7 @@
       }
     },
     "de9291709fe18dfa91494cd7b3c19a6e61cf3061ba0c732c38b3a977b2da6ec4": {
-      "cached_at": 1794156619.4958704,
+      "cached_at": 1794158052.3780544,
       "profile": {
         "schema_version": 1,
         "identity": {
@@ -1872,17 +1872,18 @@
           "curated_provider_id": "ondo-finance",
           "identity_status": "CURATED_ASSOCIATION_UNVERIFIED"
         },
-        "retrieved_at": "2026-11-08T16:50:19.495870+00:00",
+        "retrieved_at": "2026-11-08T17:14:12.378054+00:00",
         "status": "UNVERIFIED_CONTEXT",
         "buy_authorized": false,
         "orders_allowed": false,
         "dimensions": {
           "purpose": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
+            "status": "PROVIDER_REPORTED_UNVERIFIED",
+            "value": "The Ondo Foundation was founded in 2022 as an independently governed and nonprofit Cayman Islands Foundation Company with no beneficial owners. The Ondo Foundation assisted in the launch of the Ondo DAO, which deployed and currently governs",
+            "source_url": "https://api.coingecko.com/api/v3/coins/ondo-finance?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
+            "retrieved_at": "2026-11-08T17:14:12.378054+00:00",
+            "data_observed_at": null,
+            "reason": "Reported metadata; source-origin, completeness and field freshness not independently verified"
           },
           "token_value_capture": {
             "status": "UNKNOWN",
@@ -1899,11 +1900,17 @@
             "data_observed_at": null
           },
           "development": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
+            "status": "PROVIDER_REPORTED_UNVERIFIED",
+            "value": {
+              "provider_listed_repositories": [
+                "https://github.com/ondoprotocol/ondo-protocol"
+              ],
+              "roadmap_delivery_and_code_quality": "UNKNOWN"
+            },
+            "source_url": "https://api.coingecko.com/api/v3/coins/ondo-finance?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
+            "retrieved_at": "2026-11-08T17:14:12.378054+00:00",
+            "data_observed_at": null,
+            "reason": "Reported metadata; source-origin, completeness and field freshness not independently verified"
           },
           "funding": {
             "status": "UNKNOWN",
@@ -1927,11 +1934,23 @@
             "data_observed_at": null
           },
           "supply": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
+            "status": "PROVIDER_REPORTED_UNVERIFIED",
+            "value": {
+              "circulating_supply": 4869330647.0,
+              "total_supply": 10000000000.0,
+              "max_supply": 10000000000.0,
+              "market_cap_usd": 1742035717.0,
+              "fdv_usd": 3577567109.0,
+              "fdv_to_market_cap": 2.0536703547967496,
+              "unlocks_30d": "UNKNOWN",
+              "unlocks_90d": "UNKNOWN",
+              "unlocks_365d": "UNKNOWN",
+              "mint_burn_and_vesting_authority": "UNKNOWN"
+            },
+            "source_url": "https://api.coingecko.com/api/v3/coins/ondo-finance?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
+            "retrieved_at": "2026-11-08T17:14:12.378054+00:00",
+            "data_observed_at": null,
+            "reason": "Reported metadata; source-origin, completeness and field freshness not independently verified"
           },
           "venue": {
             "status": "EXCHANGE_METADATA_OBSERVATION",
@@ -1940,7 +1959,7 @@
               "pair": "ONDO_USDT"
             },
             "source_url": "https://api.gateio.ws/api/v4/spot/currency_pairs/ONDO_USDT",
-            "retrieved_at": "2026-11-08T16:50:19.495870+00:00",
+            "retrieved_at": "2026-11-08T17:14:12.378054+00:00",
             "data_observed_at": null,
             "reason": "A listing is not proof of safety or executable depth"
           },
@@ -1952,10 +1971,17 @@
             "data_observed_at": null
           }
         },
-        "sources": [],
-        "warnings": [
-          "Provider metadata unavailable or identity not established: HTTPError"
+        "sources": [
+          {
+            "provider": "CoinGecko",
+            "url": "https://api.coingecko.com/api/v3/coins/ondo-finance?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
+            "retrieved_at": "2026-11-08T17:14:12.378054+00:00",
+            "provider_updated_at": "2026-11-08T17:12:58.000Z",
+            "response_sha256": "d67808768067fbeea34df4e75bc9ba802a7bce76079b2c43e1e4e5344ff66347",
+            "scope": "Single-provider observations; not independent authentication"
+          }
         ],
+        "warnings": [],
         "questions": {
           "purpose": "What problem is solved, and why is blockchain/token use necessary?",
           "token_value_capture": "How do usage, fees and revenue benefit the token rather than only the company?",
@@ -1967,6 +1993,25 @@
           "supply": "What circulates, what can be minted/burned, and what unlocks in 30/90/365 days?",
           "venue": "Is the exact asset tradable on Spot/DEX with fresh executable depth?",
           "adoption": "Are paying users, revenue and counterparties independently corroborated?"
+        },
+        "provider_metadata": {
+          "coin_id": "ondo-finance",
+          "name": "Ondo",
+          "provider_listed_homepages": [
+            "https://ondo.foundation/",
+            "https://ondo.finance/"
+          ],
+          "genesis_date_provider_claim": null,
+          "categories": [
+            "Decentralized Finance (DeFi)",
+            "Ethereum Ecosystem",
+            "Real World Assets (RWA)",
+            "Coinbase Ventures Portfolio",
+            "Pantera Capital Portfolio",
+            "GMCI DeFi Index",
+            "RWA Protocol",
+            "GMCI Index"
+          ]
         }
       }
     },
