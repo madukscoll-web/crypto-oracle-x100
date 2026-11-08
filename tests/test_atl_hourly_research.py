@@ -137,3 +137,17 @@ class ProviderHealthTests(unittest.TestCase):
         self.assertEqual(result['status'],'COMPLETED')
         self.assertEqual(result['overall_objective'],'BLOCKED')
 
+
+
+class ATLEnrichmentHealthTests(unittest.TestCase):
+    def test_provider_enrichment_failure_is_visible_data_degradation(self):
+        from pipeline_health import summarize
+        stages = {name:'success' for name in ('scan','reversal','technical_followup','strategy_lab','atl')}
+        reports = {name:{} for name in stages}
+        reports['atl'] = {'status':'OBSERVATIONS_UNVERIFIED', 'enrichment_errors':[{'provider_id':'fixture','error_type':'ProviderUnavailable'}]}
+        report = summarize(stages, reports)
+        self.assertEqual(report['status'],'DEGRADED')
+        self.assertIn('atl', report['data_degradation'])
+        self.assertFalse(report['failed_or_skipped_stages'])
+        reports['atl']['research_delivery']={'failed':1}
+        self.assertIn('atl_delivery',summarize(stages,reports)['failed_or_skipped_stages'])

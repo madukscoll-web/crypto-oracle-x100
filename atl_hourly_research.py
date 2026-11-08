@@ -191,8 +191,9 @@ def main():
         temporary.replace(STATE_PATH)
     pathlib.Path('atl_coverage_report.json').write_text(json.dumps(result, indent=2)+'\n')
     print('ATL research coverage:', json.dumps({k:v for k,v in result.items() if k not in ('observations','research_dossiers')}))
+    # Provider-limited enrichment is degraded DATA, not a crashed process.
+    # Keep it explicit in the report/health digest; transport failure is fatal.
     healthy=(result['status']=='OBSERVATIONS_UNVERIFIED'
-             and not result.get('enrichment_errors')
              and not (result.get('research_delivery') or {}).get('failed'))
     return 0 if healthy else 1
 

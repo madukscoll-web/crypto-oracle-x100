@@ -14,6 +14,10 @@ def summarize(stages, reports):
     if 'atl' in stages and atl.get('status') != 'OBSERVATIONS_UNVERIFIED':
         failures['atl_data']=atl.get('status','MISSING')
     data_degradation={}
+    if atl.get('enrichment_errors'):
+        data_degradation['atl']='Metadata/history enrichment unavailable or invalid; no verified lifetime claim'
+    if (atl.get('research_delivery') or {}).get('failed'):
+        failures['atl_delivery']='Unconfirmed Telegram research delivery' 
     if 'multichain' in stages:
         market=reports.get('multichain')
         if not isinstance(market,dict):
@@ -66,4 +70,5 @@ def main():
 
 if __name__=='__main__':
     raise SystemExit(main())
+
 

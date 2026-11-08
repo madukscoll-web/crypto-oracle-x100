@@ -32,6 +32,7 @@ import hourly_evidence
 import gate_spot_candidates
 import scan_audit
 import revisit_scheduler
+import deferred_candidates
 from oracle_http import get_json, ProviderRateLimited
 from telegram_notify import send_message
 
@@ -888,6 +889,7 @@ def research_alert_text(item):
 def main():
     seen = load_state()
     watchlist = load_watchlist()
+    deferred = deferred_candidates.load()
     history = signal_tracker.load()
     candidates = []
     keys_in_run = set()
@@ -938,6 +940,13 @@ def main():
         print(f"{network}: checked {network_checked} pool observations", flush=True)
 
     previously_reported_pool_count = sum(item['key'] in seen for item in candidates)
+    deferred_report = deferred_candidates.prepare(
+        deferred, candidates, excluded=set(seen) | set(watchlist))
+    reserved_deferred, refresh_counts = deferred_candidates.refresh(
+        deferred, candidates, fetch_json, inspect, API,
+        limit=min(deferred_candidates.RESERVED_SLOTS, EVIDENCE_SLOTS))
+    deferred_report.update(refresh_counts)
+    deferred_candidates.save(deferred)
     research_identity_count = len(hourly_evidence.rotate(candidates, watchlist))
     # Rank independently: older, high-liquidity pools cannot crowd out new pools.
     # These are POOL classifications, not independently verified token ages.
@@ -993,6 +1002,7 @@ def main():
             time.sleep(REQUEST_DELAY_SECONDS)
     selected.extend(revisits)
     selected = hourly_evidence.rotate(selected, watchlist)[:evidence_slots]
+    selected = deferred_candidates.prioritize(reserved_deferred, selected, evidence_slots)
     print(
         f"Qualified candidates: NEW POOL={len(new_candidates)}, "
         f"EXISTING POOL={len(existing_candidates)}; "
@@ -1140,6 +1150,9 @@ def main():
     except Exception as exc:
         warnings.append("Gate paper stage unavailable: " + type(exc).__name__)
     save_watchlist(watchlist)
+    deferred_report['assessed_removed'] = deferred_candidates.complete(deferred, selected)
+    deferred_report['pending'] = len(deferred['pending'])
+    deferred_candidates.save(deferred)
     signal_tracker.save(history)
     ledger_status = forward_ledger.capture(history, selected)
     print(f"Tracked pool histories: {len(history)}", flush=True)
@@ -1175,6 +1188,7 @@ def main():
                                                   candidates, selected, evidence_reports),
               "qualified_previously_reported_pools": previously_reported_pool_count,
               "qualified_research_identities": research_identity_count,
+              "deferred_candidates": deferred_report,
               "observations": total_checked, "candidates": len(candidates),
               "alerts_delivered": delivered, "research_watch_delivered": research_sent,
               "delivered_by_outcome": delivered_by_outcome,
