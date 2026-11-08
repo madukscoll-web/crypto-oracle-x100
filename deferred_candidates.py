@@ -28,7 +28,8 @@ def load(path=STATE):
         return {'version': 1, 'pending': {}}
     state = json.loads(pathlib.Path(path).read_text())
     if (not isinstance(state, dict) or state.get('version') != 1 or
-            not isinstance(state.get('pending'), dict) or len(state['pending']) > MAX_ENTRIES):
+            not isinstance(state.get('pending'), dict) or len(state['pending']) > MAX_ENTRIES or
+            type(state.get('network_cursor', 0)) is not int or state.get('network_cursor', 0) < 0):
         raise ValueError('Invalid deferred candidate state')
     for key, row in state['pending'].items():
         if (not isinstance(row, dict) or not isinstance(row.get('network'), str) or
@@ -45,6 +46,19 @@ def save(state, path=STATE):
     temporary = path.with_suffix('.json.tmp')
     temporary.write_text(json.dumps(state, indent=2, sort_keys=True)+'\n')
     temporary.replace(path)
+
+
+def network_order(state, networks):
+    """Rotate first access fairly even when a provider's later requests fail."""
+    cursor = state.get('network_cursor', 0)
+    if type(cursor) is not int or cursor < 0:
+        raise ValueError('Invalid core network cursor')
+    networks = tuple(networks)
+    if not networks or any(not isinstance(network, str) or not network for network in networks):
+        raise ValueError('Nonempty network list required')
+    offset = cursor % len(networks)
+    state['network_cursor'] = (offset+1) % len(networks)
+    return networks[offset:]+networks[:offset]
 
 
 def prepare(state, candidates, *, excluded=(), now=None):
