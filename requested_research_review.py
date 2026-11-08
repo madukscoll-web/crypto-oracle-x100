@@ -115,4 +115,15 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError, ArithmeticError) as exc:
+        # Never print provider/Telegram exception text: URLs may contain secrets.
+        failure = dict(status='FAILED_OR_UNCONFIRMED', error_type=type(exc).__name__,
+                       delivery_confirmed=False, buy_authorized=False, orders_allowed=False)
+        target = pathlib.Path('requested_research_review.json')
+        if not target.exists():
+            target.write_text(json.dumps(failure,indent=2)+'\n')
+        print(json.dumps(failure))
+        raise SystemExit(1)
+
