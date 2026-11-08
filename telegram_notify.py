@@ -87,8 +87,17 @@ def workflow_message(mode):
     run_url = ("https://github.com/" + os.environ.get("GITHUB_REPOSITORY", "")
                + "/actions/runs/" + os.environ.get("GITHUB_RUN_ID", ""))
     if mode == "failure":
-        return ("CRYPTO-ORACLE X100: workflow FAILED. No successful scan should be assumed. "
-                "Failed stage(s): " + os.environ.get("FAILED_STAGES", "see run logs") + ". Inspect: " + run_url)
+        outcomes = {}
+        for entry in os.environ.get('FAILED_STAGES', '').split(','):
+            name, separator, outcome = entry.strip().partition('=')
+            if separator:
+                outcomes[name] = outcome
+        failed = [name + '=' + value for name, value in outcomes.items()
+                  if value in ('failure', 'cancelled', 'timed_out')]
+        core = outcomes.get('scan', 'unknown')
+        return ("CRYPTO-ORACLE X100: workflow FAILED. Core scan outcome: " + core + ". "
+                "Failed stage(s): " + (', '.join(failed) or 'see run logs') +
+                ". Full pipeline completion and alert delivery are not established. Inspect: " + run_url)
     report = json.loads(pathlib.Path("scan_summary.json").read_text(encoding="utf-8"))
     if report.get("status") != "completed":
         raise NotificationError("Refusing completion summary for an unsuccessful scan")

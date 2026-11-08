@@ -152,7 +152,7 @@ class LifetimeTests(unittest.TestCase):
             self.assertFalse(result['findings'][0]['lifetime_verified']);self.assertIsNone(notice)
             d['circulating_market_cap_usd']='200000000'
             result,notice=atl.collect([d],now=NOW)
-            self.assertEqual(str(notice).splitlines()[0],'ALL TIME LOW')
+            self.assertEqual(str(notice).splitlines()[:2],['ALL-TIME LOW WATCH','Research subtype: ALL TIME LOW'])
             self.assertIn('NOT A BUY APPROVAL',str(notice))
 
     def test_qualified_delivery_records_only_exact_receipts_and_deduplicates(self):

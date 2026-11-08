@@ -26,3 +26,16 @@ class WorkflowNotificationPolicyTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FailureDetailTests(unittest.TestCase):
+    def test_failure_names_actual_followup_and_preserves_core_success(self):
+        import os
+        from unittest.mock import patch
+        from telegram_notify import workflow_message
+        with patch.dict(os.environ, {'FAILED_STAGES':'scan=success, state=success, research_health=failure, technical_followup=failure'}):
+            text=workflow_message('failure')
+        self.assertIn('Core scan outcome: success',text)
+        self.assertIn('technical_followup=failure',text)
+        self.assertNotIn('scan=success',text)
+        self.assertNotIn('No successful scan should be assumed',text)
