@@ -201,3 +201,13 @@ class MalformedHypothesisTests(unittest.TestCase):
         result=f.collect({},state,lambda _:None,NOW,[])
         self.assertIn('corrupt',result['errors'])
         self.assertIn('corrupt',state['hypotheses'])
+
+
+class CachedInvalidationFreshnessTests(unittest.TestCase):
+    def test_expired_retained_samples_are_stale_not_validation_errors(self):
+        state=InvalidationDeliveryBudgetTests().state()
+        result=f.deliver_invalidations(state,lambda _:self.fail('Expired sample must not send'),
+                                       lambda _:self.fail('No state advancement'),now=NOW+31,allowed=[PAIR])
+        self.assertEqual(result['stale'],3)
+        self.assertEqual(result['errors'],{})
+        self.assertEqual(result['attempted'],0)

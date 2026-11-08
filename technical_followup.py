@@ -184,7 +184,7 @@ def deliver_invalidations(state, sender, persist, *, now=None, allowed=(), max_p
             if not samples:
                 continue
             sample = samples[-1]
-            if not 0 <= now-timestamp(sample['observed_at']) <= 900:
+            if not 0 <= now-timestamp(sample['observed_at']) <= 30:
                 summary['stale'] += 1
                 continue
             # Never trust attached at_or_below flags or an unbound state key.
