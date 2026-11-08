@@ -5,6 +5,7 @@ on:
     paths:
       - gate_spot_discovery.py
       - gate_spot_research.py
+      - gate_review_dossiers.py
       - .github/workflows/gate-spot-discovery.yml
   workflow_dispatch:
   schedule:
@@ -28,11 +29,17 @@ jobs:
           python -m unittest discover -s tests -v
       - name: Discover and assess actual Gate Spot assets without orders or notifications
         run: python -u gate_spot_discovery.py
+      - name: Prepare unreviewed source-bound dossiers including adverse findings
+        if: always()
+        run: python -u gate_review_dossiers.py
       - name: Retain raw and partial research evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: gate-spot-discovery-${{ github.run_id }}
-          path: gate_spot_discovery_report.json
+          path: |
+            gate_spot_discovery_report.json
+            gate_review_dossiers.json
           retention-days: 7
           if-no-files-found: warn
+

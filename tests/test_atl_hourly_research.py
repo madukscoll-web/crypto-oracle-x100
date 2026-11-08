@@ -117,7 +117,7 @@ class ATLWorkflowTests(unittest.TestCase):
         self.assertIn('            atl_coverage_report.json',source)
         self.assertIn('atl_research_state.json',workflow_state.FILES)
         # Stage timeouts total 30 minutes before setup, state publish and artifacts.
-        self.assertIn('    timeout-minutes: 35',source)
+        self.assertIn('    timeout-minutes: 39',source)  # Added bounded ATL enrichment and delivery reserve
 
 
 class ProviderHealthTests(unittest.TestCase):
@@ -136,3 +136,4 @@ class ProviderHealthTests(unittest.TestCase):
         result=pipeline_health.summarize({k:'success' for k in reports},reports)
         self.assertEqual(result['status'],'COMPLETED')
         self.assertEqual(result['overall_objective'],'BLOCKED')
+

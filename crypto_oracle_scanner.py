@@ -31,6 +31,7 @@ import evidence_coverage
 import hourly_evidence
 import gate_spot_candidates
 import scan_audit
+import revisit_scheduler
 from oracle_http import get_json, ProviderRateLimited
 from telegram_notify import send_message
 
@@ -674,6 +675,7 @@ def watchlist_transition(item, watchlist):
     if (item.get("hourly_evidence") or {}).get("status") == "COLLECTED":
         checked_at = item["observed_at"]
     watchlist[key] = {"evidence_checked_at": checked_at, "setup": setup, "observed_at": item["observed_at"],
+                      "revisit_attempted_at": watchlist.get(key, {}).get("revisit_attempted_at"),
                       "research_alerted_at": watchlist.get(key, {}).get("research_alerted_at"),
                       "score": item["score"], "network": item["network"],
                       "pool_address": item["address"]}
@@ -963,10 +965,14 @@ def main():
     # Fetch tracked pools directly, including those absent from discovery feeds.
     # Bound requests to avoid exceeding the public API rate limit.
     revisits = []
-    # Rotate tracked pools by oldest observation, instead of always refreshing the same eight.
-    ordered_watchlist = sorted(watchlist.items(), key=lambda pair: pair[1].get("observed_at", ""))
     revisit_limit = max(1, min(12, int(os.environ.get("ORACLE_REVISITS", "3"))))
-    for key, record in ordered_watchlist[:revisit_limit]:
+    # Failed alert delivery must still restore its pre-attempt transition state.
+    revisit_previous = {key: dict(record) for key, record in watchlist.items()
+                        if isinstance(record, dict)}
+    # Bounded priority preference; failed attempts rotate as well as successes.
+    ordered_watchlist = revisit_scheduler.select(
+        watchlist, revisit_limit, excluded={x["key"] for x in selected})
+    for key, record in ordered_watchlist:
         network = record.get("network")
         address = record.get("pool_address")
         if not network or not address or key in {x["key"] for x in selected}:
@@ -1056,7 +1062,7 @@ def main():
         item["market_setup"] = setup
         if price_evidence(item)[0]:
             signal_tracker.record(history, item)
-        previous_watch = watchlist.get(item["key"])
+        previous_watch = revisit_previous.get(item["key"], watchlist.get(item["key"]))
         transition = watchlist_transition(item, watchlist)
         if already_alerted(item, seen):
             scan_audit.increment(notification_counts, "already_delivered")
@@ -1235,6 +1241,7 @@ def cli():
 
 if __name__ == "__main__":
     raise SystemExit(cli())
+
 
 
 

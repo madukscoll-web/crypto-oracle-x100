@@ -66,13 +66,14 @@ def get_json(url, headers=None, *, retries=RETRIES, timeout=TIMEOUT):
             if exc.code == 429:
                 delay = rate_limit_delay(exc.headers)
                 _COOLDOWN_UNTIL[host] = time.monotonic() + delay
-                # Never shorten the provider's delay or spend minutes retrying
-                # every token while that same provider remains unavailable.
-                if delay > 60 or attempt == retries:
-                    raise
-                print(f"API {host}: HTTP 429; retry {attempt + 1}/{retries} in {delay:g}s", flush=True)
-                time.sleep(delay)
-                continue
+                # A rate limit is a scheduling outcome, not a transient request
+                # failure. Return control to the caller for fallback/deferral;
+                # sleeping here consumed five minutes across ten candidates in
+                # production. The shared cooldown still prevents early retries
+                # through other resources on this host. 5xx/network retries
+                # remain bounded below, and fresh calls recover after expiry.
+                print(f"API {host}: HTTP 429; deferred during {delay:g}s provider cooldown", flush=True)
+                raise
             if exc.code not in (429, 500, 502, 503, 504) or attempt == retries:
                 raise
             delay = retry_delay(exc.headers, attempt)
@@ -83,4 +84,5 @@ def get_json(url, headers=None, *, retries=RETRIES, timeout=TIMEOUT):
             delay = retry_delay({}, attempt)
             print(f"API {host}: {type(exc).__name__}; retry {attempt + 1}/{RETRIES}", flush=True)
         time.sleep(delay)
+
 

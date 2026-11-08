@@ -58,7 +58,6 @@ LABELS = frozenset({
     "OBSERVED-LOW RECOVERY | TECHNICAL WATCH",
     "BULLISH REVERSAL | TECHNICAL WATCH",
     "BREAKOUT / RETEST | TECHNICAL WATCH",
-    "BUY CANDIDATE | MANUAL REVIEW",
     "INVALIDATION / EXIT WATCH", "BOT HEALTH | OPERATIONAL",
 })
 
@@ -68,4 +67,5 @@ def labeled_message(label, body):
     if not isinstance(body, str) or not body.strip():
         raise ValueError("Missing message body")
     return label + "\n" + body.strip()
+
 

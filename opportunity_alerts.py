@@ -222,9 +222,14 @@ def format_alert(item,result,event='NEW WATCH',example=False):
         lines.append('- '+key+': '+entry.get('status','UNKNOWN')+'; observed '+str(entry.get('observed_at','UNKNOWN'))+'; '+entry.get('reason','Unavailable'))
     if result.get('entry'):
         entry=result['entry'];lines+=['ENTRY WATCH: historical reference '+str(entry['entry_reference'])+'; observed invalidation '+str(entry['invalidation'])+'; candle UTC '+dt.datetime.fromtimestamp(entry['candle_at'],dt.timezone.utc).isoformat(), 'These are observed historical levels, not executable entry/stop orders. Targets: UNKNOWN.']
-    if title=='VERIFIED BUY' and not example:
-        quote=item.get('execution_evidence') or {}
-        lines+=['EXECUTION AND RISK EVIDENCE: '+json.dumps({k:quote.get(k,'UNKNOWN') for k in ('provider','quote_id','amount_in','amount_out','expires_at','fees','slippage','entry','invalidation','risk')},sort_keys=True)]
+    if qualified:
+        # Only the freshly authenticated, inspected bundle may supply execution
+        # and risk details. Caller-attached execution_evidence is not authority.
+        lines += ['EXECUTION AND RISK EVIDENCE (AUTHENTICATED REVIEW): '+json.dumps(
+            {k:admission['summary'][k] for k in ('execution','trade_plan')},sort_keys=True),
+            'Authenticated evidence SHA-256: '+admission['bundle_sha256'],
+            'Executable evidence expires: '+admission['expires_at'],
+            'Final owner approval required. Quotes may expire; no automatic orders.']
     import project_context
     lines += [project_context.summary(item.get('project_context'), expected={'network':item.get('network'),'token_address':item.get('token_address')})]
     lines+=['EXACT MISSING MANDATORY CHECKS:']+['- '+x for x in missing]+['MAJOR RISKS:']+['- '+x for x in result.get('risks',[])]+['Research: '+str(item.get('url','UNKNOWN')),'Automated trading DISABLED. Recheck fresh evidence before any decision.']
@@ -328,5 +333,6 @@ def send_notification(item,result,notification,state,env,persist,transport=teleg
     acknowledge(state,item['key'],notification)
     record.pop('pending_delivery',None)
     persist()
+
 
 

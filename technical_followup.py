@@ -12,6 +12,7 @@ import re
 import time
 from gate_spot_research import PublicGate, analyze_book, decimal
 from provider_session import Session
+from research_notice import _issue
 
 MAX_HYPOTHESES = 64
 MAX_SAMPLES = 256
@@ -146,6 +147,64 @@ def collect(receipts, state, fetch, now=None, allowed=()):
     return report
 
 
+def deliver_invalidations(state, sender, persist, *, now=None, allowed=(), max_per_run=2):
+    """Recompute a fresh sampled breach and notify once per delivered hypothesis.
+
+    Only already delivered watches qualify. This is withdrawal of a technical
+    hypothesis, never a claim that a stop was executed or a trade existed.
+    """
+    now = time.time() if now is None else now
+    if type(max_per_run) is not int or not 1 <= max_per_run <= 2:
+        raise ValueError('Invalidation delivery budget must be one or two attempts')
+    summary = dict(delivered=0, failed=0, stale=0, attempted=0,
+                   buy_authorized=False, orders_allowed=False)
+    if state.get('version') != 1 or not isinstance(state.get('hypotheses'), dict):
+        raise ValueError('Malformed follow-up state')
+    for identifier, row in state['hypotheses'].items():
+        if summary['attempted'] >= max_per_run:
+            break
+        if row.get('pair') not in allowed or row.get('invalidation_notified_at'):
+            continue
+        samples = row.get('samples') or []
+        if not samples:
+            continue
+        sample = samples[-1]
+        if not 0 <= now-timestamp(sample['observed_at']) <= 900:
+            summary['stale'] += 1
+            continue
+        # Never trust attached at_or_below flags or an unbound state key.
+        expected, _ = identity(row['pair'], row['alert'])
+        if identifier != expected:
+            raise ValueError('Invalidation hypothesis binding mismatch')
+        raw = sample['raw_book']
+        if hashlib.sha256(canonical(raw)).hexdigest() != sample['raw_sha256']:
+            raise ValueError('Invalidation book digest mismatch')
+        book = analyze_book(raw, '100', now)
+        if decimal(book['best_bid']) > decimal(row['alert']['invalidation']):
+            continue
+        text = ('INVALIDATED SETUP\n'
+                f"Gate Spot: {row['pair']} | timeframe {row['alert']['interval']}\n"
+                f"Previously delivered technical hypothesis: {row['alert']['delivered_at']}\n"
+                f"Fresh observed best bid {book['best_bid']} USDT is at/below invalidation "
+                f"reference {row['alert']['invalidation']} USDT. Withdraw this hypothesis.\n"
+                f"Observed UTC: {sample['observed_at']}\n"
+                'Sampled book observation only; between-sample path and actual trade execution are unknown. '
+                'No stop fill, realized loss, security approval or purchase authority is inferred.\n'
+                f"Source: {sample['source_url']}")
+        summary['attempted'] += 1
+        try:
+            if sender(_issue('INVALIDATED SETUP', text)) is not True:
+                raise RuntimeError('Telegram receipt unconfirmed')
+        except (RuntimeError, OSError, ValueError):
+            summary['failed'] += 1
+            continue
+        row['invalidation_notified_at'] = dt.datetime.fromtimestamp(now, dt.timezone.utc).isoformat()
+        # Publication failure must surface; do not claim durable deduplication.
+        persist(state)
+        summary['delivered'] += 1
+    return summary
+
+
 if __name__ == '__main__':
     import technical_watch
     state_path = pathlib.Path('technical_followup_state.json')
@@ -154,8 +213,16 @@ if __name__ == '__main__':
     with Session(max_requests=6, max_seconds=20, max_request_seconds=3) as session:
         report = collect(receipts, state, session.get, allowed=technical_watch.policy()['pairs'])
         report['provider_session'] = session.summary()
-    temporary = state_path.with_suffix('.json.tmp')
-    temporary.write_text(json.dumps(state, indent=2)+'\n')
-    temporary.replace(state_path)
+    def persist(snapshot):
+        temporary = state_path.with_suffix('.json.tmp')
+        temporary.write_text(json.dumps(snapshot, indent=2)+'\n')
+        temporary.replace(state_path)
+    persist(state)
+    from telegram_notify import send_research_message
+    report['invalidation_delivery'] = deliver_invalidations(
+        state, send_research_message, persist, allowed=technical_watch.policy()['pairs'])
     pathlib.Path('technical_followup_report.json').write_text(json.dumps(report, indent=2)+'\n')
     print(json.dumps(report))
+    if report['errors'] or report['invalidation_delivery']['failed']:
+        raise SystemExit(1)
+

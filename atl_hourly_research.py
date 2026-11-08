@@ -7,6 +7,7 @@ No Telegram eligibility or BUY authority is granted by this collector.
 import datetime as dt
 import json
 import pathlib
+import os
 import urllib.parse
 from atl_monitor_core import cap_class, positive, classify_low, MID_CAP_FLOOR
 from provider_session import Session
@@ -121,19 +122,81 @@ def run(fetch=None, *, now=None, cursor=2):
     return report
 
 
+def enrich(result, state, fetch, *, now):
+    """Two rotating leads/run; cache valid snapshots for two hours, bound storage.
+
+    Failure details remain in the report. A failed provider is not retried in the
+    same session. History availability never upgrades lifetime verification.
+    """
+    from atl_evidence import dossier, slug, fresh, instrument, DETAILS
+    leads=[x for x in result.get('observations',[]) if x.get('provider_atl_candidate')]
+    leads.sort(key=lambda x:x['provider_id'])
+    after=state.get('enrichment_after','')
+    leads=[x for x in leads if x['provider_id']>after]+[x for x in leads if x['provider_id']<=after]
+    cache=state.get('evidence_cache',{})
+    if not isinstance(cache,dict):raise ValueError('Invalid ATL evidence cache')
+    cache={k:v for k,v in cache.items() if isinstance(v,dict) and fresh(v.get('observed_at'),now.timestamp())}
+    result['research_dossiers']=[];result['enrichment_errors']=[]
+    result['enrichment_deferred']=max(0,len(leads)-2)
+    for observation in leads[:2]:
+        identifier=slug(observation['provider_id'])
+        state['enrichment_after']=identifier
+        snapshot=cache.get(identifier)
+        try:
+            if snapshot is None:
+                details=fetch(DETAILS+identifier+'?localization=false&tickers=false&community_data=false&developer_data=false')
+                if not isinstance(details,dict):raise ValueError('Invalid details response')
+                # Retain only evidence used by classification, never promotional text.
+                details={k:details.get(k) for k in ('id','name','symbol','platforms','categories','last_updated','market_data')}
+                chart_error=None
+                chart={}
+                if instrument(details)['status']=='ORDINARY_CRYPTO_RESEARCH':
+                    try:chart=fetch(DETAILS+identifier+'/market_chart?vs_currency=usd&days=365&interval=daily')
+                    except (OSError,ValueError,TypeError):
+                        chart_error='Historical provider unavailable'
+                snapshot=dict(details=details,chart=chart,observed_at=now.isoformat(),chart_error=chart_error)
+                # Reject unexpectedly large/corrupt payloads before durable caching.
+                if len(json.dumps(snapshot))>300000:raise ValueError('Oversized ATL evidence')
+                cache[identifier]=snapshot
+            finding=dossier(observation,snapshot['details'],snapshot['chart'],observed_at=snapshot['observed_at'],now=now.timestamp())
+            result['research_dossiers'].append(finding)
+            if finding['instrument']['status']=='ORDINARY_CRYPTO_RESEARCH' and not finding['historical_assessments']:
+                result['enrichment_errors'].append(dict(provider_id=identifier,error_type='HistoricalEvidenceUnavailable',
+                    reason='Bounded historical provider failed or returned invalid/stale observations'))
+        except (OSError,ValueError,TypeError,KeyError,AttributeError,ArithmeticError) as exc:
+            result['enrichment_errors'].append(dict(provider_id=identifier,error_type=type(exc).__name__,reason='Metadata/history identity, freshness, cap or provider validation failed'))
+    state['evidence_cache']=dict(list(cache.items())[-12:])
+    result['asset_type_exclusions']=sum(x['instrument']['status']=='EXCLUDED' for x in result['research_dossiers'])
+    result['unverified_research_eligible']=sum(x['telegram_research_eligible'] for x in result['research_dossiers'])
+    return result
+
+
 def main():
     state = json.loads(STATE_PATH.read_text()) if STATE_PATH.exists() else dict(version=1, cursor=2)
     if not isinstance(state, dict) or state.get('version') != 1:
         raise ValueError('Invalid ATL research state')
     result = run(cursor=state.get('cursor'))
-    pathlib.Path('atl_coverage_report.json').write_text(json.dumps(result, indent=2)+'\n')
     if result['status'] == 'OBSERVATIONS_UNVERIFIED':
+        from atl_evidence import notify
+        import telegram_validation
+        now=dt.datetime.now(dt.timezone.utc)
+        with Session(max_requests=4,max_seconds=60,max_request_seconds=8) as session:
+            enrich(result,state,session.get,now=now)
+            result['enrichment_provider_session']=session.summary()
+        result['research_delivery']=notify(result['research_dossiers'],state,os.environ,telegram_validation.request,now=now.timestamp())
+        result['alerts_delivered']=result['research_delivery']['delivered']
         temporary = STATE_PATH.with_suffix('.json.tmp')
-        temporary.write_text(json.dumps(dict(version=1, cursor=result['next_cursor']))+'\n')
+        state['cursor']=result['next_cursor']
+        temporary.write_text(json.dumps(state,sort_keys=True)+'\n')
         temporary.replace(STATE_PATH)
-    print('ATL research coverage:', json.dumps({k:v for k,v in result.items() if k != 'observations'}))
-    return 0 if result['status'] == 'OBSERVATIONS_UNVERIFIED' else 1
+    pathlib.Path('atl_coverage_report.json').write_text(json.dumps(result, indent=2)+'\n')
+    print('ATL research coverage:', json.dumps({k:v for k,v in result.items() if k not in ('observations','research_dossiers')}))
+    healthy=(result['status']=='OBSERVATIONS_UNVERIFIED'
+             and not result.get('enrichment_errors')
+             and not (result.get('research_delivery') or {}).get('failed'))
+    return 0 if healthy else 1
 
 
 if __name__ == '__main__':
     raise SystemExit(main())
+

@@ -24,18 +24,27 @@ def bounded_text(message, limit=4096):
 
 
 def send_message(message):
+    return _send_message(format_message(message))
+
+
+def send_research_message(notice):
+    from research_notice import verified_text
+    return _send_message(verified_text(notice), max_attempts=1, request_timeout=8)
+
+
+def _send_message(message, *, max_attempts=3, request_timeout=20):
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
     chat = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
     if not token or not chat:
         raise NotificationError("Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID")
-    payload = urllib.parse.urlencode({"chat_id": chat, "text": bounded_text(format_message(message))}).encode()
+    payload = urllib.parse.urlencode({"chat_id": chat, "text": bounded_text(message)}).encode()
     request = urllib.request.Request(
         "https://api.telegram.org/bot" + token + "/sendMessage", data=payload, method="POST")
     failure = "Telegram delivery unconfirmed"
-    for attempt in range(3):
+    for attempt in range(max_attempts):
         delay = retry_delay({}, attempt)
         try:
-            with urllib.request.urlopen(request, timeout=20) as response:
+            with urllib.request.urlopen(request, timeout=request_timeout) as response:
                 result = json.load(response)
             if not isinstance(result, dict):
                 raise ValueError("Invalid response")
@@ -56,7 +65,7 @@ def send_message(message):
         except (urllib.error.URLError, TimeoutError, OSError, ValueError, TypeError):
             # Never propagate urllib's credential-bearing URL or remote body.
             failure = "Telegram transport failure or malformed response"
-        if attempt < 2:
+        if attempt < max_attempts-1:
             print(f"{failure}; retry {attempt + 1}/2 (delivery may duplicate after ambiguous response)", flush=True)
             time.sleep(delay)
     raise NotificationError(failure) from None
@@ -154,4 +163,5 @@ if __name__ == "__main__":
     except (NotificationError, OSError, ValueError, KeyError, IndexError) as exc:
         print(f"ERROR: Telegram workflow notification failed ({type(exc).__name__}). Inspect configuration and run logs.", flush=True)
         sys.exit(1)
+
 

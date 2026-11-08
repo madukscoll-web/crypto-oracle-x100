@@ -349,6 +349,10 @@ def attach(report, state, p, observed_at):
         if row.get('status')!='RESEARCH_ONLY':
             continue
         result=dict(pair=row['pair'],interval=row['interval'])
+        if row['interval'] not in ('1d', '1w'):
+            result.update(status='NOT_EVALUATED', reason='Intraday strategy policy not enrolled; technical research only')
+            rows.append(result)
+            continue
         try:
             period=86400 if row['interval']=='1d' else 604800
             evidence=[e for e in row['provider_evidence'] if '/spot/candlesticks?' in e['url']]
@@ -379,3 +383,4 @@ def attach(report, state, p, observed_at):
                                      'Missed scans never create intermediate historical entry decisions.',
                                      'Closed-bar processing may discover stops late; not real-time execution.',
                                      'No statistical confidence or market-regime robustness established.'])
+
