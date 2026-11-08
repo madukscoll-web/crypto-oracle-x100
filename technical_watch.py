@@ -153,8 +153,37 @@ def validated_research(row, report, now, p):
     return research
 
 
-def screen(row, research, gate, currencies, negatives, now, retain_adverse=None):
+def market_warning_keys(pair, currencies, negatives, retained_state=None):
+    """Bind prior warnings to current metadata; missing metadata cannot clear one."""
+    matches=[c for c in currencies if isinstance(c,dict) and c.get('currency')==pair[:-5]]
+    current=set()
+    if len(matches)==1 and isinstance(matches[0].get('chains'),list):
+        for chain in matches[0]['chains']:
+            if not isinstance(chain,dict):
+                continue
+            network=GATE_CHAINS.get(chain.get('name'))
+            if network and chain.get('addr'):
+                try:current.add(key(network,chain['addr']))
+                except (ValueError,TypeError):pass
+    bound=current & set(negatives)
+    if bound:
+        return bound,False
+    if not current and retained_state is not None:
+        retained_negatives(retained_state)
+        prior={identity for identity,records in retained_state.get('adverse_assets',{}).items()
+               if any(record.get('pair')==pair for record in records)}
+        if prior:
+            return prior,True
+    return set(),False
+
+
+def screen(row, research, gate, currencies, negatives, now, retain_adverse=None, retained_state=None):
     pair = row['pair']
+    warning_keys,unresolved=market_warning_keys(pair,currencies,negatives,retained_state)
+    if warning_keys:
+        row['technical_screen']={'retained_adverse':sorted(warning_keys),
+            'identity_scope':'PRIOR_WARNING_CURRENT_IDENTITY_UNRESOLVED' if unresolved else 'CURRENT_EXACT_ASSET_KEYS'}
+        raise ValueError('Prior warning; current asset identity unresolved' if unresolved else 'Retained exact-contract adverse evidence')
     matches = [c for c in currencies if isinstance(c, dict) and c.get('currency') == pair[:-5]]
     if len(matches) != 1:
         raise ValueError('Ambiguous exchange asset metadata')
@@ -353,6 +382,12 @@ def deliver(report, state, fetch, sender, persist, *, now=None, p=None, negative
         if (row.get('research') or {}).get('classification') not in WATCHES:
             continue
         summary['assessed'] += 1
+        warning_keys,unresolved=market_warning_keys(row['pair'],currencies,negative_keys,state)
+        if warning_keys:
+            row['technical_screen']={'retained_adverse':sorted(warning_keys),
+                'identity_scope':'PRIOR_WARNING_CURRENT_IDENTITY_UNRESOLVED' if unresolved else 'CURRENT_EXACT_ASSET_KEYS'}
+            reasons['Prior warning; current asset identity unresolved' if unresolved else 'Retained exact-contract adverse evidence'] += 1
+            continue
         try:
             at = clock()
             day = dt.datetime.fromtimestamp(at, dt.timezone(dt.timedelta(hours=1))).date().isoformat()
@@ -381,7 +416,7 @@ def deliver(report, state, fetch, sender, persist, *, now=None, p=None, negative
                 if not changed:
                     reasons['no_material_change'] += 1
                     continue
-            screened = screen(row, research, gate, currencies, negative_keys, clock, retain_adverse)
+            screened = screen(row, research, gate, currencies, negative_keys, clock, retain_adverse, state)
             # Re-evaluate the Lagos day after provider calls (which may cross midnight).
             day = dt.datetime.fromtimestamp(clock(), dt.timezone(dt.timedelta(hours=1))).date().isoformat()
             count = state['daily_counts'].get(day, 0)

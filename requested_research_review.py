@@ -20,7 +20,7 @@ from telegram_receipts import confirmed
 import telegram_validation
 
 
-def review(report, fetch, *, negatives, now=time.time, retain_adverse=None):
+def review(report, fetch, *, negatives, now=time.time, retain_adverse=None, retained_state=None):
     policy = watches.policy()
     result = dict(mode='OWNER_REQUESTED_CURRENT_REASSESSMENT', buy_authorized=False,
                   orders_allowed=False, new_automated_signal=False, delivery_confirmed=False,
@@ -39,7 +39,7 @@ def review(report, fetch, *, negatives, now=time.time, retain_adverse=None):
         result['assessed'] += 1
         try:
             research = watches.validated_research(row, report, now(), policy)
-            screened = watches.screen(row, research, gate, currencies, negatives, now, retain_adverse)
+            screened = watches.screen(row, research, gate, currencies, negatives, now, retain_adverse, retained_state)
             body = ('OWNER-REQUESTED CURRENT REASSESSMENT. May repeat an existing setup; '
                     'not a newly detected signal.\n' + watches.message(row, research, screened))
             notice = _issue(research['technical_classification'], body)
@@ -128,7 +128,7 @@ def main():
     def retain(finding,pair):
         negatives.add(watches.retain_observation(review_state,finding,pair,persist))
     with Session(max_requests=25,max_seconds=70,max_request_seconds=4) as session:
-        notice, result = review(report, session.get, negatives=negatives, retain_adverse=retain)
+        notice, result = review(report, session.get, negatives=negatives, retain_adverse=retain, retained_state=review_state)
         result['provider_session'] = session.summary()
     try:
         transmit(notice,result,os.environ)

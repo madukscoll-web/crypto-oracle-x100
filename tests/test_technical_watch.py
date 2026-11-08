@@ -356,3 +356,31 @@ class RetainedGateAdverseTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError,'Adverse evidence state persistence failed'):
             alerts.deliver(report,state(),fetch,lambda _:self.fail('No delivery after lost adverse proof'),
                 lambda _:None,now=lambda:NOW,negatives=set())
+
+
+class RetainedMetadataOutageTests(unittest.TestCase):
+    def seed(self):
+        report,fetch=fixture(adverse=True)
+        saved,_=alerts.deliver(report,state(),fetch,lambda _:False,lambda _:None,now=lambda:NOW,negatives=set())
+        return saved
+
+    def test_missing_chain_metadata_does_not_clear_prior_contract_warning(self):
+        saved=self.seed();report,original=fixture(adverse=True)
+        def fetch(url):
+            result=original(url)
+            if '/spot/currencies' in url:result[0]['chains']=[]
+            return result
+        _,summary=alerts.deliver(report,saved,fetch,lambda _:self.fail('Prior warning forgotten'),
+            lambda _:None,now=lambda:NOW+3600,negatives=set())
+        self.assertEqual(summary['delivered'],0)
+        self.assertIn('Prior warning; current asset identity unresolved',summary['suppressed'])
+        self.assertTrue(report['results'][0]['technical_screen']['retained_adverse'])
+
+    def test_budget_exhaustion_does_not_hide_retained_warning_from_dossier(self):
+        saved=self.seed();report,fetch=fixture(adverse=True)
+        day=dt.datetime.fromtimestamp(NOW,dt.timezone(dt.timedelta(hours=1))).date().isoformat()
+        saved['daily_counts'][day]=3
+        _,summary=alerts.deliver(report,saved,fetch,lambda _:self.fail('No delivery'),lambda _:None,
+            now=lambda:NOW,negatives=set())
+        self.assertEqual(summary['delivered'],0)
+        self.assertTrue(report['results'][0]['technical_screen']['retained_adverse'])
