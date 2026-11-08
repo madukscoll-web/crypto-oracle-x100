@@ -5,6 +5,7 @@ probability is inferred from pool-level GeckoTerminal market data.
 """
 
 import datetime as dt
+import copy
 import json
 import hashlib
 import math
@@ -207,6 +208,59 @@ def _relationship_token(payload, relation):
     return None, None
 
 
+
+def discovery_snapshot(item, pool, included, source_url, observed_at):
+    """Retain only the source-bound relationship objects needed for enrichment.
+
+    This is provider identity/market evidence, not independent security evidence.
+    Validation is repeated immediately before use; old snapshots require a GET.
+    """
+    try:
+        identifiers = {(((pool.get('relationships') or {}).get(relation) or {}).get('data') or {}).get('id')
+                       for relation in ('base_token', 'quote_token')}
+        item['_discovery_snapshot'] = copy.deepcopy({
+            'payload': {'data': pool, 'included': [entry for entry in included
+                        if isinstance(entry, dict) and entry.get('id') in identifiers]},
+            'source_url': source_url, 'observed_at': observed_at})
+    except (ValueError, TypeError, AttributeError):
+        # Optional reuse must never turn a malformed relationship into a feed failure.
+        item.pop('_discovery_snapshot', None)
+
+
+
+def _fresh_discovery_snapshot(item, now=None):
+    """Reuse at most 120-second-old evidence, never a bare token hint or ticker."""
+    try:
+        import asset_identity
+        snapshot = item.get('_discovery_snapshot') or {}
+        stamp = dt.datetime.fromisoformat(snapshot['observed_at'].replace('Z', '+00:00'))
+        now = dt.datetime.now(dt.timezone.utc) if now is None else now
+        if stamp.tzinfo is None or not 0 <= (now-stamp).total_seconds() <= 120:
+            return None
+        network = item['network']
+        source = urllib.parse.urlsplit(snapshot['source_url'])
+        if (source.scheme != 'https' or source.netloc != 'api.geckoterminal.com' or
+                source.path != '/api/v2/networks/'+network+'/'+item['discovery_mode']):
+            return None
+        payload = snapshot['payload']
+        pool = payload['data']
+        if not fundamental_evidence.same_address(network, pool['attributes']['address'], item['address']):
+            return None
+        if pool.get('id') != network+'_'+pool['attributes']['address']:
+            return None
+        relationship = pool['relationships']['base_token']['data']['id']
+        matches = [entry for entry in payload['included']
+                   if entry.get('type') == 'token' and entry.get('id') == relationship]
+        if len(matches) != 1:
+            return None
+        address = matches[0]['attributes']['address']
+        normalized = asset_identity.canonical(network, address)
+        if relationship != network+'_'+address or asset_identity.canonical(network, relationship[len(network)+1:]) != normalized:
+            return None
+        return payload, snapshot['observed_at'], snapshot['source_url']
+    except (ValueError, TypeError, KeyError, AttributeError, OverflowError):
+        return None
+
 def _risk_indicator(label, value, positive_is_risk=True):
     """GoPlus flags: 1/0 are observations, not a full audit."""
     if binary_flag(value) not in ("0", "1"):
@@ -288,7 +342,13 @@ def enrich(item, fetch=None, delay=None):
     delay = ENRICHMENT_DELAY_SECONDS if delay is None else delay
     try:
         pool_url = f"{API}/networks/{urllib.parse.quote(network, safe='')}/pools/{urllib.parse.quote(item['address'], safe='')}?include=base_token,quote_token"
-        payload = fetch(pool_url)
+        cached = _fresh_discovery_snapshot(item)
+        if cached:
+            payload, pool_observed_at, pool_source_url = cached
+        else:
+            payload = fetch(pool_url)
+            pool_observed_at = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
+            pool_source_url = pool_url
         returned_pool = ((payload.get("data") or {}).get("attributes") or {}).get("address")
         if not fundamental_evidence.same_address(network, returned_pool, item["address"]):
             item["token_identity_status"] = "UNVERIFIED (returned pool identity mismatch)"
@@ -314,9 +374,11 @@ def enrich(item, fetch=None, delay=None):
         item["base_token_price_usd"] = (
             refreshed_price if math.isfinite(refreshed_price) and refreshed_price > 0 else 0
         )
-        item["observed_at"] = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
+        item["observed_at"] = pool_observed_at
+        item["market_source_url"] = pool_source_url
+        item["market_snapshot_reused"] = bool(cached)
         item["price_source"] = (
-            "GeckoTerminal pool base_token_price_usd refreshed during enrichment; indicative only"
+            "GeckoTerminal pool base_token_price_usd at recorded observation time; indicative only"
             if item["base_token_price_usd"] else "GeckoTerminal refresh did not return a valid price"
         )
         address, symbol = _relationship_token(payload, "base_token")
@@ -928,8 +990,9 @@ def main():
             for page in range(1, PAGES_PER_NETWORK + 1):
                 request_error = None
                 try:
-                    url = f"{API}/networks/{network}/{mode}?page={page}"
+                    url = f"{API}/networks/{network}/{mode}?page={page}&include=base_token,quote_token"
                     payload = fetch_json(url)
+                    received_at = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
                     pools = payload.get("data")
                     if not isinstance(pools, list):
                         raise ValueError("Discovery response data must be an array")
@@ -946,6 +1009,9 @@ def main():
                                    "qualified_unique_pool" if item else scan_audit.discovery_reason(pool, network, mode))
                         scan_audit.increment(discovery_counts, outcome)
                         if item and item["key"] not in keys_in_run:
+                            included = payload.get('included')
+                            if isinstance(included, list):
+                                discovery_snapshot(item, pool, included, url, received_at)
                             candidates.append(item)
                             keys_in_run.add(item["key"])
                     if not pools:

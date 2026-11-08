@@ -37,3 +37,28 @@ class HealthTests(unittest.TestCase):
         self.assertEqual(result['status'],'DEGRADED')
         self.assertEqual(result['execution_status'],'COMPLETED')
         self.assertIn('technical_followup',result['data_degradation'])
+
+
+class MalformedReportTests(unittest.TestCase):
+    def test_malformed_atl_and_readiness_reports_do_not_crash_or_imply_success(self):
+        reports={name:{} for name in ('scan','reversal','technical_followup','strategy_lab')}
+        reports.update(atl=[],historical=[],admission=[])
+        result=pipeline_health.summarize({name:'success' for name in reports},reports)
+        self.assertEqual(result['status'],'DEGRADED')
+        self.assertIn('atl',result['missing_reports'])
+        self.assertEqual(result['admission_status'],'UNKNOWN')
+        self.assertFalse(result['buy_authorized'])
+
+    def test_malformed_delivery_channel_is_visible_degradation(self):
+        reports={name:{} for name in ('scan','reversal','technical_followup','strategy_lab')}
+        reports['technical_followup']={'invalidation_delivery':['not a diagnostic object']}
+        result=pipeline_health.summarize({name:'success' for name in reports},reports)
+        self.assertEqual(result['coverage_status'],'DEGRADED')
+        self.assertIn('technical_followup',result['data_degradation'])
+
+
+    def test_malformed_multichain_diagnostics_remain_degraded(self):
+        reports={name:{} for name in ('scan','reversal','technical_followup','strategy_lab')}
+        reports['multichain']={'coverage_audit':[],'provider_health':[None]}
+        result=pipeline_health.summarize({name:'success' for name in reports},reports)
+        self.assertIn('multichain',result['data_degradation'])
