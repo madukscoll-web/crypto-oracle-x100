@@ -233,8 +233,12 @@ if __name__ == '__main__':
     from telegram_notify import send_research_message
     report['invalidation_delivery'] = deliver_invalidations(
         state, send_research_message, persist, allowed=technical_watch.policy()['pairs'])
+    # Asset-level unavailable observations are data degradation, not a crashed
+    # batch. Retain them for pipeline_health; unconfirmed delivery stays fatal.
+    report['status'] = ('DEGRADED' if report['errors'] or report['invalidation_delivery']['errors']
+                        else 'COMPLETED')
     pathlib.Path('technical_followup_report.json').write_text(json.dumps(report, indent=2)+'\n')
     print(json.dumps(report))
-    if report['errors'] or report['invalidation_delivery']['failed'] or report['invalidation_delivery']['errors']:
+    if report['invalidation_delivery']['failed']:
         raise SystemExit(1)
 
