@@ -1,0 +1,64 @@
+name: Owner-requested current research review
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'requested_research_review.py'
+      - '.github/workflows/requested-research-review.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: owner-requested-research-review
+  cancel-in-progress: false
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Find retained adverse evidence from a completed full scan
+        id: prior
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const scope = {owner: context.repo.owner, repo: context.repo.repo};
+            const runs = await github.rest.actions.listWorkflowRuns({...scope, workflow_id: 'main.yml', status: 'completed', per_page: 20});
+            for (const run of runs.data.workflow_runs) {
+              if (run.head_branch !== 'main' || run.conclusion !== 'success') continue;
+              const jobs = await github.rest.actions.listJobsForWorkflowRun({...scope, run_id: run.id});
+              if (!jobs.data.jobs.some(j => j.steps.some(s => s.name === 'Run scanner' && s.conclusion === 'success'))) continue;
+              const artifacts = await github.rest.actions.listWorkflowRunArtifacts({...scope, run_id: run.id});
+              if (!artifacts.data.artifacts.some(a => a.name === `scan-diagnostics-${run.id}` && !a.expired)) continue;
+              core.setOutput('run_id', String(run.id));
+              return;
+            }
+            core.setFailed('No retained full-scan adverse evidence available; refusing incomplete screening');
+      - uses: actions/download-artifact@v4
+        with:
+          name: scan-diagnostics-${{ steps.prior.outputs.run_id }}
+          run-id: ${{ steps.prior.outputs.run_id }}
+          github-token: ${{ github.token }}
+          path: review_input
+      - name: Recheck live Gate research and deliver one requested review
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python -u requested_research_review.py --send-owner-requested-review
+      - name: Retain source evidence and actual delivery receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: owner-requested-review-${{ github.run_id }}
+          retention-days: 7
+          path: |
+            requested_review_sources.json
+            requested_research_review.json
