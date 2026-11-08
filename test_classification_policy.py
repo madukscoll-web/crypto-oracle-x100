@@ -32,7 +32,15 @@ class ClassificationPolicyTests(unittest.TestCase):
         self.assertEqual(format_message(msg), msg)
 
     def test_all_headings_defined(self):
-        self.assertEqual(len(HEADINGS), 7)
+        self.assertEqual(len(HEADINGS), len(set(HEADINGS)))
+        required = {'NEW COIN', 'ALL TIME LOW', 'NEAR ALL TIME LOW',
+                    'ATL RECOVERY WATCH', 'UNVERIFIED ATL RESEARCH WATCH',
+                    'EARLY REVERSAL WATCH', 'CONFIRMED TECHNICAL REVERSAL',
+                    'INVALIDATED SETUP', 'RESEARCH WATCH', 'WAIT / VERIFY',
+                    'BUY CANDIDATE — MANUAL REVIEW', 'SYSTEM HEALTH REPORT'}
+        self.assertTrue(required <= set(HEADINGS))
+        for heading in required - {'SYSTEM HEALTH REPORT', 'RESEARCH WATCH'}:
+            self.assertTrue(format_message(heading+'\nUntrusted text').startswith('RESEARCH WATCH\n'))
 
     def test_empty_rejected(self):
         with self.assertRaises(ValueError):
@@ -41,3 +49,4 @@ class ClassificationPolicyTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

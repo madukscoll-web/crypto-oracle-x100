@@ -30,10 +30,11 @@ if __name__ == '__main__':
     if not isinstance(state, dict) or state.get('version') != 1:
         raise ValueError('Invalid reversal universe state')
     import technical_watch
-    from telegram_notify import send_message
+    from telegram_notify import send_research_message
     from provider_session import Session
     notification_policy = technical_watch.policy()
-    report = collect_universe(cursor=state.get('cursor', 0), allowed_pairs=notification_policy['pairs'])
+    report = collect_universe(cursor=state.get('cursor', 0), allowed_pairs=notification_policy['pairs'],
+                              intervals=('1h', '4h', '1d', '1w'))
     pathlib.Path('altcoin_reversal_report.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
     if not report['errors']:
         temporary = state_path.with_suffix('.json.tmp')
@@ -72,7 +73,7 @@ if __name__ == '__main__':
             'validation/live-candidates-2026-10-21.json', 'evidence_report.json'])
         with Session(max_requests=35, max_seconds=75, max_request_seconds=4) as session:
             _, delivery = technical_watch.deliver(report, notification_state, session.get,
-                send_message, persist, p=notification_policy, negatives=negatives)
+                send_research_message, persist, p=notification_policy, negatives=negatives)
             delivery['provider_session'] = session.summary()
     except (OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as exc:
         delivery['failed'] += 1
@@ -83,4 +84,5 @@ if __name__ == '__main__':
     print(json.dumps({key: report[key] for key in ('scope', 'coverage', 'status_counts', 'errors', 'buy_authorized', 'orders_allowed', 'telegram_eligible', 'technical_delivery', 'project_context_coverage')}))
     if report['errors'] or delivery['failed']:
         raise SystemExit(1)
+
 

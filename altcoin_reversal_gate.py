@@ -7,12 +7,15 @@ import datetime as dt
 import math
 from altcoin_reversal_research import analyze, eligible_symbol
 
+INTERVAL_SECONDS = {"1h": 3600, "4h": 14400, "1d": 86400, "1w": 604800}
+GATE_INTERVAL = {"1h": "1h", "4h": "4h", "1d": "1d", "1w": "7d"}
+
 
 def gate_candles(raw, *, interval_seconds, now=None):
     if not isinstance(raw, list) or len(raw) < 55:
         raise ValueError("Insufficient Gate OHLCV history")
-    if interval_seconds not in (86400, 604800):
-        raise ValueError("Only daily/weekly intervals supported")
+    if interval_seconds not in INTERVAL_SECONDS.values():
+        raise ValueError("Only hourly/four-hour/daily/weekly intervals supported")
     if now is None:
         now = dt.datetime.now(dt.timezone.utc).timestamp()
     output = []
@@ -44,13 +47,14 @@ def research_gate_pair(gate, pair_id, *, interval="1d", now=None):
     symbol = pair_id[:-5]
     if not eligible_symbol(symbol):
         raise ValueError("Excluded instrument")
-    if interval not in ("1d", "1w"):
+    if interval not in INTERVAL_SECONDS:
         raise ValueError("Unsupported interval")
     raw = gate.get("/spot/candlesticks", dict(currency_pair=pair_id,
-                                              interval="7d" if interval == "1w" else "1d", limit=120))
-    candles = gate_candles(raw, interval_seconds=86400 if interval == "1d" else 604800,
+                                              interval=GATE_INTERVAL[interval], limit=120))
+    candles = gate_candles(raw, interval_seconds=INTERVAL_SECONDS[interval],
                            now=now)
     observed = dt.datetime.now(dt.timezone.utc).isoformat()
     return analyze(symbol + "/USDT", candles,
                    source="Gate public Spot API v4 /spot/candlesticks",
                    observed_at=observed, interval=interval)
+

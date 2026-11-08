@@ -5,7 +5,9 @@ Authenticated BUY notification requires a separately trusted admission path.
 """
 HEADINGS = (
     "NEW COIN", "BULLISH REVERSAL", "ALL TIME LOW", "NEAR ALL TIME LOW",
-    "RESEARCH WATCH", "BUY CANDIDATE — MANUAL REVIEW", "SYSTEM HEALTH REPORT",
+    "ATL RECOVERY WATCH", "UNVERIFIED ATL RESEARCH WATCH",
+    "EARLY REVERSAL WATCH", "CONFIRMED TECHNICAL REVERSAL", "INVALIDATED SETUP",
+    "WAIT / VERIFY", "RESEARCH WATCH", "BUY CANDIDATE — MANUAL REVIEW", "SYSTEM HEALTH REPORT",
 )
 _UNTRUSTED = frozenset(HEADINGS) - {"RESEARCH WATCH", "SYSTEM HEALTH REPORT"}
 
@@ -41,3 +43,4 @@ def format_message(message):
         lines[0] = "UNVERIFIED SOURCE LABEL (not an authenticated admission)"
         message = "\n".join(lines)
     return heading + "\n" + message
+

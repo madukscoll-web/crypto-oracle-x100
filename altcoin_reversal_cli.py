@@ -10,7 +10,7 @@ import sys
 import urllib.error
 import urllib.request
 
-from altcoin_reversal_gate import gate_candles
+from altcoin_reversal_gate import gate_candles, INTERVAL_SECONDS, GATE_INTERVAL
 from altcoin_reversal_research import analyze, eligible_symbol
 from altcoin_reversal_backtest import walk_forward
 from gate_spot_research import PublicGate
@@ -29,7 +29,7 @@ def fetch_public(url):
 
 
 def run(pairs, interval="1d", *, fetch=fetch_public, now=None):
-    if interval not in ("1d", "1w"):
+    if interval not in INTERVAL_SECONDS:
         raise ValueError("Unsupported interval")
     now = dt.datetime.now(dt.timezone.utc).timestamp() if now is None else now
     gate = PublicGate(fetch)
@@ -53,12 +53,12 @@ def run(pairs, interval="1d", *, fetch=fetch_public, now=None):
             if meta.get("delisting_time") not in (None, 0):
                 raise ValueError("Delisting status requires independent review")
             raw = gate.get("/spot/candlesticks", dict(
-                currency_pair=pair, interval="7d" if interval == "1w" else "1d", limit=1000))
-            candles = gate_candles(raw, interval_seconds=86400 if interval == "1d" else 604800,
+                currency_pair=pair, interval=GATE_INTERVAL[interval], limit=1000))
+            candles = gate_candles(raw, interval_seconds=INTERVAL_SECONDS[interval],
                                    now=now)
             if len(candles) < 65:
                 raise ValueError("Not enough closed historical candles for 10-bar evaluation")
-            period = 86400 if interval == "1d" else 604800
+            period = INTERVAL_SECONDS[interval]
             if now - candles[-1]["timestamp"] > 3 * period:
                 raise ValueError("Historical candles are stale")
             if any(b["timestamp"] - a["timestamp"] != period
@@ -89,7 +89,7 @@ def run(pairs, interval="1d", *, fetch=fetch_public, now=None):
 def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--pairs", default="LINK_USDT,ONDO_USDT")
-    parser.add_argument("--interval", choices=("1d", "1w"), default="1d")
+    parser.add_argument("--interval", choices=tuple(INTERVAL_SECONDS), default="1d")
     args = parser.parse_args(argv)
     pairs = [p.strip() for p in args.pairs.split(",") if p.strip()]
     if not pairs or len(pairs) > 10 or len(set(pairs)) != len(pairs):
@@ -99,3 +99,4 @@ def main(argv=None):
 
 if __name__ == "__main__":
     main()
+

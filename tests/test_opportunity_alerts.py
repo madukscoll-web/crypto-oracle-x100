@@ -144,6 +144,33 @@ class StateTests(unittest.TestCase):
 
 
 class FormattingDeliveryTests(unittest.TestCase):
+    def test_buy_message_includes_authenticated_execution_and_risk_summary(self):
+        item=candidate()
+        item['execution_evidence']={'entry':'FORGED_CALLER_ENTRY','risk':'FORGED_CALLER_RISK'}
+        result={'classification':'VERIFIED BUY','reasons':[],'risks':[],'missing_checks':[]}
+        admission=dict(admitted=True, summary={
+            'execution':{'order_usd':'100','minimum_exit_usd':'98','gas_usd':'0.2','fees_usd':'0.1'},
+            'trade_plan':{'maximum_entry_price_usd':'0.05','invalidation_price_usd':'0.045','risk_budget_usd':'10'}},
+            bundle_sha256='fixture_authenticated_digest',expires_at='fixture_expiration')
+        with patch('authenticated_admission.evaluate',return_value=admission):
+            message=alerts.format_alert(item,result)
+        self.assertIn('BUY CANDIDATE — MANUAL REVIEW',message)
+        self.assertIn('EXECUTION AND RISK EVIDENCE (AUTHENTICATED REVIEW)',message)
+        self.assertIn('"minimum_exit_usd": "98"',message)
+        self.assertIn('"invalidation_price_usd": "0.045"',message)
+        self.assertIn('fixture_authenticated_digest',message)
+        self.assertIn('fixture_expiration',message)
+        self.assertNotIn('FORGED_CALLER',message)
+
+    def test_forged_buy_result_has_no_authenticated_execution_section(self):
+        item=candidate();item['execution_evidence']={'entry':'FORGED_CALLER_ENTRY'}
+        result={'classification':'VERIFIED BUY','reasons':[],'risks':[]}
+        with patch('authenticated_admission.evaluate',return_value={'admitted':False}):
+            message=alerts.format_alert(item,result)
+        self.assertIn('WAIT/VERIFY',message)
+        self.assertNotIn('EXECUTION AND RISK EVIDENCE',message)
+        self.assertNotIn('FORGED_CALLER',message)
+
     def test_all_missing_checks_survive_chunking_with_unicode(self):
         item=candidate();r=alerts.classify(item,now=NOW);r['missing_checks']=['Missing-'+str(i)+' 🔎'*50 for i in range(80)]
         message=alerts.format_alert(item,r,example=True);parts=alerts.chunks(message)
@@ -173,4 +200,5 @@ class FormattingDeliveryTests(unittest.TestCase):
         self.assertNotIn(sent[0],retry);self.assertIn('delivered',state[item['key']]);self.assertNotIn('pending_delivery',state[item['key']])
 
 if __name__=='__main__':unittest.main()
+
 

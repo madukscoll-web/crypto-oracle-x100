@@ -75,3 +75,42 @@ class FollowupTests(unittest.TestCase):
         report = f.collect({PAIR: receipt()}, {'version': 1, 'hypotheses': {}},
                            lambda _: self.fail('No unauthorized pair'), NOW, [])
         self.assertEqual(report['outcomes'], {})
+
+
+
+class InvalidationDeliveryBudgetTests(unittest.TestCase):
+    def state(self):
+        seed = {'version': 1, 'hypotheses': {}}
+        f.collect({PAIR: receipt()}, seed, fetch(NOW, 70), NOW, [PAIR])
+        template = next(iter(seed['hypotheses'].values()))
+        state = {'version': 1, 'hypotheses': {}}
+        for offset in range(3):
+            row = copy.deepcopy(template)
+            row['alert']['delivered_at'] = iso(NOW-3600-offset)
+            key, _ = f.identity(PAIR, row['alert'])
+            state['hypotheses'][key] = row
+        return state
+
+    def test_success_and_failure_attempts_both_stop_at_two(self):
+        for accepted in (True, False):
+            with self.subTest(accepted=accepted):
+                state = self.state()
+                sent, saved = [], []
+                def sender(notice):
+                    sent.append(notice)
+                    return accepted
+                result = f.deliver_invalidations(state, sender,
+                    lambda snapshot: saved.append(copy.deepcopy(snapshot)), now=NOW, allowed=[PAIR])
+                self.assertEqual(len(sent), 2)
+                self.assertEqual(result['attempted'], 2)
+                self.assertEqual(result['delivered'], 2 if accepted else 0)
+                self.assertEqual(result['failed'], 0 if accepted else 2)
+                self.assertEqual(len(saved), 2 if accepted else 0)
+                self.assertEqual(sum(bool(row.get('invalidation_notified_at'))
+                                     for row in state['hypotheses'].values()), 2 if accepted else 0)
+
+    def test_invalid_budget_is_rejected_before_transport(self):
+        for cap in (0, 3, True):
+            with self.assertRaises(ValueError):
+                f.deliver_invalidations(self.state(), lambda _: self.fail('No send'),
+                                        lambda _: None, now=NOW, allowed=[PAIR], max_per_run=cap)

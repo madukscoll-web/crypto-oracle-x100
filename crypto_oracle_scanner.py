@@ -31,6 +31,8 @@ import evidence_coverage
 import hourly_evidence
 import gate_spot_candidates
 import scan_audit
+import revisit_scheduler
+import deferred_candidates
 from oracle_http import get_json, ProviderRateLimited
 from telegram_notify import send_message
 
@@ -674,6 +676,7 @@ def watchlist_transition(item, watchlist):
     if (item.get("hourly_evidence") or {}).get("status") == "COLLECTED":
         checked_at = item["observed_at"]
     watchlist[key] = {"evidence_checked_at": checked_at, "setup": setup, "observed_at": item["observed_at"],
+                      "revisit_attempted_at": watchlist.get(key, {}).get("revisit_attempted_at"),
                       "research_alerted_at": watchlist.get(key, {}).get("research_alerted_at"),
                       "score": item["score"], "network": item["network"],
                       "pool_address": item["address"]}
@@ -886,6 +889,7 @@ def research_alert_text(item):
 def main():
     seen = load_state()
     watchlist = load_watchlist()
+    deferred = deferred_candidates.load()
     history = signal_tracker.load()
     candidates = []
     keys_in_run = set()
@@ -936,6 +940,13 @@ def main():
         print(f"{network}: checked {network_checked} pool observations", flush=True)
 
     previously_reported_pool_count = sum(item['key'] in seen for item in candidates)
+    deferred_report = deferred_candidates.prepare(
+        deferred, candidates, excluded=set(seen) | set(watchlist))
+    reserved_deferred, refresh_counts = deferred_candidates.refresh(
+        deferred, candidates, fetch_json, inspect, API,
+        limit=min(deferred_candidates.RESERVED_SLOTS, EVIDENCE_SLOTS))
+    deferred_report.update(refresh_counts)
+    deferred_candidates.save(deferred)
     research_identity_count = len(hourly_evidence.rotate(candidates, watchlist))
     # Rank independently: older, high-liquidity pools cannot crowd out new pools.
     # These are POOL classifications, not independently verified token ages.
@@ -963,10 +974,14 @@ def main():
     # Fetch tracked pools directly, including those absent from discovery feeds.
     # Bound requests to avoid exceeding the public API rate limit.
     revisits = []
-    # Rotate tracked pools by oldest observation, instead of always refreshing the same eight.
-    ordered_watchlist = sorted(watchlist.items(), key=lambda pair: pair[1].get("observed_at", ""))
     revisit_limit = max(1, min(12, int(os.environ.get("ORACLE_REVISITS", "3"))))
-    for key, record in ordered_watchlist[:revisit_limit]:
+    # Failed alert delivery must still restore its pre-attempt transition state.
+    revisit_previous = {key: dict(record) for key, record in watchlist.items()
+                        if isinstance(record, dict)}
+    # Bounded priority preference; failed attempts rotate as well as successes.
+    ordered_watchlist = revisit_scheduler.select(
+        watchlist, revisit_limit, excluded={x["key"] for x in selected})
+    for key, record in ordered_watchlist:
         network = record.get("network")
         address = record.get("pool_address")
         if not network or not address or key in {x["key"] for x in selected}:
@@ -987,6 +1002,7 @@ def main():
             time.sleep(REQUEST_DELAY_SECONDS)
     selected.extend(revisits)
     selected = hourly_evidence.rotate(selected, watchlist)[:evidence_slots]
+    selected = deferred_candidates.prioritize(reserved_deferred, selected, evidence_slots)
     print(
         f"Qualified candidates: NEW POOL={len(new_candidates)}, "
         f"EXISTING POOL={len(existing_candidates)}; "
@@ -1056,7 +1072,7 @@ def main():
         item["market_setup"] = setup
         if price_evidence(item)[0]:
             signal_tracker.record(history, item)
-        previous_watch = watchlist.get(item["key"])
+        previous_watch = revisit_previous.get(item["key"], watchlist.get(item["key"]))
         transition = watchlist_transition(item, watchlist)
         if already_alerted(item, seen):
             scan_audit.increment(notification_counts, "already_delivered")
@@ -1134,6 +1150,9 @@ def main():
     except Exception as exc:
         warnings.append("Gate paper stage unavailable: " + type(exc).__name__)
     save_watchlist(watchlist)
+    deferred_report['assessed_removed'] = deferred_candidates.complete(deferred, selected)
+    deferred_report['pending'] = len(deferred['pending'])
+    deferred_candidates.save(deferred)
     signal_tracker.save(history)
     ledger_status = forward_ledger.capture(history, selected)
     print(f"Tracked pool histories: {len(history)}", flush=True)
@@ -1169,6 +1188,7 @@ def main():
                                                   candidates, selected, evidence_reports),
               "qualified_previously_reported_pools": previously_reported_pool_count,
               "qualified_research_identities": research_identity_count,
+              "deferred_candidates": deferred_report,
               "observations": total_checked, "candidates": len(candidates),
               "alerts_delivered": delivered, "research_watch_delivered": research_sent,
               "delivered_by_outcome": delivered_by_outcome,
@@ -1235,6 +1255,7 @@ def cli():
 
 if __name__ == "__main__":
     raise SystemExit(cli())
+
 
 
 

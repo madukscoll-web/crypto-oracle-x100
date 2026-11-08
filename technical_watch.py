@@ -13,8 +13,10 @@ from collections import Counter
 from asset_identity import GATE_CHAINS, key
 from gate_spot_research import PublicGate, analyze_book
 from altcoin_reversal_cli import run
+from altcoin_reversal_gate import INTERVAL_SECONDS
 import verification
 import project_context
+from research_notice import _issue
 
 ROOT = pathlib.Path(__file__).resolve().parent
 WATCHES = ('EARLY REVERSAL WATCH', 'TECHNICAL REVERSAL WATCH')
@@ -81,7 +83,7 @@ def validated_research(row, report, now, p):
     pair, interval = row.get('pair'), row.get('interval')
     if pair not in p['pairs'] or pair in p.get('excluded_pairs', []):
         raise ValueError('Outside technical research scope')
-    if (row.get('status') != 'RESEARCH_ONLY' or interval not in ('1d', '1w')
+    if (row.get('status') != 'RESEARCH_ONLY' or interval not in INTERVAL_SECONDS
             or row.get('buy_authorized') is not False or row.get('orders_allowed') is not False):
         raise ValueError('Unavailable research')
     if report.get('buy_authorized') is not False or report.get('orders_allowed') is not False:
@@ -108,9 +110,10 @@ def validated_research(row, report, now, p):
     research = recomputed.get('research') or {}
     if research.get('classification') not in WATCHES:
         raise ValueError('Reversal criteria not met')
-    if (research.get('buy_authorized') is not False or research.get('orders_allowed') is not False
-            or number(research['metrics']['volume_ratio']) < 1):
-        raise ValueError('Weak volume or invalid research boundary')
+    if research.get('buy_authorized') is not False or research.get('orders_allowed') is not False:
+        raise ValueError('Invalid research authorization boundary')
+    if number(research['metrics']['volume_ratio']) < 1:
+        raise ValueError('Weak volume confirmation')
     price = number(research['metrics']['close'])
     if number(research['invalidation']) >= price:
         raise ValueError('Invalidated candle setup')
@@ -186,6 +189,7 @@ def message(row, research, screened):
     book = screened['book']
     statuses = ', '.join(s['network']+':'+s['status'] for s in screened['security']) or 'UNKNOWN / native-chain review incomplete'
     text = (
+        f"{research['technical_classification']}\n"
         'CRYPTO-ORACLE | TECHNICAL WATCH — NOT APPROVED FOR PURCHASE\n'
         'SECURITY / FUNDAMENTALS NOT FULLY VERIFIED. NOT A BUY SIGNAL.\n'
         f"Gate Spot: {row['pair']} | timeframe {row['interval']}\n"
@@ -196,7 +200,7 @@ def message(row, research, screened):
         f"Invalidation reference: {research['invalidation']} USDT; withdraw the hypothesis if this level fails.\n"
         f"Trigger-to-invalidation distance: {(1-float(research['invalidation'])/float(research['entry_trigger']))*100:.1f}%; "
         'this is price distance, not a position-loss limit or guaranteed stop. Validated Target/risk-reward: UNKNOWN.\n'
-        f"Volume / baseline: {research['metrics']['volume_ratio']}x\n"
+        f"Volume / baseline: {research['metrics']['volume_ratio']}x; RSI(14, simple): {research['metrics']['rsi14']}.\n"
         f"Displayed spread: {float(book['spread_bps']):.1f} bps; bid/ask depth within 1%: "
         f"{float(book['bid_depth_quote_within_1pct']):,.0f}/{float(book['ask_depth_quote_within_1pct']):,.0f} USDT\n"
         f"Provider contract screening: {statuses}; not an independent audit.\n"
@@ -213,10 +217,10 @@ def message(row, research, screened):
     from altcoin_reversal_gate import gate_candles
     p = strategy_lab.policy()
     evidence = [e for e in row.get('provider_evidence', []) if '/spot/candlesticks?' in e.get('url', '')]
-    if len(evidence) == 1:
+    if len(evidence) == 1 and row["interval"] in ("1d", "1w"):
         now = stamp(screened['observed_at'])
-        candles = gate_candles(evidence[0]['raw'], interval_seconds=86400 if row['interval']=='1d' else 604800, now=now)
-        strategy_lab.candles_valid(candles, 86400 if row['interval']=='1d' else 604800)
+        candles = gate_candles(evidence[0]['raw'], interval_seconds=INTERVAL_SECONDS[row['interval']], now=now)
+        strategy_lab.candles_valid(candles, INTERVAL_SECONDS[row['interval']])
         plan = strategy_lab.plan(row['pair'], 'reversal_baseline', candles, p)
         if plan:
             text += (f"\nEXPERIMENTAL PAPER PLAN {p['policy_id']}: next-bar buy-stop reference {plan['entry']:.8g}; "
@@ -225,6 +229,12 @@ def message(row, research, screened):
                      'Assumed fee/slippage: 20/20 bps per side; costs reduce R. '
                      'Paper risk 1% and allocation 10% of hypothetical equity; gaps can exceed planned loss. '
                      'Not validated, executable, or approved. Target is a formula, not a price forecast.')
+    if row['interval'] in ('1h', '4h') and research.get('conditional_plan'):
+        plan = research['conditional_plan']
+        text += (f"\nCONDITIONAL RESEARCH: entry reference {plan['entry_reference']:.8g}; "
+                 f"invalidation {plan['invalidation_reference']:.8g}; arithmetic 2R scenario "
+                 f"{plan['hypothetical_2r_target']:.8g} USDT. Require a fresh close/retest and volume. "
+                 'This is a formula, not a price forecast or executable order. Fees/slippage/gaps and net R remain unverified.')
     text += '\n' + project_context.summary(row.get('project_context'), expected={'pair':row['pair']})
     if len(text.encode('utf-16-le'))//2 > 3900:
         raise ValueError('Research disclosure exceeds message limit')
@@ -249,8 +259,11 @@ def deliver(report, state, fetch, sender, persist, *, now=None, p=None, negative
     if not isinstance(currencies, list):
         raise ValueError('Exchange asset catalog unavailable')
     reasons = Counter()
-    # Prefer daily hypotheses; send at most one timeframe per asset per day.
-    rows = sorted(report['results'], key=lambda r: (r.get('interval') != '1d', r.get('pair', '')))
+    # Rank computed structural confirmation first, then daily context. Every row
+    # is still replayed and screened; this ordering grants no admission authority.
+    rows = sorted(report['results'], key=lambda r: (
+        (r.get('research') or {}).get('classification') != 'TECHNICAL REVERSAL WATCH',
+        r.get('interval') != '1d', r.get('pair', '')))
     for row in rows:
         if (row.get('research') or {}).get('classification') not in WATCHES:
             continue
@@ -287,7 +300,7 @@ def deliver(report, state, fetch, sender, persist, *, now=None, p=None, negative
                 reasons['notification_budget'] += 1
                 continue
             try:
-                if sender(message(row, research, screened)) is not True:
+                if sender(_issue(research['technical_classification'], message(row, research, screened))) is not True:
                     raise RuntimeError('Telegram receipt not confirmed')
             except (RuntimeError, OSError, ValueError):
                 summary['failed'] += 1
@@ -309,4 +322,5 @@ def deliver(report, state, fetch, sender, persist, *, now=None, p=None, negative
     summary['suppressed'] = dict(reasons)
     report['technical_screen_sources'] = gate.evidence
     return state, summary
+
 
