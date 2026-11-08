@@ -16,6 +16,7 @@ from research_notice import _issue
 
 MAX_HYPOTHESES = 64
 MAX_SAMPLES = 256
+HORIZON_HOURS = (24, 168, 720)
 
 
 def canonical(value):
@@ -49,6 +50,22 @@ def identity(pair, receipt):
     return hashlib.sha256(canonical({'pair': pair, **anchor})).hexdigest(), anchor
 
 
+def capacity_allows_sample(samples, now):
+    """Preserve ordinary history plus at most one first sample per due horizon.
+
+    The ordinary cap must not prevent 7/30-day observations. No old sample is
+    removed or backfilled, and late checkpoints remain explicitly late.
+    """
+    if len(samples) < MAX_SAMPLES:
+        return True
+    if not samples or len(samples) >= MAX_SAMPLES+len(HORIZON_HOURS):
+        return False
+    start = timestamp(samples[0]['observed_at'])
+    return any(now >= start+hours*3600 and not any(
+        timestamp(sample['observed_at']) >= start+hours*3600 for sample in samples[1:])
+        for hours in HORIZON_HOURS)
+
+
 def observe(pair, receipt, previous, gate, now, clock=None):
     identifier, anchor = identity(pair, receipt)
     if timestamp(anchor['delivered_at']) > now:
@@ -57,7 +74,8 @@ def observe(pair, receipt, previous, gate, now, clock=None):
     if row['pair'] != pair or row['alert'] != anchor:
         raise ValueError('Follow-up identity mismatch')
     samples = list(row['samples'])
-    if len(samples) >= MAX_SAMPLES:
+    checkpoint = len(samples) >= MAX_SAMPLES
+    if not capacity_allows_sample(samples, now):
         return identifier, row, 'SAMPLE_CAPACITY_REACHED'
     if samples and now - timestamp(samples[-1]['observed_at']) < 1800:
         return identifier, row, 'RECENT_SAMPLE'
@@ -92,7 +110,7 @@ def observe(pair, receipt, previous, gate, now, clock=None):
     row.update(samples=samples, monitoring_started_at=samples[0]['observed_at'],
                original_alert_entry_price='UNKNOWN_NOT_RECONSTRUCTED',
                exact_onchain_identity='NOT_ESTABLISHED_BY_PAIR_BOOK', orders_allowed=False, buy_authorized=False)
-    return identifier, row, 'OBSERVED'
+    return identifier, row, 'HORIZON_CHECKPOINT_OBSERVED' if checkpoint else 'OBSERVED'
 
 
 def summarize(row):
@@ -100,7 +118,7 @@ def summarize(row):
     first = samples[0]
     start = timestamp(first['observed_at'])
     horizons = []
-    for hours in (24, 168, 720):
+    for hours in HORIZON_HOURS:
         eligible = [s for s in samples[1:] if timestamp(s['observed_at']) >= start+hours*3600]
         result = {'hours': hours, 'status': 'PENDING'}
         if eligible:
@@ -133,15 +151,22 @@ def collect(receipts, state, fetch, now=None, allowed=()):
         try:
             key, _ = identity(pair, receipt)
             previous = rows.get(key)
+            if previous and not capacity_allows_sample(previous['samples'], now):
+                report['outcomes'][pair] = 'SAMPLE_CAPACITY_REACHED'
+                continue  # Capped rows must not starve unrelated active watches.
             at = previous['samples'][-1]['observed_at'] if previous and previous['samples'] else ''
             candidates.append((at, pair, key, receipt))
         except (ValueError, TypeError, KeyError, AttributeError):
             report['errors'][pair] = 'INVALID_RECEIPT_OR_STATE'
     gate = PublicGate(fetch)
-    for _, pair, key, receipt in sorted(candidates)[:3]:
+    attempted = 0
+    for _, pair, key, receipt in sorted(candidates):
+        if attempted >= 3:
+            break
         if key not in rows and len(rows) >= MAX_HYPOTHESES:
             report['outcomes'][pair] = 'HYPOTHESIS_CAPACITY_REACHED'
             continue
+        attempted += 1
         try:
             identifier, row, status = observe(pair, receipt, rows.get(key), gate, clock(), clock)
             rows[identifier] = row

@@ -127,6 +127,11 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python -u altcoin_reversal_production.py
+      - name: Compile source-bound research dossiers
+        id: dossiers
+        if: success() && steps.cadence.outputs.run == 'true' && steps.reversal.outcome == 'success'
+        continue-on-error: true
+        run: python -u research_dossiers.py
       - name: Evaluate fixed strategies and advance prospective paper accounts
         id: strategy_lab
         if: success() && steps.cadence.outputs.run == 'true' && steps.reversal.outcome == 'success'
@@ -170,7 +175,7 @@ jobs:
         id: research_health
         if: always() && steps.cadence.outputs.run == 'true'
         env:
-          RESEARCH_STAGE_OUTCOMES: '{"scan":"${{ steps.scan.outcome }}","multichain":"${{ steps.multichain.outcome }}","reversal":"${{ steps.reversal.outcome }}","atl":"${{ steps.atl_research.outcome }}","technical_followup":"${{ steps.technical_followup.outcome }}","strategy_lab":"${{ steps.strategy_lab.outcome }}","stonk_launches":"${{ steps.stonk_launches.outcome }}"}'
+          RESEARCH_STAGE_OUTCOMES: '{"scan":"${{ steps.scan.outcome }}","multichain":"${{ steps.multichain.outcome }}","reversal":"${{ steps.reversal.outcome }}","atl":"${{ steps.atl_research.outcome }}","technical_followup":"${{ steps.technical_followup.outcome }}","strategy_lab":"${{ steps.strategy_lab.outcome }}","stonk_launches":"${{ steps.stonk_launches.outcome }}","dossiers":"${{ steps.dossiers.outcome }}"}'
         run: python pipeline_health.py
       - name: Send daily pipeline health digest
         id: operational_summary
@@ -193,7 +198,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          FAILED_STAGES: cadence_refresh=${{ steps.cadence_refresh.outcome }}, cadence=${{ steps.cadence.outcome }}, compile=${{ steps.compile.outcome }}, tests=${{ steps.tests.outcome }}, config=${{ steps.telegram_config.outcome }}, state_refresh=${{ steps.state_refresh.outcome }}, scan=${{ steps.scan.outcome }}, state=${{ steps.state.outcome }}, research_health=${{ steps.research_health.outcome }}, atl=${{ steps.atl_research.outcome }}, multichain=${{ steps.multichain.outcome }}, reversal=${{ steps.reversal.outcome }}, strategy_lab=${{ steps.strategy_lab.outcome }}, technical_followup=${{ steps.technical_followup.outcome }}, stonk_launches=${{ steps.stonk_launches.outcome }}
+          FAILED_STAGES: cadence_refresh=${{ steps.cadence_refresh.outcome }}, cadence=${{ steps.cadence.outcome }}, compile=${{ steps.compile.outcome }}, tests=${{ steps.tests.outcome }}, config=${{ steps.telegram_config.outcome }}, state_refresh=${{ steps.state_refresh.outcome }}, scan=${{ steps.scan.outcome }}, state=${{ steps.state.outcome }}, research_health=${{ steps.research_health.outcome }}, atl=${{ steps.atl_research.outcome }}, multichain=${{ steps.multichain.outcome }}, reversal=${{ steps.reversal.outcome }}, strategy_lab=${{ steps.strategy_lab.outcome }}, technical_followup=${{ steps.technical_followup.outcome }}, stonk_launches=${{ steps.stonk_launches.outcome }}, dossiers=${{ steps.dossiers.outcome }}
         run: python telegram_notify.py failure
       - name: Retain scan diagnostics and state snapshot
         if: always()
@@ -217,6 +222,8 @@ jobs:
             operational_notification.json
             operational_digest_state.json
             altcoin_reversal_report.json
+            research_dossiers.json
+            research_dossiers.md
             atl_coverage_report.json
             atl_research_state.json
             deferred_candidate_state.json
