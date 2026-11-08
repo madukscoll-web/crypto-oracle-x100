@@ -84,7 +84,8 @@ def transmit(notice, result, env, transport=telegram_validation.request):
         destination = str(transport(token,'getChat',{'chat_id':chat})['result']['id'])
     if not confirmed(receipt, destination):
         raise ValueError('Requested review delivery unconfirmed')
-    result.update(delivery_confirmed=True, telegram_message_id=receipt['result']['message_id'])
+    result.update(delivery_confirmed=True, telegram_message_id=receipt['result']['message_id'],
+                  message_text=text)
     return result
 
 
