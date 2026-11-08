@@ -12,6 +12,7 @@ def summarize(stages, reports):
     if 'atl' in stages and not isinstance(reports.get('atl'),dict):
         missing.append('atl')
     atl=reports.get('atl',{})
+    atl=atl if isinstance(atl,dict) else {}
     if 'atl' in stages and atl.get('status') != 'OBSERVATIONS_UNVERIFIED':
         failures['atl_data']=atl.get('status','MISSING')
     data_degradation={}
@@ -27,6 +28,9 @@ def summarize(stages, reports):
             data_degradation[name]='Stage report contains errors or unavailable observations'
         for channel in ('technical_delivery','invalidation_delivery'):
             delivery=report.get(channel) or {}
+            if not isinstance(delivery,dict):
+                data_degradation[name]='Malformed delivery diagnostics; delivery not established'
+                continue
             if delivery.get('failed'):
                 failures[name+'_delivery']='Unconfirmed Telegram delivery'
             if delivery.get('errors'):
@@ -34,21 +38,34 @@ def summarize(stages, reports):
     if atl.get('enrichment_errors'):
         data_degradation['atl']='Metadata/history enrichment unavailable or invalid; no verified lifetime claim'
     lifetime=atl.get('lifetime_validation') or {}
+    if not isinstance(lifetime,dict):
+        data_degradation['atl_lifetime']='Malformed lifetime validation diagnostics'
+        lifetime={}
     if lifetime.get('assessed') and lifetime.get('status')=='UNVERIFIED':
         data_degradation['atl_lifetime']='Enrolled history evidence failed independent validation; no qualified alert'
-    if (atl.get('research_delivery') or {}).get('failed'):
+    atl_delivery=atl.get('research_delivery') or {}
+    if not isinstance(atl_delivery,dict):
+        data_degradation['atl']='Malformed ATL delivery diagnostics'
+        atl_delivery={}
+    if atl_delivery.get('failed'):
         failures['atl_delivery']='Unconfirmed Telegram research delivery' 
     if 'multichain' in stages:
         market=reports.get('multichain')
         if not isinstance(market,dict):
             missing.append('multichain')
         else:
-            count=(market.get('coverage_audit') or {}).get('discovery_failure_count')
+            audit=market.get('coverage_audit') or {}
+            audit=audit if isinstance(audit,dict) else {}
+            count=audit.get('discovery_failure_count')
+            providers=market.get('provider_health') or []
+            if not isinstance(providers,list):providers=[None]
             if (type(count) is not int or count < 0 or count > 0 or market.get('failures')
-                    or any(x.get('status')=='DEGRADED' for x in market.get('provider_health',[]))):
+                    or any(not isinstance(x,dict) or x.get('status')=='DEGRADED' for x in providers)):
                 data_degradation['multichain']='Provider failures or incomplete coverage diagnostics'
     historical=reports.get('historical',{})
+    historical=historical if isinstance(historical,dict) else {}
     admission=reports.get('admission',{})
+    admission=admission if isinstance(admission,dict) else {}
     # A partial script that emitted an artifact before failing is still degraded.
     degraded=bool(failures or missing or data_degradation)
     return dict(version=1,status='DEGRADED' if degraded else 'COMPLETED',
