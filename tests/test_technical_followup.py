@@ -116,7 +116,8 @@ class InvalidationDeliveryBudgetTests(unittest.TestCase):
                                         lambda _: None, now=NOW, allowed=[PAIR], max_per_run=cap)
 
 
-class InvalidationIsolationTests(InvalidationDeliveryBudgetTests):
+class InvalidationIsolationTests(unittest.TestCase):
+    state = InvalidationDeliveryBudgetTests.state
     def test_stale_provider_book_does_not_abort_other_hypotheses(self):
         state = self.state()
         first = next(iter(state['hypotheses'].values()))
@@ -149,7 +150,8 @@ class InvalidationIsolationTests(InvalidationDeliveryBudgetTests):
                                     now=NOW, allowed=[PAIR])
 
 
-class SnapshotRefreshTests(FollowupTests):
+class SnapshotRefreshTests(unittest.TestCase):
+    run_sample = FollowupTests.run_sample
     def test_one_stale_book_is_refreshed_before_sampling(self):
         calls = []
         def transport(url):
