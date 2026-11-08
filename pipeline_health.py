@@ -6,6 +6,8 @@ import pathlib
 
 def summarize(stages, reports):
     required=('scan','reversal','technical_followup','strategy_lab')
+    if 'dossiers' in stages:
+        required+=('dossiers',)
     failures={k:v for k,v in stages.items() if v not in ('success',)}
     failures.update({k:'NOT_REPORTED' for k in required if k not in stages})
     missing=[k for k in required if k not in reports or not isinstance(reports[k],dict)]
@@ -85,7 +87,7 @@ def main():
     stages=json.loads(os.environ.get('RESEARCH_STAGE_OUTCOMES','{}'))
     paths={'scan':'scan_summary.json','reversal':'altcoin_reversal_report.json',
            'technical_followup':'technical_followup_report.json','strategy_lab':'strategy_lab_report.json',
-           'multichain':'multichain_research_report.json','atl':'atl_coverage_report.json','historical':'historical_validation_report.json','admission':'work/admission_preflight.json'}
+           'multichain':'multichain_research_report.json','atl':'atl_coverage_report.json','historical':'historical_validation_report.json','admission':'work/admission_preflight.json','dossiers':'research_dossiers.json'}
     reports={}
     for name,path in paths.items():
         try:

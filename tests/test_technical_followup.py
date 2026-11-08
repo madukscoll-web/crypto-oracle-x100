@@ -211,3 +211,50 @@ class CachedInvalidationFreshnessTests(unittest.TestCase):
         self.assertEqual(result['stale'],3)
         self.assertEqual(result['errors'],{})
         self.assertEqual(result['attempted'],0)
+
+
+class HorizonCapacityTests(unittest.TestCase):
+    def test_cap_preserves_history_and_allows_actual_due_horizon_observations(self):
+        state={'version':1,'hypotheses':{}}
+        with patch.object(f,'MAX_SAMPLES',3):
+            for hours in (0,1,2):
+                f.collect({PAIR:receipt()},state,fetch(NOW+hours*3600),NOW+hours*3600,[PAIR])
+            row=next(iter(state['hypotheses'].values()))
+            original=copy.deepcopy(row['samples'])
+            for hours in (24,168,720):
+                at=NOW+hours*3600
+                report=f.collect({PAIR:receipt()},state,fetch(at,110),at,[PAIR])
+                self.assertEqual(report['outcomes'][PAIR],'HORIZON_CHECKPOINT_OBSERVED')
+            self.assertEqual(row['samples'],original)  # collect replaces, never mutates old evidence
+            row=next(iter(state['hypotheses'].values()))
+            self.assertEqual(row['samples'][:3],original)
+            self.assertEqual(len(row['samples']),6)
+            self.assertTrue(all(h['status']=='OBSERVED_PRICE_CHANGE_ONLY' for h in report['hypotheses'][0]['horizons']))
+            at=NOW+721*3600
+            report=f.collect({PAIR:receipt()},state,lambda _:self.fail('Capacity bound exceeded'),at,[PAIR])
+            self.assertEqual(report['outcomes'][PAIR],'SAMPLE_CAPACITY_REACHED')
+            self.assertEqual(report['hypotheses'][0]['strategy_return'],'UNKNOWN')
+
+    def test_late_checkpoint_is_not_reported_as_timely_return(self):
+        state={'version':1,'hypotheses':{}}
+        with patch.object(f,'MAX_SAMPLES',1):
+            f.collect({PAIR:receipt()},state,fetch(NOW),NOW,[PAIR])
+            at=NOW+48*3600
+            report=f.collect({PAIR:receipt()},state,fetch(at),at,[PAIR])
+            horizon=report['hypotheses'][0]['horizons'][0]
+            self.assertEqual(horizon['status'],'NO_TIMELY_SAMPLE')
+            self.assertNotIn('midpoint_change_percent',horizon)
+
+    def test_capped_watches_do_not_starve_other_markets(self):
+        state={'version':1,'hypotheses':{}}
+        f.collect({PAIR:receipt()},state,fetch(NOW),NOW,[PAIR])
+        template=next(iter(state['hypotheses'].values()))
+        state['hypotheses']={};receipts={}
+        for pair in ('AAA_USDT','BBB_USDT','CCC_USDT'):
+            row=copy.deepcopy(template);row['pair']=pair
+            key,_=f.identity(pair,receipt());state['hypotheses'][key]=row;receipts[pair]=receipt()
+        receipts[PAIR]=receipt()
+        with patch.object(f,'MAX_SAMPLES',1):
+            report=f.collect(receipts,state,fetch(NOW+3600),NOW+3600,list(receipts))
+        self.assertEqual(report['outcomes'][PAIR],'OBSERVED')
+        self.assertEqual(sum(v=='SAMPLE_CAPACITY_REACHED' for v in report['outcomes'].values()),3)

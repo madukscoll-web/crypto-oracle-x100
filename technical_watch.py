@@ -192,25 +192,27 @@ def message(row, research, screened):
         f"{research['technical_classification']}\n"
         'CRYPTO-ORACLE | TECHNICAL WATCH — NOT APPROVED FOR PURCHASE\n'
         'SECURITY / FUNDAMENTALS NOT FULLY VERIFIED. NOT A BUY SIGNAL.\n'
-        f"Gate Spot: {row['pair']} | timeframe {row['interval']}\n"
-        f"Setup: {research['classification']}\n"
-        f"Observed UTC: {screened['observed_at']}\n"
-        f"Last closed candle: {research['metrics']['close']} USDT\n"
+        f"Gate Spot: {row['pair']} | timeframe {row['interval']} | UTC {screened['observed_at']}\n"
+        f"Live bid/ask: {book['best_bid']}/{book['best_ask']} USDT; last closed candle: {research['metrics']['close']}.\n"
         f"Trigger reference: {research['entry_trigger']} USDT; require a fresh close/retest and volume confirmation.\n"
-        f"Invalidation reference: {research['invalidation']} USDT; withdraw the hypothesis if this level fails.\n"
+        f"Invalidation reference: {research['invalidation']} USDT; withdraw if this level fails.\n"
         f"Trigger-to-invalidation distance: {(1-float(research['invalidation'])/float(research['entry_trigger']))*100:.1f}%; "
-        'this is price distance, not a position-loss limit or guaranteed stop. Validated Target/risk-reward: UNKNOWN.\n'
+        'price distance, not a position-loss limit or guaranteed stop. Target/risk-reward: UNKNOWN.\n'
         f"Volume / baseline: {research['metrics']['volume_ratio']}x; RSI(14, simple): {research['metrics']['rsi14']}.\n"
         f"Displayed spread: {float(book['spread_bps']):.1f} bps; bid/ask depth within 1%: "
-        f"{float(book['bid_depth_quote_within_1pct']):,.0f}/{float(book['ask_depth_quote_within_1pct']):,.0f} USDT\n"
+        f"{float(book['bid_depth_quote_within_1pct']):,.0f}/{float(book['ask_depth_quote_within_1pct']):,.0f} USDT.\n"
         f"Provider contract screening: {statuses}; not an independent audit.\n"
-        'Unresolved: authority, sellability, holders, supply/unlocks, fees and funded execution. '
-        'Spot order-book observation does not verify DEX LP controls.\n'
-        'Levels are historical research references, not executable orders or guaranteed fills. '
-        'False reversals and total loss are possible. No validated success probability.\n'
+        'Unresolved: authority, sellability, holders, supply/unlocks, fees and funded execution; DEX LP controls unverified.\n'
+        'Reassess at the next closed candle and before acting; changed security/liquidity invalidates this review.\n'
+        'Historical research references; no executable orders or guaranteed fills. False reversals and total loss are possible. '
+        'No validated success probability.\n'
         f"Sources: https://api.gateio.ws/api/v4/spot/currency_pairs/{row['pair']}\n"
         f"https://www.gate.com/trade/{row['pair']}"
     )
+    candle_sources = [e.get('url','') for e in row.get('provider_evidence', [])
+                      if e.get('url','').startswith('https://api.gateio.ws/api/v4/spot/candlesticks?')]
+    if len(candle_sources) == 1:
+        text += '\nCandle source: '+candle_sources[0]
     # A bounded research plan is separate from evidence-qualified admission.
     # Recompute from exact retained candles, never trust an attached caller plan.
     import strategy_lab
@@ -235,7 +237,19 @@ def message(row, research, screened):
                  f"invalidation {plan['invalidation_reference']:.8g}; arithmetic 2R scenario "
                  f"{plan['hypothetical_2r_target']:.8g} USDT. Require a fresh close/retest and volume. "
                  'This is a formula, not a price forecast or executable order. Fees/slippage/gaps and net R remain unverified.')
-    text += '\n' + project_context.summary(row.get('project_context'), expected={'pair':row['pair']})
+    # Keep exact-identity binding and source labels from the established
+    # formatter, while leaving exhaustive UNKNOWN fields in the retained report.
+    context = project_context.summary(row.get('project_context'), expected={'pair':row['pair']}).splitlines()
+    useful = [line for line in context if (
+        line.startswith('Use/value: ') and not line.startswith('Use/value: UNKNOWN') or
+        line.startswith('Token value capture: ') and line != 'Token value capture: UNKNOWN' or
+        line.startswith('Supply circ/max: ') and 'UNKNOWN/UNKNOWN' not in line or
+        line.startswith(('Fundamental source:', 'Fundamental sources:')))]
+    news_at = next((i for i,line in enumerate(context) if line.startswith('NEWS:')), None)
+    if news_at is not None:
+        useful.extend(context[news_at:])
+    text += '\nPROJECT FUNDAMENTALS — provider/source claims, not approval\n'
+    text += '\n'.join(useful) if useful else 'UNKNOWN; team, supply/unlocks and adoption require separate verification.'
     if len(text.encode('utf-16-le'))//2 > 3900:
         raise ValueError('Research disclosure exceeds message limit')
     return text

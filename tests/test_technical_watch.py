@@ -238,3 +238,20 @@ class TimeframeReceiptTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             alerts.deliver(report,previous,fetch,lambda _:self.fail('Corrupt dedup state'),
                 lambda _:None,now=lambda:NOW,negatives=set())
+
+
+class ConciseResearchMessageTests(unittest.TestCase):
+    def test_live_book_and_closed_reference_are_separate_and_source_bound(self):
+        report,fetch=fixture()
+        row=report['results'][0]
+        screened=alerts.screen(row,row['research'],alerts.PublicGate(fetch),
+            [{'currency':'BCH','delisted':False,'trade_disabled':False,'chains':[]}],set(),lambda:NOW)
+        text=alerts.message(row,row['research'],screened)
+        self.assertIn('Live bid/ask: 102.1/102.2 USDT',text)
+        self.assertIn('last closed candle:',text)
+        self.assertIn('Candle source: https://api.gateio.ws/api/v4/spot/candlesticks?',text)
+        self.assertIn('Reassess at the next closed candle',text)
+        self.assertIn('NOT A BUY SIGNAL',text)
+        self.assertIn('supply/unlocks',text)
+        self.assertNotIn('Dev commits/4w: UNKNOWN',text)
+        self.assertLess(len(text),2400)
