@@ -258,3 +258,14 @@ class HorizonCapacityTests(unittest.TestCase):
             report=f.collect(receipts,state,fetch(NOW+3600),NOW+3600,list(receipts))
         self.assertEqual(report['outcomes'][PAIR],'OBSERVED')
         self.assertEqual(sum(v=='SAMPLE_CAPACITY_REACHED' for v in report['outcomes'].values()),3)
+
+
+class HypothesisCapacityPriorityTests(unittest.TestCase):
+    def test_unenrolled_rows_at_capacity_do_not_starve_existing_watch(self):
+        state={'version':1,'hypotheses':{}}
+        f.collect({PAIR:receipt()},state,fetch(NOW),NOW,[PAIR])
+        receipts={pair:receipt() for pair in ('AAA_USDT','BBB_USDT','CCC_USDT',PAIR)}
+        with patch.object(f,'MAX_HYPOTHESES',1):
+            report=f.collect(receipts,state,fetch(NOW+3600),NOW+3600,list(receipts))
+        self.assertEqual(report['outcomes'][PAIR],'OBSERVED')
+        self.assertEqual(sum(v=='HYPOTHESIS_CAPACITY_REACHED' for v in report['outcomes'].values()),3)

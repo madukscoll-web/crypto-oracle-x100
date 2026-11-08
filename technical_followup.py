@@ -159,10 +159,14 @@ def collect(receipts, state, fetch, now=None, allowed=()):
         except (ValueError, TypeError, KeyError, AttributeError):
             report['errors'][pair] = 'INVALID_RECEIPT_OR_STATE'
     gate = PublicGate(fetch)
-    for _, pair, key, receipt in sorted(candidates)[:3]:
+    attempted = 0
+    for _, pair, key, receipt in sorted(candidates):
+        if attempted >= 3:
+            break
         if key not in rows and len(rows) >= MAX_HYPOTHESES:
             report['outcomes'][pair] = 'HYPOTHESIS_CAPACITY_REACHED'
             continue
+        attempted += 1
         try:
             identifier, row, status = observe(pair, receipt, rows.get(key), gate, clock(), clock)
             rows[identifier] = row
