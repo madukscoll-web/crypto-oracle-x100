@@ -1,4 +1,5 @@
 """Source-bound Gate research dossiers; no approvals or notification authority."""
+import copy
 import datetime as dt
 import hashlib
 import json
@@ -29,6 +30,7 @@ def build(report, *, now=None, maximum=3):
         try:
             research=technical_watch.validated_research(row,report,now,policy)
             sources=[dict(url=e['url'],retrieved_at=e['retrieved_at'],
+                raw=copy.deepcopy(e['raw']),
                 raw_sha256=hashlib.sha256(json.dumps(e['raw'],sort_keys=True,
                     separators=(',',':'),allow_nan=False).encode()).hexdigest())
                 for e in row['provider_evidence']]

@@ -12,6 +12,9 @@ class DossierTests(unittest.TestCase):
         item=result['dossiers'][0]
         self.assertEqual(item['pair'],'BCH_USDT')
         self.assertEqual(len(item['sources']),2)
+        self.assertIn('raw',item['sources'][0])
+        import workflow_state
+        self.assertIn('research_dossiers.json',workflow_state.FILES)
         self.assertTrue(all(len(s['raw_sha256'])==64 for s in item['sources']))
         self.assertFalse(item['buy_authorized'])
         self.assertIn('UNKNOWN',item['liquidity_observation']['status'])
