@@ -2,18 +2,13 @@ name: Owner-requested current research review
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'requested_research_review.py'
-      - '.github/workflows/requested-research-review.yml'
 
 permissions:
-  contents: read
+  contents: write
   actions: read
 
 concurrency:
-  group: owner-requested-research-review
+  group: crypto-oracle-hourly-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -25,6 +20,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Refresh retained research state
+        run: python workflow_state.py refresh
       - name: Find retained adverse evidence from a completed full scan
         id: prior
         uses: actions/github-script@v7
@@ -53,6 +50,9 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python -u requested_research_review.py --send-owner-requested-review
+      - name: Publish retained adverse observations
+        if: always()
+        run: python workflow_state.py publish
       - name: Retain source evidence and actual delivery receipt
         if: always()
         uses: actions/upload-artifact@v4

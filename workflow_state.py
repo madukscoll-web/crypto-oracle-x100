@@ -83,6 +83,20 @@ def validate_extension(manifest,computed):
         for identity,rows in before.items():
             if identity not in after or after[identity][:len(rows)]!=rows:
                 raise StateConflict('Refusing signal history rewrite')
+    name='technical_watch_state.json'
+    if computed.get(name) is not None:
+        import technical_watch
+        after=json.loads(computed[name])
+        try:
+            technical_watch.retained_negatives(after)
+        except (ValueError,TypeError,KeyError,AttributeError):
+            raise StateConflict('Invalid retained technical adverse evidence') from None
+        if baseline.get(name):
+            before=json.loads(content(revision,name)).get('adverse_assets',{})
+            for identity,records in before.items():
+                current=after.get('adverse_assets',{}).get(identity,[])
+                if current[:len(records)]!=records:
+                    raise StateConflict('Refusing retained adverse evidence rewrite')
     name='technical_followup_state.json'
     if baseline.get(name) and computed.get(name) is None:
         raise StateConflict('Refusing follow-up history deletion')

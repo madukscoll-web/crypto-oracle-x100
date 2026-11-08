@@ -5,6 +5,8 @@ Unknown security/fundamentals are prominently disclosed; known adverse evidence
 vetoes delivery. No private endpoints, signing, trading or approval mutation.
 """
 import datetime as dt
+import copy
+import hashlib
 import json
 import math
 import pathlib
@@ -79,6 +81,37 @@ def known_adverse(paths):
     return negatives
 
 
+
+def adverse_digest(raw):
+    return hashlib.sha256(json.dumps(raw,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
+
+
+def retained_negatives(state):
+    """Validate durable source-bound negative observations; they never expire clear."""
+    records=state.get('adverse_assets',{})
+    if not isinstance(records,dict):
+        raise ValueError('Invalid retained adverse state')
+    for identity,observations in records.items():
+        if not isinstance(observations,list) or not observations:
+            raise ValueError('Invalid retained adverse observations')
+        for record in observations:
+            try:
+                network,contract=record['network'],record['contract']
+                expected=('https://api.gopluslabs.io/api/v1/token_security/'+str(verification.CHAINS[network])
+                          +'?contract_addresses='+contract)
+                raw=record['raw']
+                info=raw['result'][contract.lower()]
+                normalized={k:('1' if v is True else '0' if v is False else v) for k,v in info.items()}
+                status,reason=verification.security(normalized)
+                if (identity!=key(network,contract) or record['url']!=expected or raw.get('code')!=1
+                        or status!='FAIL' or record['reason']!=reason
+                        or record['raw_sha256']!=adverse_digest(raw)):
+                    raise ValueError('Retained adverse evidence binding mismatch')
+                stamp(record['observed_at'])
+            except (ValueError,TypeError,KeyError,AttributeError,OverflowError):
+                raise ValueError('Invalid retained adverse evidence') from None
+    return set(records)
+
 def validated_research(row, report, now, p):
     pair, interval = row.get('pair'), row.get('interval')
     if pair not in p['pairs'] or pair in p.get('excluded_pairs', []):
@@ -120,7 +153,7 @@ def validated_research(row, report, now, p):
     return research
 
 
-def screen(row, research, gate, currencies, negatives, now):
+def screen(row, research, gate, currencies, negatives, now, retain_adverse=None):
     pair = row['pair']
     matches = [c for c in currencies if isinstance(c, dict) and c.get('currency') == pair[:-5]]
     if len(matches) != 1:
@@ -140,6 +173,10 @@ def screen(row, research, gate, currencies, negatives, now):
             identity = key(network, chain['addr'])
             identities.append((network, chain['addr'], identity))
             if identity in negatives:
+                row['technical_screen'] = dict(
+                    retained_adverse=[identity], currency_metadata=currency,
+                    observed_at=dt.datetime.fromtimestamp(now(),dt.timezone.utc).isoformat(),
+                    buy_authorized=False,orders_allowed=False)
                 raise ValueError('Retained exact-contract adverse evidence')
     security = []
     # Inspect every supported EVM representation, not just the most favourable.
@@ -152,6 +189,7 @@ def screen(row, research, gate, currencies, negatives, now):
         try:
             raw = gate.fetch(url)
             finding['raw'] = raw
+            finding['observed_at'] = dt.datetime.fromtimestamp(now(),dt.timezone.utc).isoformat()
             info = (raw.get('result') or {}).get(contract.lower())
             if raw.get('code') == 1 and isinstance(info, dict):
                 # Boolean adverse flags are still adverse, not an UNKNOWN escape.
@@ -163,6 +201,8 @@ def screen(row, research, gate, currencies, negatives, now):
         security.append(finding)
         if finding['status'] == 'FAIL':
             row['technical_screen'] = {'security': security}
+            if retain_adverse is not None:
+                retain_adverse(finding, pair)
             raise ValueError('Adverse contract capability/sellability finding')
     # Fetch live book last, after all slow screening calls.
     raw_book = gate.get('/spot/order_book', dict(currency_pair=pair, limit=20, with_id='true'))
@@ -255,6 +295,23 @@ def message(row, research, screened):
     return text
 
 
+def retain_observation(state, finding, pair, persist):
+    try:
+        identity=key(finding['network'],finding['contract'])
+        record={k:copy.deepcopy(finding[k]) for k in
+                ('network','contract','url','observed_at','raw','reason')}
+        record.update(pair=pair,raw_sha256=adverse_digest(record['raw']))
+        state.setdefault('adverse_assets',{}).setdefault(identity,[]).append(record)
+        # Validate derived source binding before publication. No approval is added.
+        retained_negatives(state)
+        persist(state)
+    except (OSError,ValueError,TypeError,KeyError,AttributeError,ArithmeticError):
+        # A derived FAIL must never become a routine suppression if durable
+        # retention fails; abort before another candidate can be delivered.
+        raise RuntimeError('Adverse evidence state persistence failed') from None
+    return identity
+
+
 def deliver(report, state, fetch, sender, persist, *, now=None, p=None, negatives=None):
     p = p or policy()
     clock = now or (lambda: dt.datetime.now(dt.timezone.utc).timestamp())
@@ -263,12 +320,16 @@ def deliver(report, state, fetch, sender, persist, *, now=None, p=None, negative
             or not isinstance(state.get('daily_counts'), dict)
             or not isinstance(state.get('delivered_by_setup', {}), dict)):
         raise ValueError('Invalid technical notification state')
+    retained_keys=retained_negatives(state)
     summary = dict(enabled=p['enabled'], assessed=0, delivered=0, suppressed={}, failed=0,
                    buy_authorized=False, orders_allowed=False)
     if not p['enabled']:
         return state, summary
     if negatives is None:
         raise ValueError('Known-adverse screening must be supplied')
+    negative_keys=set(negatives)|retained_keys
+    def retain_adverse(finding,pair):
+        negative_keys.add(retain_observation(state,finding,pair,persist))
     # Retain each market/timeframe receipt. A weekly thesis cannot suppress a
     # distinct daily/intraday setup, nor can alternating timeframes reset dedup.
     setup_receipts = dict(state.get('delivered_by_setup', {}))
@@ -320,7 +381,7 @@ def deliver(report, state, fetch, sender, persist, *, now=None, p=None, negative
                 if not changed:
                     reasons['no_material_change'] += 1
                     continue
-            screened = screen(row, research, gate, currencies, negatives, clock)
+            screened = screen(row, research, gate, currencies, negative_keys, clock, retain_adverse)
             # Re-evaluate the Lagos day after provider calls (which may cross midnight).
             day = dt.datetime.fromtimestamp(clock(), dt.timezone(dt.timedelta(hours=1))).date().isoformat()
             count = state['daily_counts'].get(day, 0)
