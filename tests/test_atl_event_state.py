@@ -13,9 +13,9 @@ class EventTests(unittest.TestCase):
             flags = dict(identity_verified=True, observation_fresh=True,
                          history_validated=True, evidence_qualified=True, security_passed=True)
             self.assertTrue(eligible_event(load_state(p), a, **flags))
-            self.assertFalse(confirm_delivery(p, a, {"ok": True}, "2026-11-07T00:00:00Z"))
+            self.assertFalse(confirm_delivery(p, a, {"ok": True}, "2026-11-07T00:00:00Z", expected_chat_id="-123"))
             self.assertTrue(eligible_event(load_state(p), a, **flags))
-            self.assertTrue(confirm_delivery(p, a, {"ok": True, "result": {"message_id": 123}}, "2026-11-07T00:00:00Z"))
+            self.assertTrue(confirm_delivery(p, a, {"ok": True, "result": {"message_id": 123, "chat": {"id": -123}}}, "2026-11-07T00:00:00Z", expected_chat_id="-123"))
             self.assertFalse(eligible_event(load_state(p), a, **flags))
             self.assertTrue(eligible_event(load_state(p), b, **flags))
             flags["security_passed"] = False

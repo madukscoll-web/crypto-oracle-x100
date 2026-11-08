@@ -11,6 +11,7 @@ import urllib.request
 
 from oracle_http import retry_delay
 from classification_policy import format_message
+from telegram_receipts import confirmed
 
 
 class NotificationError(RuntimeError):
@@ -38,9 +39,7 @@ def send_message(message):
                 result = json.load(response)
             if not isinstance(result, dict):
                 raise ValueError("Invalid response")
-            receipt = (result.get("result") or {})
-            message_id = receipt.get("message_id") if isinstance(receipt, dict) else None
-            if result.get("ok") is True and type(message_id) is int and message_id > 0:
+            if confirmed(result, chat):
                 print("Telegram delivery confirmed by Bot API (message_id present).", flush=True)
                 return True
             code = result.get("error_code")

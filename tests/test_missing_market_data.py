@@ -70,9 +70,9 @@ class MissingMarketTests(unittest.TestCase):
         item = self.enrich(payload)
         self.assertIsNone(item['volume'])
         self.assert_wait(item)
-        with patch.dict(os.environ, TELEGRAM_BOT_TOKEN='fixture', TELEGRAM_CHAT_ID='fixture'), patch(
+        with patch.dict(os.environ, TELEGRAM_BOT_TOKEN='fixture', TELEGRAM_CHAT_ID='-123'), patch(
                 'telegram_notify.urllib.request.urlopen', return_value=io.StringIO(
-                    json.dumps(dict(ok=True, result={'message_id': 1})))) as send:
+                    json.dumps(dict(ok=True, result={'message_id': 1, 'chat': {'id': -123}})))) as send:
             self.assertTrue(scanner.send_telegram(item))
         text = parse_qs(send.call_args.args[0].data.decode())['text'][0]
         self.assertIn('24h volume: $UNKNOWN', text)
@@ -97,9 +97,9 @@ class MissingMarketTests(unittest.TestCase):
         item = self.enrich(refresh())
         for field in ('liquidity', 'volume', 'buys', 'sells', 'trades', 'buy_share'):
             item[field] = None
-        with patch.dict(os.environ, TELEGRAM_BOT_TOKEN='fixture', TELEGRAM_CHAT_ID='fixture'), patch(
+        with patch.dict(os.environ, TELEGRAM_BOT_TOKEN='fixture', TELEGRAM_CHAT_ID='-123'), patch(
                 'telegram_notify.urllib.request.urlopen', return_value=io.StringIO(
-                    json.dumps(dict(ok=True, result={'message_id': 1})))) as send:
+                    json.dumps(dict(ok=True, result={'message_id': 1, 'chat': {'id': -123}})))) as send:
             self.assertTrue(scanner.send_telegram(item))
         text = parse_qs(send.call_args.args[0].data.decode())['text'][0]
         for label in ('Liquidity: $UNKNOWN', '24h volume: $UNKNOWN', '1h trades: UNKNOWN', '1h buy share: UNKNOWN'):
@@ -160,9 +160,9 @@ class MissingMarketTests(unittest.TestCase):
                 scanner, 'fetch_json', side_effect=fetch), patch.object(scanner.time, 'sleep'), patch.object(
                 scanner.fundamental_evidence, 'collect', return_value={}), patch.object(
                 scanner.market_corroboration, 'check', return_value={'status': 'UNKNOWN'}), patch.dict(
-                os.environ, TELEGRAM_BOT_TOKEN='fixture', TELEGRAM_CHAT_ID='fixture'), patch(
+                os.environ, TELEGRAM_BOT_TOKEN='fixture', TELEGRAM_CHAT_ID='-123'), patch(
                 'telegram_notify.urllib.request.urlopen', return_value=io.StringIO(
-                    json.dumps(dict(ok=True, result={'message_id': 1})))):
+                    json.dumps(dict(ok=True, result={'message_id': 1, 'chat': {'id': -123}})))):
             report = scanner.main()
         self.assertEqual(report['status'], 'completed')
         self.assertEqual(report['alerts_delivered'], 0)
@@ -186,10 +186,10 @@ class MissingMarketTests(unittest.TestCase):
         self.assertNotIn('secret-token', output.getvalue() + json.dumps(report))
         with self.assertRaises(telegram.NotificationError):
             telegram.workflow_message('completion')
-        with patch.dict(os.environ, TELEGRAM_BOT_TOKEN='fixture', TELEGRAM_CHAT_ID='fixture',
+        with patch.dict(os.environ, TELEGRAM_BOT_TOKEN='fixture', TELEGRAM_CHAT_ID='-123',
                         GITHUB_REPOSITORY='owner/repo', GITHUB_RUN_ID='123', FAILED_STAGES='scan=failure'), patch(
                 'telegram_notify.urllib.request.urlopen', return_value=io.StringIO(
-                    json.dumps(dict(ok=True, result={'message_id': 2})))) as send:
+                    json.dumps(dict(ok=True, result={'message_id': 2, 'chat': {'id': -123}})))) as send:
             self.assertTrue(telegram.send_message(telegram.workflow_message('failure')))
         text = parse_qs(send.call_args.args[0].data.decode())['text'][0]
         self.assertIn('workflow FAILED', text)
@@ -206,5 +206,6 @@ class MissingMarketTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
 
 

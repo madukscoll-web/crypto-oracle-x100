@@ -25,8 +25,8 @@ class TelegramTests(unittest.TestCase):
 
     def test_delivery_requires_api_confirmation(self):
         for ok in (True, False):
-            body = io.BytesIO(json.dumps({'ok': ok, 'result': {'message_id': 123} if ok else None}).encode())
-            with patch.dict(scanner.os.environ, dict(TELEGRAM_BOT_TOKEN='fixture', TELEGRAM_CHAT_ID='fixture')), patch.object(scanner.urllib.request, 'urlopen', return_value=body) as send:
+            body = io.BytesIO(json.dumps({'ok': ok, 'result': {'message_id': 123, 'chat': {'id': -123}} if ok else None}).encode())
+            with patch.dict(scanner.os.environ, dict(TELEGRAM_BOT_TOKEN='fixture', TELEGRAM_CHAT_ID='-123')), patch.object(scanner.urllib.request, 'urlopen', return_value=body) as send:
                 if ok:
                     scanner.send_telegram(self.item())
                     request = send.call_args.args[0]
@@ -37,3 +37,4 @@ class TelegramTests(unittest.TestCase):
                 else:
                     with self.assertRaises(RuntimeError):
                         scanner.send_telegram(self.item())
+

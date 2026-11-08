@@ -3,6 +3,7 @@
 INELIGIBLE is internal/silent. ENTRY WATCH is a watch subtype, never a BUY.
 The original independent audit and decision gate exclusively control VERIFIED BUY.
 """
+from telegram_receipts import confirmed as receipt_confirmed
 import copy
 import datetime as dt
 import hashlib
@@ -303,8 +304,7 @@ def deliver(item,result,event,env,transport=telegram_validation.request,example=
     for index,text in enumerate(parts or chunks(format_alert(item,result,event,example))):
         if index in (completed or []):continue
         response=transport(token,'sendMessage',{'chat_id':chat,'text':text,'disable_web_page_preview':'true'})
-        sent=response.get('result') or {}
-        if response.get('ok') is not True or not sent.get('message_id') or str((sent.get('chat') or {}).get('id',''))!=target_id:raise RuntimeError('Telegram did not confirm destination delivery')
+        if not receipt_confirmed(response,target_id):raise RuntimeError('Telegram did not confirm destination delivery')
         if on_part:on_part(index)
     return True
 
@@ -328,4 +328,5 @@ def send_notification(item,result,notification,state,env,persist,transport=teleg
     acknowledge(state,item['key'],notification)
     record.pop('pending_delivery',None)
     persist()
+
 
