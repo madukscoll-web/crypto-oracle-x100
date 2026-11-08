@@ -2,6 +2,7 @@ import datetime as dt
 import pathlib
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import deferred_candidates as queue
 
@@ -14,6 +15,43 @@ def item(name):
 
 
 class DeferredCandidateTests(unittest.TestCase):
+    def test_network_rotation_persists_even_without_discovery_observations(self):
+        state = {'version': 1, 'pending': {}}
+        networks = ('solana', 'base', 'eth', 'bsc')
+        starts = []
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory)/'queue.json'
+            for _ in range(len(networks)):
+                order = queue.network_order(state, networks)
+                starts.append(order[0])
+                self.assertEqual(set(order), set(networks))
+                queue.save(state, path)
+                state = queue.load(path)
+        self.assertEqual(starts, list(networks))
+        self.assertEqual(state['network_cursor'], 0)
+
+    def test_invalid_network_cursor_is_rejected(self):
+        for cursor in (-1, True, '1', None, 1.5):
+            state = {'version': 1, 'pending': {}, 'network_cursor': cursor}
+            with self.assertRaises(ValueError):
+                queue.network_order(state, ('base',))
+            with tempfile.TemporaryDirectory() as directory:
+                path = pathlib.Path(directory)/'queue.json'
+                queue.save(state, path)
+                with self.assertRaises(ValueError):
+                    queue.load(path)
+
+    def test_local_cooldown_skip_does_not_sleep_but_real_requests_remain_paced(self):
+        import crypto_oracle_scanner as scanner
+        from oracle_http import ProviderRateLimited
+        with patch.object(scanner.time, 'sleep') as sleep:
+            scanner.pause_after_discovery(ProviderRateLimited('cooldown'))
+            sleep.assert_not_called()
+            scanner.pause_after_discovery()
+            scanner.pause_after_discovery(OSError('remote failure'))
+            self.assertEqual(sleep.call_count, 2)
+            self.assertTrue(all(call.args == (scanner.REQUEST_DELAY_SECONDS,) for call in sleep.call_args_list))
+
     def test_persistence_retains_only_identity_not_stale_market_or_security(self):
         with tempfile.TemporaryDirectory() as directory:
             path = pathlib.Path(directory)/'queue.json'

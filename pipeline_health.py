@@ -16,6 +16,9 @@ def summarize(stages, reports):
     data_degradation={}
     if atl.get('enrichment_errors'):
         data_degradation['atl']='Metadata/history enrichment unavailable or invalid; no verified lifetime claim'
+    lifetime=atl.get('lifetime_validation') or {}
+    if lifetime.get('assessed') and lifetime.get('status')=='UNVERIFIED':
+        data_degradation['atl_lifetime']='Enrolled history evidence failed independent validation; no qualified alert'
     if (atl.get('research_delivery') or {}).get('failed'):
         failures['atl_delivery']='Unconfirmed Telegram research delivery' 
     if 'multichain' in stages:

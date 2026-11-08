@@ -89,6 +89,13 @@ def fetch_json(url):
     return get_json(url, headers=HEADERS)
 
 
+def pause_after_discovery(error=None):
+    # Local circuit-breaker skips made no remote request. The HTTP client's
+    # shared host cooldown remains authoritative; no second sleep is needed.
+    if not isinstance(error, ProviderRateLimited):
+        time.sleep(REQUEST_DELAY_SECONDS)
+
+
 def missing_market_fields(item):
     """Require actual finite observations; unknown values never become zero."""
     missing = []
@@ -890,6 +897,8 @@ def main():
     seen = load_state()
     watchlist = load_watchlist()
     deferred = deferred_candidates.load()
+    network_order = deferred_candidates.network_order(deferred, NETWORKS)
+    deferred_candidates.save(deferred)
     history = signal_tracker.load()
     candidates = []
     keys_in_run = set()
@@ -899,10 +908,11 @@ def main():
     successful_feeds = 0
     discovery_counts = {}
     notification_counts = {}
-    for network in NETWORKS:
+    for network in network_order:
         network_checked = 0
         for mode in SCAN_MODES:
             for page in range(1, PAGES_PER_NETWORK + 1):
+                request_error = None
                 try:
                     url = f"{API}/networks/{network}/{mode}?page={page}"
                     payload = fetch_json(url)
@@ -927,6 +937,7 @@ def main():
                     if not pools:
                         break
                 except (urllib.error.URLError, ValueError, KeyError, TypeError, AttributeError, TimeoutError, OSError) as exc:
+                    request_error = exc
                     detail = f"{network} {mode} page {page}: {type(exc).__name__}"
                     if ((isinstance(exc, ProviderRateLimited) or
                          isinstance(exc, urllib.error.HTTPError) and exc.code == 429)
@@ -936,12 +947,13 @@ def main():
                         errors.append(detail)
                     break
                 finally:
-                    time.sleep(REQUEST_DELAY_SECONDS)
+                    pause_after_discovery(request_error)
         print(f"{network}: checked {network_checked} pool observations", flush=True)
 
     previously_reported_pool_count = sum(item['key'] in seen for item in candidates)
     deferred_report = deferred_candidates.prepare(
         deferred, candidates, excluded=set(seen) | set(watchlist))
+    deferred_report.update(network_order=list(network_order), network_cursor=deferred['network_cursor'])
     reserved_deferred, refresh_counts = deferred_candidates.refresh(
         deferred, candidates, fetch_json, inspect, API,
         limit=min(deferred_candidates.RESERVED_SLOTS, EVIDENCE_SLOTS))

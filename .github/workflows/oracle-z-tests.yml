@@ -32,6 +32,7 @@ jobs:
           python -u hourly_evidence_probe.py
           python -u news_context.py
           python -u strategy_lab_probe.py
+          python -u atl_lifetime_probe.py
       - name: Retain public adapter integration evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -42,6 +43,7 @@ jobs:
             news_source_report.json
             work/strategy_lab_probe.json
             work/strategy_lab_probe_sources.json
+            work/atl_lifetime_readiness.json
           retention-days: 7
           if-no-files-found: warn
 

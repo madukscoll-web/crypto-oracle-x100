@@ -128,7 +128,10 @@ def enrich(result, state, fetch, *, now):
     Failure details remain in the report. A failed provider is not retried in the
     same session. History availability never upgrades lifetime verification.
     """
-    from atl_evidence import dossier, slug, fresh, instrument, DETAILS
+    from atl_evidence import dossier, slug, fresh, instrument, identity, DETAILS
+    import atl_lifetime
+    manifests=atl_lifetime.load_registry().get('manifests',{})
+    if not isinstance(manifests,dict):raise ValueError('Invalid lifetime manifest registry')
     leads=[x for x in result.get('observations',[]) if x.get('provider_atl_candidate')]
     leads.sort(key=lambda x:x['provider_id'])
     after=state.get('enrichment_after','')
@@ -143,6 +146,11 @@ def enrich(result, state, fetch, *, now):
         state['enrichment_after']=identifier
         snapshot=cache.get(identifier)
         try:
+            if snapshot is not None and not fresh(snapshot.get('observed_at'),now.timestamp(),120):
+                bound=identity(snapshot['details'],identifier)
+                if any(a['network']+':'+a['contract'] in manifests for a in bound['contracts']):
+                    snapshot=None  # enrolled lifetime review needs fresh metadata
+
             if snapshot is None:
                 details=fetch(DETAILS+identifier+'?localization=false&tickers=false&community_data=false&developer_data=false')
                 if not isinstance(details,dict):raise ValueError('Invalid details response')
@@ -183,8 +191,25 @@ def main():
         with Session(max_requests=4,max_seconds=60,max_request_seconds=8) as session:
             enrich(result,state,session.get,now=now)
             result['enrichment_provider_session']=session.summary()
-        result['research_delivery']=notify(result['research_dossiers'],state,os.environ,telegram_validation.request,now=now.timestamp())
-        result['alerts_delivered']=result['research_delivery']['delivered']
+        import atl_lifetime
+        def persist(current):
+            temporary=STATE_PATH.with_suffix('.json.tmp')
+            temporary.write_text(json.dumps(current,sort_keys=True)+'\n')
+            temporary.replace(STATE_PATH)
+        delivery_now=dt.datetime.now(dt.timezone.utc)
+        lifetime=atl_lifetime.deliver(result['research_dossiers'],state,os.environ,atl_lifetime.telegram_request,now=delivery_now.timestamp(),persist=persist)
+        result['lifetime_validation']=lifetime
+        verified=[f for f in lifetime.get('findings',[]) if f.get('lifetime_verified') is True]
+        result['historical_baselines_validated']=len(verified)
+        result['eligible_verified']=sum(f.get('status')=='VERIFIED_RESEARCH' for f in verified)
+        result['assets_checked_against_validated_low']=len(verified)
+        # Only one notification channel may consume the bounded stage budget.
+        # A selected signed manifest cannot be bypassed through weaker evidence.
+        if lifetime.get('assessed'):
+            result['research_delivery']=dict(delivered=0,failed=0,status='LIFETIME_CHANNEL_SELECTED')
+        else:
+            result['research_delivery']=notify(result['research_dossiers'],state,os.environ,atl_lifetime.telegram_request,now=dt.datetime.now(dt.timezone.utc).timestamp())
+        result['alerts_delivered']=result['research_delivery']['delivered']+lifetime['delivered']
         temporary = STATE_PATH.with_suffix('.json.tmp')
         state['cursor']=result['next_cursor']
         temporary.write_text(json.dumps(state,sort_keys=True)+'\n')
@@ -194,7 +219,8 @@ def main():
     # Provider-limited enrichment is degraded DATA, not a crashed process.
     # Keep it explicit in the report/health digest; transport failure is fatal.
     healthy=(result['status']=='OBSERVATIONS_UNVERIFIED'
-             and not (result.get('research_delivery') or {}).get('failed'))
+             and not (result.get('research_delivery') or {}).get('failed')
+             and not (result.get('lifetime_validation') or {}).get('failed'))
     return 0 if healthy else 1
 
 

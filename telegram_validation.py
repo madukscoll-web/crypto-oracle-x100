@@ -6,6 +6,7 @@ Docs: https://core.telegram.org/bots/api
 """
 import argparse
 import datetime as dt
+import hashlib
 import json
 import os
 import pathlib
@@ -38,13 +39,17 @@ def validate(env, send_test=False, transport=request):
         if target.get('ok') is not True or not isinstance(target.get('result'), dict):
             raise ValueError('Chat unavailable')
         chat_type = target['result'].get('type')
-        returned_chat_id = str(target['result'].get('id', ''))
-        if not returned_chat_id or chat_type not in ('private', 'group', 'supergroup', 'channel'):
+        resolved_id = target['result'].get('id')
+        returned_chat_id = str(resolved_id)
+        if (type(resolved_id) is not int or resolved_id == 0 or
+                chat_type not in ('private', 'group', 'supergroup', 'channel')):
             raise ValueError('Malformed chat result')
         # @channel identifiers may resolve to a numeric ID, but numeric configured
         # destinations must match exactly. Never let a response redirect delivery.
         if not chat.startswith('@') and returned_chat_id != chat:
             raise ValueError('Destination mismatch')
+        if chat.startswith('@') and ('@'+str(target['result'].get('username','')).casefold()!=chat.casefold()):
+            raise ValueError('Named destination mismatch')
         result['chat_accessible'] = True
         result.update(status='PREFLIGHT_OK', reason='Bot and destination checked; delivery not attempted')
         if send_test:
@@ -53,6 +58,9 @@ def validate(env, send_test=False, transport=request):
             if not confirmed(response, returned_chat_id):
                 raise ValueError('Delivery not confirmed for configured destination')
             result.update(status='DELIVERY_CONFIRMED', delivery_confirmed=True,
+                          telegram_message_id=response['result']['message_id'],
+                          destination_verified=True,
+                          destination_sha256=hashlib.sha256(returned_chat_id.encode('utf-8')).hexdigest(),
                           reason='Telegram confirmed diagnostic message delivery; this is not a trade signal')
     except (OSError, ValueError, TypeError, KeyError, AttributeError):
         result.update(status='BLOCKED', reason='Telegram authentication, destination access or delivery confirmation failed')
@@ -71,4 +79,5 @@ def main():
 
 if __name__ == '__main__':
     raise SystemExit(main())
+
 
