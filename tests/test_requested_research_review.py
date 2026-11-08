@@ -53,3 +53,26 @@ class RequestedReviewTests(unittest.TestCase):
         self.assertTrue(result['delivery_confirmed'])
         self.assertEqual(result['telegram_message_id'],7)
         self.assertFalse(result['new_automated_signal'])
+
+
+    def test_recorded_warning_survives_provider_outage_in_requested_review(self):
+        import technical_watch
+        from test_technical_watch import state
+        report,source=fixture(adverse=True)
+        saved,_=technical_watch.deliver(report,state(),source,lambda _:self.fail('Adverse alert'),
+            lambda _:None,now=lambda:NOW,negatives=set())
+        def unavailable(url):
+            if 'api.gopluslabs.io' in url:raise OSError('Provider offline')
+            return source(url)
+        notice,result=r.review(report,unavailable,negatives=technical_watch.retained_negatives(saved),now=lambda:NOW)
+        self.assertIsNone(notice)
+        self.assertIn('Retained exact-contract adverse evidence',result['rejection_reasons'])
+
+    def test_completed_one_time_demo_is_manual_only_and_publishes_negative_evidence(self):
+        import pathlib
+        text=(pathlib.Path(__file__).resolve().parents[1]/'.github/workflows/requested-research-review.yml').read_text()
+        self.assertIn('workflow_dispatch:',text)
+        self.assertNotIn('  push:',text)
+        self.assertNotIn('  schedule:',text)
+        self.assertIn('python workflow_state.py refresh',text)
+        self.assertIn('python workflow_state.py publish',text)

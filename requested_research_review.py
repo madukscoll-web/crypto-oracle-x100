@@ -20,7 +20,7 @@ from telegram_receipts import confirmed
 import telegram_validation
 
 
-def review(report, fetch, *, negatives, now=time.time):
+def review(report, fetch, *, negatives, now=time.time, retain_adverse=None, retained_state=None):
     policy = watches.policy()
     result = dict(mode='OWNER_REQUESTED_CURRENT_REASSESSMENT', buy_authorized=False,
                   orders_allowed=False, new_automated_signal=False, delivery_confirmed=False,
@@ -39,7 +39,7 @@ def review(report, fetch, *, negatives, now=time.time):
         result['assessed'] += 1
         try:
             research = watches.validated_research(row, report, now(), policy)
-            screened = watches.screen(row, research, gate, currencies, negatives, now)
+            screened = watches.screen(row, research, gate, currencies, negatives, now, retain_adverse, retained_state)
             body = ('OWNER-REQUESTED CURRENT REASSESSMENT. May repeat an existing setup; '
                     'not a newly detected signal.\n' + watches.message(row, research, screened))
             notice = _issue(research['technical_classification'], body)
@@ -105,8 +105,30 @@ def main():
         raise ValueError('Current universe/candle observations unavailable; refusing stale substitution')
     negatives = watches.known_adverse(['validation/live-candidates-2026-10-21.json',
                                       'review_input/evidence_report.json'])
+    # Both snapshots are additive: missing current provider data cannot clear
+    # a contract warning retained by a prior full scan.
+    state_path=pathlib.Path('technical_watch_state.json')
+    review_state=json.loads(state_path.read_text())
+    if (review_state.get('version')!=1 or not isinstance(review_state.get('delivered'),dict)
+            or not isinstance(review_state.get('daily_counts'),dict)):
+        raise ValueError('Invalid technical research state')
+    for path in ('technical_watch_state.json','review_input/technical_watch_state.json'):
+        snapshot=json.loads(pathlib.Path(path).read_text())
+        negatives.update(watches.retained_negatives(snapshot))
+        for identity,records in snapshot.get('adverse_assets',{}).items():
+            existing=review_state.setdefault('adverse_assets',{}).setdefault(identity,[])
+            known={record['raw_sha256'] for record in existing}
+            existing.extend(record for record in records if record['raw_sha256'] not in known)
+    def persist(snapshot):
+        temporary=state_path.with_suffix('.json.tmp')
+        temporary.write_text(json.dumps(snapshot,indent=2)+'\n')
+        temporary.replace(state_path)
+    watches.retained_negatives(review_state)
+    persist(review_state)
+    def retain(finding,pair):
+        negatives.add(watches.retain_observation(review_state,finding,pair,persist))
     with Session(max_requests=25,max_seconds=70,max_request_seconds=4) as session:
-        notice, result = review(report, session.get, negatives=negatives)
+        notice, result = review(report, session.get, negatives=negatives, retain_adverse=retain, retained_state=review_state)
         result['provider_session'] = session.summary()
     try:
         transmit(notice,result,os.environ)

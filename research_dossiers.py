@@ -36,7 +36,7 @@ def build(report, *, now=None, maximum=3):
                 for e in row['provider_evidence']]
             screening=row.get('technical_screen') or {}
             findings=screening.get('security') or []
-            adverse=any(s.get('status')=='FAIL' for s in findings)
+            adverse=bool(screening.get('retained_adverse')) or any(s.get('status')=='FAIL' for s in findings)
             profile=row.get('project_context')
             if not isinstance(profile,dict) or profile.get('identity',{}).get('pair')!=row['pair']:
                 profile=project_context.empty({'pair':row['pair']},now,'Exact-market context unavailable')

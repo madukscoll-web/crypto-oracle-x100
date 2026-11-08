@@ -255,3 +255,132 @@ class ConciseResearchMessageTests(unittest.TestCase):
         self.assertIn('supply/unlocks',text)
         self.assertNotIn('Dev commits/4w: UNKNOWN',text)
         self.assertLess(len(text),2400)
+
+
+class RetainedGateAdverseTests(unittest.TestCase):
+    def rejected(self):
+        report,fetch=fixture(adverse=True)
+        saved=[]
+        updated,summary=alerts.deliver(report,state(),fetch,
+            lambda _:self.fail('Adverse finding must not send'),
+            lambda snapshot:saved.append(copy.deepcopy(snapshot)),now=lambda:NOW,negatives=set())
+        self.assertEqual(summary['delivered'],0)
+        self.assertEqual(len(saved),1)
+        return updated,saved[0]
+
+    def test_new_adverse_finding_survives_returned_and_persisted_state_during_outage(self):
+        updated,saved=self.rejected()
+        asset=key('eth','0x'+'a'*40)
+        for old in (updated,saved):
+            with self.subTest(state=old):
+                report,source=fixture(adverse=True,now=NOW+3600)
+                def outage(url):
+                    if urlsplit(url).hostname=='api.gopluslabs.io':
+                        self.fail('Retained adverse contract must be blocked before provider lookup')
+                    return source(url)
+                after,summary=alerts.deliver(report,old,outage,
+                    lambda _:self.fail('Outage cannot erase adverse finding'),lambda _:None,
+                    now=lambda:NOW+3600,negatives=set())
+                self.assertEqual(summary['delivered'],0)
+                self.assertIn('Retained exact-contract adverse evidence',summary['suppressed'])
+                self.assertEqual(after['adverse_assets'],old['adverse_assets'])
+                proof=after['adverse_assets'][asset][0]
+                self.assertEqual(proof['raw']['result']['0x'+'a'*40]['is_honeypot'],'1')
+                self.assertEqual(proof['raw_sha256'],alerts.adverse_digest(proof['raw']))
+                self.assertEqual(proof['observed_at'],dt.datetime.fromtimestamp(NOW,dt.timezone.utc).isoformat())
+
+    def test_unrelated_exact_contract_is_not_blocked_by_symbol_or_chain(self):
+        updated,_=self.rejected()
+        report,source=fixture(adverse=True,now=NOW+3600)
+        other='0x'+'b'*40
+        def unrelated(url):
+            if urlsplit(url).hostname=='api.gopluslabs.io':raise OSError('Provider unavailable')
+            raw=source(url)
+            if urlsplit(url).path=='/api/v4/spot/currencies':
+                raw[0]['chains'][0]['addr']=other
+            return raw
+        after,summary=alerts.deliver(report,updated,unrelated,lambda _:True,lambda _:None,
+            now=lambda:NOW+3600,negatives=set())
+        self.assertEqual(summary['delivered'],1)
+        self.assertEqual(set(after['adverse_assets']),{key('eth','0x'+'a'*40)})
+        self.assertFalse(summary['buy_authorized'])
+
+    def test_persistence_failure_of_adverse_finding_surfaces_before_any_message(self):
+        report,fetch=fixture(('BCH_USDT','BNB_USDT'),adverse=True)
+        def cannot_save(_):raise OSError('Storage unavailable')
+        with self.assertRaisesRegex(RuntimeError,'Adverse evidence state persistence failed'):
+            alerts.deliver(report,state(),fetch,lambda _:self.fail('No message before persistence'),
+                cannot_save,now=lambda:NOW,negatives=set())
+
+    def test_malformed_or_tampered_retained_state_fails_before_network(self):
+        updated,_=self.rejected()
+        for mutation in ('type','empty','raw','identity','source','reason'):
+            old=copy.deepcopy(updated)
+            records=old['adverse_assets'];asset=next(iter(records))
+            if mutation=='type':old['adverse_assets']=[]
+            elif mutation=='empty':records[asset]=[]
+            elif mutation=='raw':records[asset][0]['raw']['result']['0x'+'a'*40]['is_honeypot']='0'
+            elif mutation=='identity':records[key('base','0x'+'a'*40)]=records.pop(asset)
+            elif mutation=='source':records[asset][0]['url']='https://untrusted.example/'
+            elif mutation=='reason':records[asset][0]['reason']='unbound reason'
+            report,_=fixture()
+            with self.subTest(mutation=mutation),self.assertRaises(ValueError):
+                alerts.deliver(report,old,lambda _:self.fail('Malformed retained evidence must fail before network'),
+                    lambda _:self.fail('No send'),lambda _:None,now=lambda:NOW,negatives=set())
+
+    def test_retained_finding_blocks_alternate_market_for_same_contract(self):
+        updated,_=self.rejected()
+        report,source=fixture(('BNB_USDT',),adverse=True,now=NOW+3600)
+        _,summary=alerts.deliver(report,updated,source,lambda _:self.fail('Ticker change cannot clear exact asset risk'),
+            lambda _:None,now=lambda:NOW+3600,negatives=set())
+        self.assertEqual(summary['delivered'],0)
+        self.assertIn('Retained exact-contract adverse evidence',summary['suppressed'])
+
+    def test_retained_negative_api_validates_and_attaches_exact_adverse_scope(self):
+        updated,_=self.rejected()
+        asset=key('eth','0x'+'a'*40)
+        self.assertEqual(alerts.retained_negatives(updated),{asset})
+        report,fetch=fixture(adverse=True,now=NOW+3600)
+        alerts.deliver(report,updated,fetch,lambda _:self.fail('No adverse research send'),
+            lambda _:None,now=lambda:NOW+3600,negatives=set())
+        self.assertEqual(report['results'][0]['technical_screen']['retained_adverse'],[asset])
+        self.assertFalse(report['results'][0]['technical_screen']['buy_authorized'])
+
+    def test_unserializable_adverse_proof_aborts_before_other_candidates(self):
+        report,source=fixture(('BCH_USDT','BNB_USDT'),adverse=True)
+        def fetch(url):
+            raw=source(url)
+            if urlsplit(url).hostname=='api.gopluslabs.io':
+                raw['invalid_optional_value']=float('nan')
+            return raw
+        with self.assertRaisesRegex(RuntimeError,'Adverse evidence state persistence failed'):
+            alerts.deliver(report,state(),fetch,lambda _:self.fail('No delivery after lost adverse proof'),
+                lambda _:None,now=lambda:NOW,negatives=set())
+
+
+class RetainedMetadataOutageTests(unittest.TestCase):
+    def seed(self):
+        report,fetch=fixture(adverse=True)
+        saved,_=alerts.deliver(report,state(),fetch,lambda _:False,lambda _:None,now=lambda:NOW,negatives=set())
+        return saved
+
+    def test_missing_chain_metadata_does_not_clear_prior_contract_warning(self):
+        saved=self.seed();report,original=fixture(adverse=True)
+        def fetch(url):
+            result=original(url)
+            if '/spot/currencies' in url:result[0]['chains']=[]
+            return result
+        _,summary=alerts.deliver(report,saved,fetch,lambda _:self.fail('Prior warning forgotten'),
+            lambda _:None,now=lambda:NOW+3600,negatives=set())
+        self.assertEqual(summary['delivered'],0)
+        self.assertIn('Prior warning; current asset identity unresolved',summary['suppressed'])
+        self.assertTrue(report['results'][0]['technical_screen']['retained_adverse'])
+
+    def test_budget_exhaustion_does_not_hide_retained_warning_from_dossier(self):
+        saved=self.seed();report,fetch=fixture(adverse=True)
+        day=dt.datetime.fromtimestamp(NOW,dt.timezone(dt.timedelta(hours=1))).date().isoformat()
+        saved['daily_counts'][day]=3
+        _,summary=alerts.deliver(report,saved,fetch,lambda _:self.fail('No delivery'),lambda _:None,
+            now=lambda:NOW,negatives=set())
+        self.assertEqual(summary['delivered'],0)
+        self.assertTrue(report['results'][0]['technical_screen']['retained_adverse'])

@@ -116,3 +116,19 @@ class WorkflowStateTests(unittest.TestCase):
             pathlib.Path('strategy_lab_state.json').write_text(json.dumps(original))
             result=state.publish('base.json')
         self.assertEqual(result['status'],'PUBLISHED')
+
+
+    def test_retained_contract_warning_cannot_be_deleted_by_state_publication(self):
+        import technical_watch
+        from test_technical_watch import fixture,state as initial,NOW
+        report,fetch=fixture(adverse=True)
+        original,_=technical_watch.deliver(report,initial(),fetch,lambda _:self.fail('Adverse send'),
+            lambda _:None,now=lambda:NOW,negatives=set())
+        self.assertTrue(original['adverse_assets'])
+        self.push_writer('technical_watch_state.json',json.dumps(original))
+        with self.cwd(self.worker):
+            state.refresh('main','base.json')
+            original['adverse_assets']={}
+            pathlib.Path('technical_watch_state.json').write_text(json.dumps(original))
+            with self.assertRaisesRegex(state.StateConflict,'adverse evidence rewrite'):
+                state.publish('base.json')

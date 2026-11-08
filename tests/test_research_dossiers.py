@@ -65,3 +65,11 @@ class DossierTests(unittest.TestCase):
         report['results'][0]['technical_screen']['raw_book']['bids'][0][0]='999'
         self.assertEqual(item['recorded_screening']['raw_book']['bids'][0][0],'100')
         self.assertFalse(item['buy_authorized'])
+
+
+    def test_retained_adverse_marker_cannot_be_relabelled_as_ordinary_research(self):
+        report,_=fixture()
+        report['results'][0]['technical_screen']={'retained_adverse':['eth:0x'+'a'*40]}
+        item=d.build(report,now=NOW)['dossiers'][0]
+        self.assertEqual(item['status'],'WITHHELD_ADVERSE_FINDING')
+        self.assertFalse(item['buy_authorized'])
