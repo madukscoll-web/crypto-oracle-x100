@@ -102,6 +102,7 @@ def main():
                    source.get('event') in ('schedule', 'workflow_dispatch', 'push'))
         run, reason = decide(os.environ.get('GITHUB_EVENT_NAME'), state, now, trusted)
         report = {'run': run, 'reason': reason, 'checked_at': now.isoformat(),
+                  'github_run_id':run_id,
                   'last_core_success_at': state.get('last_core_success_at'),
                   'hourly_guarantee': False,
                   'core_success_age_seconds': age(state.get('last_core_success_at'),now),
