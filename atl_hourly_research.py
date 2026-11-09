@@ -122,7 +122,7 @@ def run(fetch=None, *, now=None, cursor=2):
     return report
 
 
-def enrich(result, state, fetch, *, now):
+def enrich(result, state, fetch, *, now, gate_evidence=None):
     """Two rotating leads/run; cache valid snapshots for two hours, bound storage.
 
     Failure details remain in the report. A failed provider is not retried in the
@@ -132,7 +132,13 @@ def enrich(result, state, fetch, *, now):
     import atl_lifetime
     manifests=atl_lifetime.load_registry().get('manifests',{})
     if not isinstance(manifests,dict):raise ValueError('Invalid lifetime manifest registry')
-    leads=[x for x in result.get('observations',[]) if x.get('provider_atl_candidate')]
+    pending=state.get('pending_leads',{})
+    if not isinstance(pending,dict):raise ValueError('Invalid ATL pending queue')
+    pending={k:v for k,v in pending.items() if isinstance(v,dict) and fresh(v.get('provider_last_updated'),now.timestamp())}
+    for observation in result.get('observations',[]):
+        if observation.get('provider_atl_candidate'):
+            pending[observation['provider_id']]=observation
+    leads=list(pending.values())
     leads.sort(key=lambda x:x['provider_id'])
     after=state.get('enrichment_after','')
     leads=[x for x in leads if x['provider_id']>after]+[x for x in leads if x['provider_id']<=after]
@@ -140,6 +146,8 @@ def enrich(result, state, fetch, *, now):
     if not isinstance(cache,dict):raise ValueError('Invalid ATL evidence cache')
     cache={k:v for k,v in cache.items() if isinstance(v,dict) and fresh(v.get('observed_at'),now.timestamp())}
     result['research_dossiers']=[];result['enrichment_errors']=[]
+    result['candidate_dispositions']=[dict(provider_id=x['provider_id'],status='DEFERRED',reason='Bounded enrichment budget') for x in leads]
+    dispositions={x['provider_id']:x for x in result['candidate_dispositions']}
     result['enrichment_deferred']=max(0,len(leads)-2)
     for observation in leads[:2]:
         identifier=slug(observation['provider_id'])
@@ -166,13 +174,21 @@ def enrich(result, state, fetch, *, now):
                 # Reject unexpectedly large/corrupt payloads before durable caching.
                 if len(json.dumps(snapshot))>300000:raise ValueError('Oversized ATL evidence')
                 cache[identifier]=snapshot
-            finding=dossier(observation,snapshot['details'],snapshot['chart'],observed_at=snapshot['observed_at'],now=now.timestamp())
+            finding=dossier(observation,snapshot['details'],snapshot['chart'],observed_at=snapshot['observed_at'],now=now.timestamp(),gate_evidence=gate_evidence)
             result['research_dossiers'].append(finding)
+            dispositions[identifier].update(status='RESEARCH_ELIGIBLE' if finding['telegram_research_eligible'] else 'WITHHELD',
+                reason='Provider-reported research only; independent lifetime and BUY remain unverified' if finding['telegram_research_eligible'] else finding['instrument']['reason'] if finding['instrument']['status']!='ORDINARY_CRYPTO_RESEARCH' else '; '.join(finding['gaps']))
+            pending.pop(identifier,None)
             if finding['instrument']['status']=='ORDINARY_CRYPTO_RESEARCH' and not finding['historical_assessments']:
                 result['enrichment_errors'].append(dict(provider_id=identifier,error_type='HistoricalEvidenceUnavailable',
                     reason='Bounded historical provider failed or returned invalid/stale observations'))
         except (OSError,ValueError,TypeError,KeyError,AttributeError,ArithmeticError) as exc:
-            result['enrichment_errors'].append(dict(provider_id=identifier,error_type=type(exc).__name__,reason='Metadata/history identity, freshness, cap or provider validation failed'))
+            dispositions[identifier].update(status='ENRICHMENT_FAILED',reason=str(exc)[:250],error_type=type(exc).__name__)
+            pending.pop(identifier,None)
+            result['enrichment_errors'].append(dict(provider_id=identifier,error_type=type(exc).__name__,reason=str(exc)[:250]))
+    state['pending_leads']=pending
+    result['pending_leads']=len(pending)
+    result['oldest_pending_market_age_seconds']=max((now.timestamp()-timestamp(x['provider_last_updated']).timestamp() for x in pending.values()),default=0)
     state['evidence_cache']=dict(list(cache.items())[-12:])
     result['asset_type_exclusions']=sum(x['instrument']['status']=='EXCLUDED' for x in result['research_dossiers'])
     result['unverified_research_eligible']=sum(x['telegram_research_eligible'] for x in result['research_dossiers'])
@@ -184,12 +200,18 @@ def main():
     if not isinstance(state, dict) or state.get('version') != 1:
         raise ValueError('Invalid ATL research state')
     result = run(cursor=state.get('cursor'))
-    if result['status'] == 'OBSERVATIONS_UNVERIFIED':
+    if result['status'] in ('OBSERVATIONS_UNVERIFIED','DEGRADED') and result.get('observations'):
         from atl_evidence import notify
         import telegram_validation
         now=dt.datetime.now(dt.timezone.utc)
-        with Session(max_requests=4,max_seconds=60,max_request_seconds=8) as session:
-            enrich(result,state,session.get,now=now)
+        with Session(max_requests=6,max_seconds=60,max_request_seconds=8) as session:
+            gate_evidence=dict(observed_at=now.isoformat(),currencies=[],pairs=[])
+            try:
+                gate_evidence['currencies']=session.get('https://api.gateio.ws/api/v4/spot/currencies')
+                gate_evidence['pairs']=session.get('https://api.gateio.ws/api/v4/spot/currency_pairs')
+            except (OSError,ValueError,TypeError):
+                result['gate_metadata_error']='Gate metadata unavailable; exact listing not established'
+            enrich(result,state,session.get,now=now,gate_evidence=gate_evidence)
             result['enrichment_provider_session']=session.summary()
         import atl_lifetime
         def persist(current):
@@ -210,6 +232,9 @@ def main():
         else:
             result['research_delivery']=notify(result['research_dossiers'],state,os.environ,atl_lifetime.telegram_request,now=dt.datetime.now(dt.timezone.utc).timestamp())
         result['alerts_delivered']=result['research_delivery']['delivered']+lifetime['delivered']
+        result['coverage_pages_last_received']=state.setdefault('coverage_pages_last_received',{})
+        for page in result['pages_received']:
+            result['coverage_pages_last_received'][str(page)]=result['observed_at']
         temporary = STATE_PATH.with_suffix('.json.tmp')
         state['cursor']=result['next_cursor']
         temporary.write_text(json.dumps(state,sort_keys=True)+'\n')

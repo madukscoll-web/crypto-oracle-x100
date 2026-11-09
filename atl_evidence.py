@@ -141,7 +141,38 @@ def independent_history(histories):
     return result
 
 
-def dossier(observation,details,chart,*,observed_at,now):
+def gate_listing(asset, evidence, now):
+    """Exact contract join, never ticker matching or native/wrapped aliasing."""
+    from asset_identity import key, GATE_CHAINS
+    if not isinstance(evidence,dict) or not fresh(evidence.get('observed_at'),now,900):
+        return dict(status='UNVERIFIED',reason='Fresh Gate metadata unavailable',pairs=[])
+    contracts={key(x['network'],x['contract']) for x in asset['contracts']}
+    currencies=evidence.get('currencies');pairs=evidence.get('pairs')
+    if not isinstance(currencies,list) or not isinstance(pairs,list):
+        return dict(status='UNVERIFIED',reason='Gate metadata malformed',pairs=[])
+    matched=[]
+    for currency in currencies:
+        if not isinstance(currency,dict) or currency.get('delisted') is not False or currency.get('trade_disabled') is not False:continue
+        bound=set()
+        for chain in currency.get('chains') or []:
+            if not isinstance(chain,dict):continue
+            network=GATE_CHAINS.get(chain.get('name'))
+            if network and chain.get('addr'):
+                try:bound.add(key(network,chain['addr']))
+                except ValueError:continue
+        if not bound & contracts:continue
+        for pair in pairs:
+            if (isinstance(pair,dict) and pair.get('base')==currency.get('currency')
+                    and pair.get('quote')=='USDT' and pair.get('id')==str(currency.get('currency'))+'_USDT'
+                    and pair.get('trade_status')=='tradable' and pair.get('type')=='normal'
+                    and pair.get('st_tag') is False and pair.get('delisting_time') in (None,0)):
+                matched.append(pair['id'])
+    matched=sorted(set(matched))
+    return dict(status='EXACT_CONTRACT_METADATA_MATCH' if len(matched)==1 else 'UNVERIFIED',
+                pairs=matched,source_urls=['https://api.gateio.ws/api/v4/spot/currencies','https://api.gateio.ws/api/v4/spot/currency_pairs'],reason='Provider metadata contract join; not independent security' if len(matched)==1 else 'Missing or ambiguous exact-contract Gate spot mapping')
+
+
+def dossier(observation,details,chart,*,observed_at,now,gate_evidence=None):
     identifier=slug(observation['provider_id'])
     if not fresh(observed_at,now) or not fresh(observation['provider_last_updated'],now):
         raise ValueError('Stale market or metadata evidence')
@@ -159,6 +190,14 @@ def dossier(observation,details,chart,*,observed_at,now):
     if not isinstance(lead,dict) or positive(lead.get('source_atl_usd')) is None:
         raise ValueError('Provider low discovery lead missing')
     low=positive(lead['source_atl_usd']);percent=(price/low-1)*100
+    try:
+        low_at=stamp(lead.get('source_atl_date'))
+    except (ValueError,TypeError,OverflowError) as exc:
+        raise ValueError('Invalid provider ATL date') from exc
+    if low_at > stamp(observation['provider_last_updated']):
+        raise ValueError('Future provider ATL date')
+    if percent < -5:
+        raise ValueError('Current price materially below provider ATL; reconciliation required')
     if percent>5:raise ValueError('No longer near provider low')
     assessments=[];gaps=[]
     try:
@@ -174,22 +213,44 @@ def dossier(observation,details,chart,*,observed_at,now):
         historical['status']='CONFLICTING';historical['conflicting']=True
         gaps.append('Observed historical minimum conflicts with provider ATL')
     eligible=(kind['status']=='ORDINARY_CRYPTO_RESEARCH' and bool(asset['contracts'])
-              and bool(assessments) and not historical['conflicting'])
+              and (bool(assessments) or chart == {}) and not historical['conflicting'])
     gaps+=historical['gaps']+['On-chain contract identity/security not independently verified',
          'Executable liquidity and order-book depth not verified']
     if not asset['contracts']:gaps.append('Supported exact-contract representation unavailable')
+    if isinstance(gate_evidence,dict):
+        # Retain only exact matching metadata, not whole exchange catalogs per dossier.
+        from asset_identity import GATE_CHAINS, key
+        wanted={key(x['network'],x['contract']) for x in asset['contracts']}
+        currencies=[]
+        for currency in gate_evidence.get('currencies',[]) if isinstance(gate_evidence.get('currencies'),list) else []:
+            if not isinstance(currency,dict):continue
+            for chain in currency.get('chains') or []:
+                if not isinstance(chain,dict):continue
+                network=GATE_CHAINS.get(chain.get('name'))
+                if network is None:continue
+                try:match=key(network,chain.get('addr')) in wanted
+                except (ValueError,TypeError):match=False
+                if match:currencies.append(currency);break
+        names={c.get('currency') for c in currencies}
+        gate_evidence=dict(observed_at=gate_evidence.get('observed_at'),currencies=currencies,
+            pairs=[p for p in gate_evidence.get('pairs',[]) if isinstance(p,dict) and p.get('base') in names] if isinstance(gate_evidence.get('pairs'),list) else [])
+    listing=gate_listing(asset,gate_evidence,now)
+    if gate_evidence is not None and listing['status']!='EXACT_CONTRACT_METADATA_MATCH':
+        eligible=False;gaps.append(listing['reason'])
     digest=hashlib.sha256(json.dumps({'identity':asset,'low':str(low),'type':kind['status']},sort_keys=True).encode()).hexdigest()
     return dict(schema_version=1,classification='UNVERIFIED ATL RESEARCH WATCH',
         name=text(details.get('name','UNKNOWN')),symbol=text(details.get('symbol','UNKNOWN')),
-        asset=asset,instrument=kind,observed_at=observed_at,price_usd=str(price),
+        asset=asset,instrument=kind,gate_listing=listing,observed_at=observed_at,price_usd=str(price),
         circulating_market_cap_usd=str(cap),market_cap_status='PROVIDER_REPORTED_NOT_INDEPENDENTLY_VERIFIED',
         percent_above_provider_low=str(percent),provider_low_usd=str(low),
+        provider_low_at=lead['source_atl_date'],
+        evidence_class='PROVIDER_REPORTED_ATL_NOT_CORROBORATED',
         volume_24h_usd=str(positive((market.get('total_volume') or {}).get('usd')) or 'UNKNOWN'),
         liquidity_status='UNKNOWN',history=historical,historical_assessments=assessments,gaps=gaps,
-        source_urls=[DETAILS+identifier]+[x['source_url'] for x in assessments],
+        source_urls=[DETAILS+identifier]+[x['source_url'] for x in assessments]+listing.get('source_urls',[]),
         telegram_research_eligible=eligible,evidence_fingerprint=digest,
         buy_authorized=False,orders_allowed=False,
-        _source_input=dict(observation=observation,details=details,chart=chart,observed_at=observed_at))
+        _source_input=dict(observation=observation,details=details,chart=chart,observed_at=observed_at,gate_evidence=gate_evidence))
 
 
 def format_research(d):
@@ -197,12 +258,13 @@ def format_research(d):
     contracts='; '.join(x['network']+':'+x['contract'] for x in d['asset']['contracts'])
     return ('UNVERIFIED ATL RESEARCH WATCH\nNOT A VERIFIED ALL-TIME LOW. NOT A BUY SIGNAL.\n'
         +text(d['name'])+' ('+text(d['symbol'])+')\n'+contracts+'\n'
+        +'Gate spot mapping: '+', '.join(d['gate_listing']['pairs'])+' ('+d['gate_listing']['status']+')\n'
         +'Identity source: CoinGecko platform metadata; independent chain verification pending.\n'
         +'Observed USD price: '+d['price_usd']+' at '+d['observed_at']+'\n'
         +'Circulating market cap USD: '+d['circulating_market_cap_usd']+' (provider reported; unverified)\n'
-        +'Provider-reported low USD: '+d['provider_low_usd']+'; above low: '+d['percent_above_provider_low']+'%\n'
+        +'Provider-reported low USD: '+d['provider_low_usd']+' at '+d['provider_low_at']+'; above low: '+d['percent_above_provider_low']+'%\n'
         +'24h volume USD: '+d['volume_24h_usd']+'; executable liquidity: UNKNOWN\n'
-        +'Historical coverage: '+text(d['history']['earliest_observation'])+' onward; daily samples, limited to 365 days.\n'
+        +('Historical coverage: '+text(d['history']['earliest_observation'])+' onward; daily samples, limited to 365 days.\n' if d['historical_assessments'] else 'Historical coverage: unavailable; provider-reported ATL only.\n')
         +'Technical reversal, entry, invalidation and targets: NOT ESTABLISHED.\n'
         +'Security, tokenomics and fundamentals: NOT VERIFIED. Full loss is possible.\n'
         +'Missing: '+'; '.join(d['gaps'])+'\nSources: '+'\n'.join(d['source_urls']))
@@ -215,27 +277,44 @@ def notify(dossiers,state,env,transport,*,now):
     dedup state. Caller persists returned state with the serialized scanner state.
     """
     day=dt.datetime.fromtimestamp(now,dt.timezone(dt.timedelta(hours=1))).date().isoformat()
-    delivery=dict(delivered=0,failed=0,status='NO_ELIGIBLE_RESEARCH',buy_authorized=False)
+    delivery=dict(delivered=0,failed=0,status='NO_ELIGIBLE_RESEARCH',buy_authorized=False,decisions=[])
+    decisions=delivery['decisions']
     if state.get('research_confirmed_day')==day:
-        delivery['status']='DAILY_DEDUP';return delivery
+        delivery['status']='DAILY_DEDUP'
+        decisions.extend(dict(provider_id=x.get('asset',{}).get('provider_id'),status='DAILY_DEDUP') for x in dossiers if isinstance(x,dict))
+        return delivery
     for supplied in dossiers:
+        decision=dict(provider_id=supplied.get('asset',{}).get('provider_id') if isinstance(supplied,dict) else None,status='WITHHELD')
+        decisions.append(decision)
         try:
             source=supplied['_source_input']
             d=dossier(source['observation'],source['details'],source['chart'],
-                      observed_at=source['observed_at'],now=now)
-        except (ValueError,TypeError,KeyError,AttributeError,ArithmeticError):
+                      observed_at=source['observed_at'],now=now,gate_evidence=source.get('gate_evidence'))
+        except (ValueError,TypeError,KeyError,AttributeError,ArithmeticError) as exc:
+            decision.update(status='REPLAY_FAILED',reason=str(exc)[:200])
             continue
         if (d.get('classification')!='UNVERIFIED ATL RESEARCH WATCH'
                 or d.get('telegram_research_eligible') is not True
                 or d.get('buy_authorized') is not False or d.get('orders_allowed') is not False
                 or not fresh(d.get('observed_at'),now)
                 or d.get('instrument',{}).get('status')!='ORDINARY_CRYPTO_RESEARCH'
-                or d.get('history',{}).get('conflicting') is not False):continue
+                or d.get('history',{}).get('conflicting') is not False):
+            decision.update(status='EVIDENCE_WITHHELD',reason='; '.join(d['gaps']));continue
+        # Re-read durable prior warnings at send time; outages cannot clear them.
+        try:
+            import technical_watch
+            retained=technical_watch.retained_negatives(json.loads((technical_watch.ROOT/'technical_watch_state.json').read_text()))
+            from asset_identity import key
+            if any(key(x['network'],x['contract']) in retained for x in d['asset']['contracts']):
+                delivery['status']='WITHHELD_RETAINED_ADVERSE';decision['status']=delivery['status'];continue
+        except (OSError,ValueError,TypeError,KeyError,AttributeError):
+            delivery['status']='ADVERSE_STATE_UNAVAILABLE';decision['status']=delivery['status'];continue
         fingerprint=d['evidence_fingerprint']
-        if fingerprint in state.get('research_confirmed',{}):continue
+        if fingerprint in state.get('research_confirmed',{}):
+            decision['status']='UNCHANGED_CONFIRMED_CONDITION';continue
         token,chat=(env.get(k,'').strip() for k in ('TELEGRAM_BOT_TOKEN','TELEGRAM_CHAT_ID'))
         if not token or not chat:
-            delivery['status']='TRANSPORT_NOT_CONFIGURED';return delivery
+            delivery['status']='TRANSPORT_NOT_CONFIGURED';decision['status']=delivery['status'];return delivery
         try:
             target=transport(token,'getChat',{'chat_id':chat})
             result=target.get('result') or {};destination=result.get('id')
@@ -253,7 +332,8 @@ def notify(dossiers,state,env,transport,*,now):
             # Bound state without forgetting recent confirmed conditions.
             state['research_confirmed']=dict(list(state['research_confirmed'].items())[-200:])
             delivery.update(delivered=1,status='BOT_API_CONFIRMED',message_id=receipt['result']['message_id'])
+            decision.update(status='BOT_API_CONFIRMED',message_id=receipt['result']['message_id'])
             return delivery
         except (OSError,RuntimeError,ValueError,TypeError,KeyError,AttributeError):
-            delivery.update(failed=1,status='DELIVERY_FAILED');return delivery
+            delivery.update(failed=1,status='DELIVERY_FAILED');decision['status']=delivery['status'];return delivery
     return delivery
