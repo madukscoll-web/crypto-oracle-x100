@@ -169,7 +169,7 @@ def gate_listing(asset, evidence, now):
                 matched.append(pair['id'])
     matched=sorted(set(matched))
     return dict(status='EXACT_CONTRACT_METADATA_MATCH' if len(matched)==1 else 'UNVERIFIED',
-                pairs=matched,reason='Provider metadata contract join; not independent security' if len(matched)==1 else 'Missing or ambiguous exact-contract Gate spot mapping')
+                pairs=matched,source_urls=['https://api.gateio.ws/api/v4/spot/currencies','https://api.gateio.ws/api/v4/spot/currency_pairs'],reason='Provider metadata contract join; not independent security' if len(matched)==1 else 'Missing or ambiguous exact-contract Gate spot mapping')
 
 
 def dossier(observation,details,chart,*,observed_at,now,gate_evidence=None):
@@ -247,7 +247,7 @@ def dossier(observation,details,chart,*,observed_at,now,gate_evidence=None):
         evidence_class='PROVIDER_REPORTED_ATL_NOT_CORROBORATED',
         volume_24h_usd=str(positive((market.get('total_volume') or {}).get('usd')) or 'UNKNOWN'),
         liquidity_status='UNKNOWN',history=historical,historical_assessments=assessments,gaps=gaps,
-        source_urls=[DETAILS+identifier]+[x['source_url'] for x in assessments],
+        source_urls=[DETAILS+identifier]+[x['source_url'] for x in assessments]+listing.get('source_urls',[]),
         telegram_research_eligible=eligible,evidence_fingerprint=digest,
         buy_authorized=False,orders_allowed=False,
         _source_input=dict(observation=observation,details=details,chart=chart,observed_at=observed_at,gate_evidence=gate_evidence))
