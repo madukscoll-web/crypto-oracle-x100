@@ -226,8 +226,10 @@ def dossier(observation,details,chart,*,observed_at,now,gate_evidence=None):
             if not isinstance(currency,dict):continue
             for chain in currency.get('chains') or []:
                 if not isinstance(chain,dict):continue
-                try:match=key(GATE_CHAINS.get(chain.get('name')),chain.get('addr')) in wanted
-                except ValueError:match=False
+                network=GATE_CHAINS.get(chain.get('name'))
+                if network is None:continue
+                try:match=key(network,chain.get('addr')) in wanted
+                except (ValueError,TypeError):match=False
                 if match:currencies.append(currency);break
         names={c.get('currency') for c in currencies}
         gate_evidence=dict(observed_at=gate_evidence.get('observed_at'),currencies=currencies,

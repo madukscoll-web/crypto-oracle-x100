@@ -62,6 +62,7 @@ class AuditAndHealthRegressions(unittest.TestCase):
         self.assertEqual(gate_listing(asset,evidence,NOW.timestamp())['status'],'UNVERIFIED')
         evidence['currencies'][0]['chains'][0]['addr']=details['platforms']['ethereum']
         self.assertEqual(gate_listing(asset,evidence,NOW.timestamp())['pairs'],['EX_USDT'])
+        evidence['currencies'].append(dict(currency='OTHER',chains=[dict(name='UNKNOWN_CHAIN',addr='unrelated')]))
         result=dossier(observation,details,{},observed_at=AT,now=NOW.timestamp(),gate_evidence=evidence)
         self.assertTrue(result['telegram_research_eligible'])
         evidence['pairs'][0]['trade_status']='untradable'
