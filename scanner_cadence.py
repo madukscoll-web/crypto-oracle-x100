@@ -48,6 +48,37 @@ def finish(state, summary, run_id, outcome, now):
     return result
 
 
+def audit_slots(runs, start, end):
+    """Report observed starts per expected cron slot, not inferred scheduler causes.
+
+    Input must be the scanner workflow's main-branch run history. A missing API
+    record cannot distinguish a scheduler delay from incomplete history.
+    """
+    if start.tzinfo is None or end.tzinfo is None or end <= start:
+        raise ValueError('Ordered timezone-aware audit bounds required')
+    slots=[]
+    slot=start.replace(minute=7,second=0,microsecond=0)
+    if slot < start:slot+=dt.timedelta(hours=1)
+    while slot < end:
+        stop=min(slot+dt.timedelta(hours=1),end)
+        observed=[]
+        for run in runs:
+            if not isinstance(run,dict) or run.get('head_branch')!='main':continue
+            try:
+                at=dt.datetime.fromisoformat(str(run.get('run_started_at') or run.get('created_at')).replace('Z','+00:00'))
+                if at.tzinfo is None:continue
+            except ValueError:continue
+            if slot<=at<stop:
+                observed.append(dict(id=run.get('id'),event=run.get('event'),started_at=at.isoformat(),
+                    status=run.get('status'),conclusion=run.get('conclusion'),url=run.get('html_url')))
+        slots.append(dict(expected_at=slot.isoformat(),window_end=stop.isoformat(),runs=observed,
+            status='START_OBSERVED_NOT_CORE_COMPLETION' if observed else 'NO_START_IN_SUPPLIED_HISTORY_CAUSE_UNKNOWN'))
+        slot+=dt.timedelta(hours=1)
+    return dict(start=start.isoformat(),end=end.isoformat(),slots=slots,
+        missing_start_slots=sum(not x['runs'] for x in slots),hourly_guarantee=False,
+        limitation='Start-window audit only; delayed cron attribution and missing-run causes are not established. History pagination and core-scan completion must be checked separately.')
+
+
 def read(path):
     try:
         data = json.loads(pathlib.Path(path).read_text())
@@ -72,7 +103,9 @@ def main():
         run, reason = decide(os.environ.get('GITHUB_EVENT_NAME'), state, now, trusted)
         report = {'run': run, 'reason': reason, 'checked_at': now.isoformat(),
                   'last_core_success_at': state.get('last_core_success_at'),
-                  'hourly_guarantee': False}
+                  'hourly_guarantee': False,
+                  'core_success_age_seconds': age(state.get('last_core_success_at'),now),
+                  'stale_or_missing_core_heartbeat': age(state.get('last_core_success_at'),now) is None or age(state.get('last_core_success_at'),now)>3900}
         pathlib.Path('scanner_cadence_report.json').write_text(json.dumps(report, indent=2) + '\n')
         output = os.environ.get('GITHUB_OUTPUT')
         if output:

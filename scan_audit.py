@@ -66,7 +66,14 @@ def summarize(discovery, notifications, candidates, selected, rows):
         for gate in gates:
             entry = (row.get('verification') or {}).get(gate) or {}
             coverage[gate][state(entry)] += 1
+    selected_keys={item['key'] for item in selected}
+    dispositions=[dict(key=item['key'],status='DEFERRED_NOT_ASSESSED',reasons=['Bounded assessment budget or prior delivery state; not a safety rejection']) for item in candidates if item['key'] not in selected_keys]
+    for item,row in zip(selected,rows):
+        dispositions.append(dict(key=item['key'],status=row.get('notification_outcome','NOT_RECORDED'),
+            decision=row['assessment']['decision'],reasons=row['assessment'].get('blockers',[]),
+            research_outcome=row.get('research_notification_outcome','NOT_RECORDED')))
     return dict(
+        candidate_dispositions=dispositions,
         discovery_observations=dict(discovery),
         discovery_observation_count=sum(discovery.values()),
         qualified_unique_pools=len(candidates), assessed_candidates=len(rows),

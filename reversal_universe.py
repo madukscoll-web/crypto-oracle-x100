@@ -79,6 +79,7 @@ def collect(*, fetch=None, now=None, cursor=0, batch_size=6, allowed_pairs=None,
                         if active_pair(row, now) and ids[row['id']] == 1)
         eligible = [pair for pair in active if volumes.get(pair, -1) >= 1_000_000]
         all_liquid = len(eligible)
+        excluded_scope=[pair for pair in eligible if allowed_pairs is not None and pair not in allowed_pairs]
         if allowed_pairs is not None:
             eligible = [pair for pair in eligible if pair in allowed_pairs]
         unknown = sum(pair not in volumes for pair in active)
@@ -89,7 +90,11 @@ def collect(*, fetch=None, now=None, cursor=0, batch_size=6, allowed_pairs=None,
                                   selected_pairs=len(selected), deferred_pairs=len(eligible)-len(selected),
                                   minimum_reported_quote_volume_usdt=1_000_000,
                                   all_liquid_eligible_pairs=all_liquid,
-                                  restricted_research_scope=allowed_pairs is not None)
+                                  restricted_research_scope=allowed_pairs is not None,
+                                  scope_excluded_pairs=excluded_scope,
+                                  scope_exclusion_reason='Not in technical notification research policy; not a safety rejection',
+                                  selected_pair_ids=selected,
+                                  deferred_pair_ids=[pair for pair in eligible if pair not in selected])
         report['next_cursor'] = (start + len(selected)) % len(eligible) if eligible else 0
         # Pair metadata is invariant within this bounded collection; reuse it
         # across timeframes without caching failures or mutable market snapshots.

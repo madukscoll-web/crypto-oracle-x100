@@ -1167,6 +1167,7 @@ def main():
         previous_watch = revisit_previous.get(item["key"], watchlist.get(item["key"]))
         transition = watchlist_transition(item, watchlist)
         if already_alerted(item, seen):
+            evidence_reports[-1]["notification_outcome"] = "ALREADY_DELIVERED"
             scan_audit.increment(notification_counts, "already_delivered")
             # Already delivered: never repeat the same token just because a
             # market setup transition occurred on a later hourly scan.
@@ -1174,6 +1175,7 @@ def main():
             continue
         item["setup_transition"] = transition or "INITIAL DISCOVERY"
         eligible = telegram_eligible(item)
+        evidence_reports[-1]["notification_outcome"] = "INELIGIBLE" if not eligible else "DELIVERY_CAP" if delivered >= MAX_ALERTS_PER_RUN else "PENDING_DELIVERY"
         if not eligible:
             scan_audit.increment(notification_counts, "ineligible")
         elif delivered >= MAX_ALERTS_PER_RUN:
@@ -1187,6 +1189,7 @@ def main():
             if send_telegram(item) is not True:
                 raise RuntimeError("Telegram receipt not confirmed")
         except (urllib.error.URLError, ValueError, RuntimeError, TimeoutError, OSError) as exc:
+            evidence_reports[-1]["notification_outcome"] = "DELIVERY_FAILED"
             scan_audit.increment(notification_counts, "delivery_failed")
             errors.append(f"Telegram delivery failed for {item['key']}: {type(exc).__name__}")
             # Retry a failed priority-transition alert on the next scan.
@@ -1204,6 +1207,7 @@ def main():
         save_state(seen)
         save_watchlist(watchlist)
         delivered += 1
+        evidence_reports[-1]["notification_outcome"] = "DELIVERED"
         scan_audit.increment(delivered_by_outcome, canonical["outcome"])
         scan_audit.increment(notification_counts, "delivered")
         if item["pool_class"] == "NEW POOL":
@@ -1214,22 +1218,28 @@ def main():
     # Research WATCH messages use a separate, bounded, persistent notification path.
     # They never set BUY authorization, order permissions, or verified-alert state.
     research_sent = 0
-    for item in selected:
+    for row in evidence_reports:
+        row["research_notification_outcome"] = "NOT_ELIGIBLE"
+    for item,row in zip(selected,evidence_reports):
         if research_sent >= 2:
-            break
+            row["research_notification_outcome"] = "DELIVERY_CAP"
+            continue
         if not research_alert_eligible(item):
             continue
         if (watchlist.get(item["key"]) or {}).get("research_alerted_at"):
+            row["research_notification_outcome"] = "ALREADY_DELIVERED"
             continue
         try:
             if send_discovery_research(item) is not True:
                 raise RuntimeError("Telegram receipt not confirmed")
         except (urllib.error.URLError, ValueError, RuntimeError, TimeoutError, OSError) as exc:
+            row["research_notification_outcome"] = "DELIVERY_FAILED"
             warnings.append("Research watch delivery failed: " + type(exc).__name__)
             continue
         watchlist[item["key"]]["research_alerted_at"] = item.get("observed_at")
         save_watchlist(watchlist)
         research_sent += 1
+        row["research_notification_outcome"] = "DELIVERED"
     print(f"Research WATCH messages delivered: {research_sent}", flush=True)
     # Gate-only strategy has its own evidence, report, paper history and label.
     # Optional failure never changes the DEX decision or interrupts its delivery.
