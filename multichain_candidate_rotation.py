@@ -43,7 +43,7 @@ def rotate(candidates, per_run=12, cursor=0, enabled=("solana", "eth", "base", "
     # Rotate within each chain too; rotating only chain order starves tails.
     for network in order:
         rows = sorted(groups[network], key=lambda row: row['token_address'])
-        start = cursor % len(rows)
+        start = (cursor // len(order)) % len(rows)
         groups[network] = rows[start:] + rows[:start]
     positions = {network: 0 for network in order}
     while len(selected) < per_run:

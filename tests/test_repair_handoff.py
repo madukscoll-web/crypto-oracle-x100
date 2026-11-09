@@ -17,11 +17,12 @@ class RepairRegressions(unittest.TestCase):
 
     def test_multichain_tokens_do_not_starve_behind_chain_heads(self):
         rows = [dict(network=n, token_address=str(i)) for n in ('solana','eth') for i in range(6)]
-        selected=set()
-        for cursor in range(12):
-            result=rotate(rows,per_run=2,cursor=cursor)
-            selected.update((x['network'],x['token_address']) for x in result['selected'])
-        self.assertEqual(len(selected),12)
+        for budget in (1,2,3):
+            selected=set()
+            for cursor in range(24):
+                result=rotate(rows,per_run=budget,cursor=cursor)
+                selected.update((x['network'],x['token_address']) for x in result['selected'])
+            self.assertEqual(len(selected),12)
 
     def test_invalid_atl_date_cannot_be_replayed_as_research(self):
         observation, details, chart = inputs()
