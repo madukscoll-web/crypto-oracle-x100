@@ -887,6 +887,7 @@ def send_telegram(item):
         f"Provider security findings: {item['security_details']}\n"
         f"RISK TRIAGE: {item['risk_category']}\n"
         f"Independent market corroboration: {item.get('market_corroboration', {}).get('status', 'UNKNOWN')} — {item.get('market_corroboration', {}).get('reason', 'Not checked')}\n"
+        f"Reported liquidity/volume screen: {item.get('market_corroboration', {}).get('market_activity_screen', {}).get('status', 'UNKNOWN')} (not security clearance or executable depth)\n"
         f"Risk evidence: {'; '.join(item['risk_reasons'])}\n"
         f"Exact provider fields: {item['security_fields']}\n"
         f"Holder evidence: {item['holder_details']}\n"
