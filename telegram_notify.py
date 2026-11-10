@@ -14,6 +14,9 @@ from classification_policy import format_message
 from telegram_receipts import confirmed
 
 
+HEALTH_FORMAT_VERSION = 2
+
+
 class NotificationError(RuntimeError):
     """Safe to log: never includes a URL, token, chat ID or response body."""
 
@@ -101,41 +104,61 @@ def workflow_message(mode):
     report = json.loads(pathlib.Path("scan_summary.json").read_text(encoding="utf-8"))
     if report.get("status") != "completed":
         raise NotificationError("Refusing completion summary for an unsuccessful scan")
-    audit = report.get("filter_audit") or {}
-    counts = audit.get("notification_outcomes") or {}
-    details = (f"Assessed: {audit.get('assessed_candidates', 'unknown')}; "
-               f"ineligible: {counts.get('ineligible', 0)}; already delivered: {counts.get('already_delivered', 0)}; "
-               f"delivery capped: {counts.get('delivery_cap', 0)}; failed sends: {counts.get('delivery_failed', 0)}. "
-               f"Security concerns among assessed: {audit.get('security_rejections', 0)}; "
-               f"discovered pools deferred: {audit.get('discovery_pools_not_selected', 'unknown')}. ")
-    suppression = report.get('suppression_reasons') or {}
-    details += 'Suppressed by evidence outcome: ' + json.dumps(suppression, sort_keys=True) + '. '
-    reversal_path = pathlib.Path('altcoin_reversal_report.json')
-    if reversal_path.exists():
-        reversal = json.loads(reversal_path.read_text(encoding='utf-8'))
-        technical = reversal.get('technical_delivery') or {}
-        details += f"Technical channel: {technical.get('delivered', 0)} delivered, {technical.get('failed', 0)} failed; separate from verified BUY. "
-        details += 'Reversal coverage: ' + json.dumps(reversal.get('coverage', reversal.get('status_counts', {})), sort_keys=True) + '. '
-    health_path = pathlib.Path('pipeline_health_report.json')
-    if health_path.exists():
-        health = json.loads(health_path.read_text())
-        details += f"Research data health: {health.get('status','UNKNOWN')}; provider gaps: {json.dumps(health.get('data_degradation',{}),sort_keys=True)}. "
-    atl_path = pathlib.Path('atl_coverage_report.json')
-    if atl_path.exists():
-        atl = json.loads(atl_path.read_text())
-        details += (f"ATL collector: {atl.get('status', 'UNKNOWN')}; "
-                    f"{atl.get('provider_atl_candidates', 0)} provider-reported near-low candidates; "
-                    f"{atl.get('historical_baselines_validated', 0)} validated lifetime baselines; "
-                    f"{atl.get('alerts_delivered', 0)} ATL alerts. ")
-    return (f"CRYPTO-ORACLE X100 daily pipeline health, latest scan at {report['completed_at']}. "
-            f"Pool observations: {report['observations']}; research candidates: {report['candidates']}; "
-            f"BUY candidates for manual review: {report.get('buy_candidates_delivered', 'unknown')}; "
-            f"safety-reviewed entry WATCH alerts: {report.get('signed_entry_watches_delivered', 'unknown')}; "
-            f"research WATCH alerts: {report.get('research_watch_delivered', 'unknown')}; "
-            f"coverage warnings: {len(report['warnings'])}. "
-            + details
-            + ("No qualifying tokens found. " if report['candidates'] == 0 else "")
-            + "Research only; not a buy signal. Run: " + run_url)
+    def optional(name):
+        try:
+            value=json.loads(pathlib.Path(name).read_text())
+            return value if isinstance(value,dict) else {}
+        except (OSError,ValueError):
+            return {}
+    return health_summary(report, optional('altcoin_reversal_report.json'),
+        optional('pipeline_health_report.json'), optional('atl_coverage_report.json'),
+        optional('strategy_lab_state.json'), optional('technical_followup_state.json'),run_url)
+
+
+def health_summary(report,reversal,health,atl,paper,followup,run_url):
+    """Counts only. Raw arrays, addresses and diagnostics never enter Telegram."""
+    def number(value):
+        return str(value) if type(value) is int and 0<=value<=10**12 else 'unknown'
+    def metric(source,key):
+        return number(source.get(key)) if isinstance(source,dict) else 'unknown'
+    def obj(source,key):
+        value=source.get(key) if isinstance(source,dict) else None
+        return value if isinstance(value,dict) else {}
+    audit=obj(report,'filter_audit');counts=obj(audit,'notification_outcomes')
+    coverage=obj(reversal,'coverage');technical=obj(reversal,'technical_delivery')
+    suppressed=obj(technical,'suppressed');evidence=obj(report,'suppression_reasons')
+    try:
+        at=dt.datetime.fromisoformat(report['completed_at'].replace('Z','+00:00'))
+        if at.tzinfo is None:raise ValueError('Timezone missing')
+        at=at.astimezone(dt.timezone(dt.timedelta(hours=1))).strftime('%d %b %H:%M WAT')
+    except (KeyError,ValueError,TypeError,AttributeError):at='time unavailable'
+    axes=[]
+    for key in ('execution_status','coverage_status','admission_status'):
+        value=health.get(key)
+        axes.append(value if value in {'COMPLETED','FAILED_OR_INCOMPLETE','DEGRADED','NO_REPORTED_PROVIDER_ERRORS','BLOCKED','UNKNOWN','NOT_READY','READY'} else 'UNKNOWN')
+    accounts=paper.get('accounts');hypotheses=followup.get('hypotheses')
+    closed=opened=None;triggered=None;watches=None
+    if isinstance(accounts,dict) and all(isinstance(x,dict) and isinstance(x.get('account'),dict) and isinstance(x['account'].get('trades'),list) for x in accounts.values()):
+        closed=sum(len(x['account']['trades']) for x in accounts.values())
+        opened=sum(x['account'].get('position') is not None for x in accounts.values())
+    if isinstance(hypotheses,dict) and all(isinstance(x,dict) and isinstance(x.get('samples'),list) for x in hypotheses.values()):
+        watches=len(hypotheses)
+        triggered=sum(any(isinstance(sample,dict) and sample.get('at_or_above_trigger_observed') is True for sample in x['samples']) for x in hypotheses.values())
+    lines=[
+        'SYSTEM HEALTH REPORT',
+        'CRYPTO-ORACLE X100 daily pipeline health | '+at,
+        'Execution: '+axes[0]+' | Coverage: '+axes[1]+' | Admission: '+axes[2],
+        'Discovery: '+metric(report,'candidates')+' candidates; '+metric(audit,'assessed_candidates')+' assessed; '+metric(audit,'discovery_pools_not_selected')+' deferred.',
+        'Assessed: '+metric(audit,'assessed_candidates')+'; ineligible: '+metric(counts,'ineligible')+'. Evidence: '+metric(evidence,'REJECT')+' rejected; '+metric(evidence,'INSUFFICIENT EVIDENCE')+' incomplete.',
+        'BUY candidates for manual review: '+metric(report,'buy_candidates_delivered')+'; safety-reviewed entry WATCH alerts: '+metric(report,'signed_entry_watches_delivered')+'; research WATCH alerts: '+metric(report,'research_watch_delivered')+'.',
+        'Reversals: '+metric(technical,'delivered')+' alerts; '+metric(coverage,'selected_pairs')+'/'+metric(coverage,'liquid_eligible_pairs')+' policy pairs assessed; '+metric(coverage,'all_liquid_eligible_pairs')+' liquid pairs overall.',
+        'Reversal suppression: '+number(sum(v for v in suppressed.values() if type(v) is int and v>=0))+' cases. Exact reasons remain in diagnostics.',
+        'ATL: '+metric(atl,'alerts_delivered')+' alerts; '+metric(atl,'provider_atl_candidates')+' provider leads; '+metric(atl,'enrichment_deferred')+' enrichment-deferred; '+metric(atl,'historical_baselines_validated')+' validated lifetime baselines.',
+        'Performance: '+number(closed)+' closed paper trades; '+number(opened)+' open paper positions. Sampled trigger reached: '+number(triggered)+'/'+number(watches)+' tracked watches.',
+        'Profitability: NOT ESTABLISHED. Paper accounts are simulations; sampled prices are not fills.',
+        'No qualifying tokens found.' if report.get('candidates')==0 else 'Research observations are not purchase approval.',
+        'Full diagnostics: '+run_url]
+    return '\n'.join(lines)
 
 
 def notify_workflow(mode, *, now=None, state_path="operational_digest_state.json", sender=None):
@@ -186,11 +209,13 @@ def notify_workflow(mode, *, now=None, state_path="operational_digest_state.json
             temporary=target.with_suffix(target.suffix+'.tmp')
             temporary.write_text(json.dumps(state,indent=2)+'\n')
             temporary.replace(target)
-    if state.get("confirmed_day") == day:
+    # Replace an older unreadable format once; normal daily dedup then resumes.
+    if state.get("confirmed_day") == day and state.get("confirmed_format_version",1) == HEALTH_FORMAT_VERSION:
         return {"status": "SKIPPED_DAILY_DEDUP", "github_run_id": run_id}
     if sender(workflow_message(mode)) is not True:
         raise NotificationError("Telegram digest receipt not confirmed")
-    state.update(confirmed_day=day, confirmed_at=now.isoformat(), github_run_id=run_id)
+    state.update(confirmed_day=day, confirmed_at=now.isoformat(), github_run_id=run_id,
+                 confirmed_format_version=HEALTH_FORMAT_VERSION)
     temporary = target.with_suffix(target.suffix + ".tmp")
     temporary.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
     temporary.replace(target)
