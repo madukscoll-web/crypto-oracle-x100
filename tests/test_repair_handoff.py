@@ -127,7 +127,7 @@ class AuditAndHealthRegressions(unittest.TestCase):
             try:
                 os.chdir(folder)
                 pathlib.Path('scan_summary.json').write_text(json.dumps(dict(status='completed',github_run_id='9')))
-                pathlib.Path('operational_digest_state.json').write_text(json.dumps(dict(version=1,confirmed_day=NOW.date().isoformat())))
+                pathlib.Path('operational_digest_state.json').write_text(json.dumps(dict(version=1,confirmed_day=NOW.date().isoformat(),confirmed_format_version=2)))
                 pathlib.Path('scanner_cadence_report.json').write_text(json.dumps(dict(stale_or_missing_core_heartbeat=True,github_run_id='9',checked_at=AT,last_core_success_at='2026-11-07T00:00:00Z')))
                 sent=[]
                 with patch.dict(os.environ,{'GITHUB_RUN_ID':'9'}):
