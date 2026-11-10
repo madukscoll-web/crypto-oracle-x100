@@ -7,6 +7,7 @@ The only live notification supported here is explicitly UNVERIFIED research.
 import datetime as dt
 from decimal import Decimal
 import hashlib
+import html
 import json
 import re
 from urllib.parse import urlsplit
@@ -270,6 +271,43 @@ def format_research(d):
         +'Missing: '+'; '.join(d['gaps'])+'\nSources: '+'\n'.join(d['source_urls']))
 
 
+def format_research_html(d):
+    """Escape provider text; preserve values and full dates without claiming BUY."""
+    escape=lambda value: html.escape(str(value),quote=True)
+    def money(value):
+        number=positive(value)
+        return '$'+format(number,',f') if number is not None else 'Unknown'
+    def date(value):
+        return dt.datetime.fromtimestamp(stamp(value),dt.timezone.utc).strftime('%d %b %Y %H:%M UTC')
+    lines=['🚨 <b>ALL-TIME LOW WATCH</b>',
+        '<i>Unverified ATL Research Watch</i>',
+        '⚠️ <b>NOT A VERIFIED ALL-TIME LOW • NOT A BUY SIGNAL</b>',
+        '', '<b>Token Identity</b>',
+        '• <b>Asset:</b> '+escape(d['name'])+' ('+escape(d['symbol'].upper())+')']
+    names={'eth':'Ethereum','bsc':'BNB Smart Chain','solana':'Solana','base':'Base',
+           'arbitrum':'Arbitrum','polygon_pos':'Polygon','avax':'Avalanche','optimism':'Optimism'}
+    for contract in d['asset']['contracts']:
+        lines+=['• <b>Chain:</b> '+escape(names.get(contract['network'],contract['network'])),
+                '• <b>Contract:</b> <code>'+escape(contract['contract'])+'</code>']
+    lines+=['• <b>Mapping:</b> '+escape(', '.join(d['gate_listing']['pairs']) or 'Unverified')+' (Gate Spot metadata)',
+        '• <b>Identity source:</b> CoinGecko metadata; independent chain verification pending.',
+        '', '📊 <b>Market Data</b>',
+        '• <b>Observed Price:</b> '+money(d['price_usd'])+' ('+date(d['observed_at'])+')',
+        '• <b>Provider Low:</b> '+money(d['provider_low_usd'])+' ('+date(d['provider_low_at'])+')',
+        '• <b>Distance Above Low:</b> '+format(Decimal(d['percent_above_provider_low']),'+.2f')+'%',
+        '• <b>24h Volume:</b> '+money(d['volume_24h_usd'])+' (provider reported)',
+        '• <b>Circulating Market Cap:</b> '+money(d['circulating_market_cap_usd'])+' (unverified)',
+        '• <b>Liquidity Depth:</b> Unknown',
+        '', '⚙️ <b>Technical &amp; Risk Assessment</b>',
+        ('• <b>Historical Coverage:</b> Daily samples from '+date(d['history']['earliest_observation'])+'; bounded 365-day request, not full lifetime.' if d['historical_assessments'] else '• <b>Historical Coverage:</b> Unavailable; provider-reported ATL only.'),
+        '• <b>Technical Setup:</b> Entry / invalidation / targets NOT established.',
+        '• <b>Security &amp; Fundamentals:</b> NOT verified. High risk / full loss possible.',
+        '', '❗ <b>Missing Data</b>']
+    lines+=['• '+escape(gap) for gap in d['gaps']]
+    lines+=['', '<b>Sources</b>']+[escape(url) for url in d['source_urls']]
+    return '\n'.join(lines)
+
+
 def notify(dossiers,state,env,transport,*,now):
     """One explicitly unverified research message/day, confirmed Bot API receipts.
 
@@ -324,8 +362,10 @@ def notify(dossiers,state,env,transport,*,now):
                 raise ValueError('Destination not confirmed')
             from research_notice import _issue, verified_text
             message=verified_text(_issue('UNVERIFIED ATL RESEARCH WATCH',format_research(d).split('\n',1)[1]))
+            # Only the freshly replayed, capability-checked dossier reaches HTML.
+            message=format_research_html(d)
             if len(message.encode('utf-16-le'))//2>3900:raise ValueError('Research message too long')
-            receipt=transport(token,'sendMessage',{'chat_id':chat,'text':message,'disable_web_page_preview':'true'})
+            receipt=transport(token,'sendMessage',{'chat_id':chat,'text':message,'parse_mode':'HTML','disable_web_page_preview':'true'})
             if not confirmed(receipt,str(destination)):raise ValueError('Delivery not confirmed')
             state['research_confirmed_day']=day
             state.setdefault('research_confirmed',{})[fingerprint]=dict(at=dt.datetime.fromtimestamp(now,dt.timezone.utc).isoformat(),message_id=receipt['result']['message_id'])
