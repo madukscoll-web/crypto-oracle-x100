@@ -2,29 +2,29 @@
 
 Research only. No BUY approval, orders or assumed fills.
 
-Observed UTC: 2026-11-10T02:04:52.898236+00:00
+Observed UTC: 2026-11-10T06:04:33.724295+00:00
 
-## NEAR_USDT | 1w
+## UNI_USDT | 1w
 
 **RESEARCH_ONLY_NOT_APPROVED**
 
 | Item | Recorded evidence |
 |---|---|
-| Last closed candle | 3.587 USDT |
-| Conditional trigger reference | 6.01 USDT |
-| Invalidation reference | 1.537 USDT |
-| Volume / baseline | 1.463x |
+| Last closed candle | 6.788 USDT |
+| Conditional trigger reference | 10.933 USDT |
+| Invalidation reference | 2.564 USDT |
+| Volume / baseline | 1.271x |
 
 Require a fresh close/retest and volume; no entry or fill is inferred. Next closed candle and before acting; withdraw on invalidation or adverse evidence.
 
 Exact Gate Spot pair; independent on-chain identity is not established.
 
 PROJECT FUNDAMENTALS — evidence-labelled, not approval
-Use/value: NEAR pays transaction fees, covers on-chain storage and supports validator staking. [PRIMARY_DOCUMENTATION_REVIEWED_NOT_CORROBORATED]
-Token value capture: Storage balances are locked while data remains; delegated staking can earn rewards. Holding alone does not guarantee project profit sharing.
-Supply circ/max: 1.311B/UNKNOWN; FDV/cap: 1 [PROVIDER_REPORTED_UNVERIFIED].
+Use/value: UNI is the governance token for Uniswap, an Automated Market Marker DEX on the Ethereum blockchain. The UNI token allows token holders to partici [PROVIDER_REPORTED_UNVERIFIED]
+Token value capture: UNKNOWN
+Supply circ/max: 607.8M/1B; FDV/cap: 1.458 [PROVIDER_REPORTED_UNVERIFIED].
 Unlocks 30/90/365d, founder vesting, paying users and revenue: UNKNOWN.
-Context retrieved UTC: 2026-11-10T02:04:37.482458+00:00
+Context retrieved UTC: 2026-11-10T06:04:18.377183+00:00
 NEWS: NO_MATCH_IN_FETCHED_FEEDS (not safety or an entry signal).
 Coverage is limited; absence of a match is not a clean news check.
 
@@ -38,8 +38,8 @@ Coverage is limited; absence of a match is not a clean news check.
 
 ### Source observations
 
-- https://api.gateio.ws/api/v4/spot/currency_pairs/NEAR_USDT | retrieved 2026-11-10T02:04:35.855178+00:00 | raw SHA-256 c9bb2b5bbbd57aef17f0f342f01b26acc1ee00d64bcb0dacb8af9d25aafb3425
-- https://api.gateio.ws/api/v4/spot/candlesticks?currency_pair=NEAR_USDT&interval=7d&limit=1000 | retrieved 2026-11-10T02:04:36.580611+00:00 | raw SHA-256 2f96bc2260d8f23138b0bd9224d6cdd216d34a07c2c81b99c30c6e2f6a3c77a7
+- https://api.gateio.ws/api/v4/spot/currency_pairs/UNI_USDT | retrieved 2026-11-10T06:04:15.088120+00:00 | raw SHA-256 0c9e590aa3941f296914bb8757d1a84230493ec2fcb7d72627187927dbf01a42
+- https://api.gateio.ws/api/v4/spot/candlesticks?currency_pair=UNI_USDT&interval=7d&limit=1000 | retrieved 2026-11-10T06:04:15.840820+00:00 | raw SHA-256 52aa561fcb1f063427a54668573a2029e2133c362b8000b6c443b6e66bf4eadd
 
 Raw candles, project context and screening observations remain in the accompanying JSON reports.
 
