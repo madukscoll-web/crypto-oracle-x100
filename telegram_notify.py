@@ -193,7 +193,8 @@ def notify_workflow(mode, *, now=None, state_path="operational_digest_state.json
     state = json.loads(target.read_text()) if target.exists() else {"version": 1}
     if not isinstance(state, dict) or state.get("version") != 1:
         raise ValueError("Invalid digest state")
-    # A recovered cadence gap must remain visible even after today's digest.
+    # Report a cadence gap at most once per Lagos calendar day, not once per heartbeat.
+    # Each new prior heartbeat is different and previously caused repeated Telegram spam.
     cadence_path=pathlib.Path('scanner_cadence_report.json')
     if cadence_path.exists():
         cadence=json.loads(cadence_path.read_text())
@@ -203,7 +204,7 @@ def notify_workflow(mode, *, now=None, state_path="operational_digest_state.json
         if (cadence.get('stale_or_missing_core_heartbeat') is True
                 and run_id and cadence.get('github_run_id')==run_id
                 and checked_age is not None and checked_age<=3600
-                and state.get('cadence_gap_confirmed_for')!=marker):
+                and state.get('cadence_gap_confirmed_day')!=day):
             message=('BOT HEALTH | OPERATIONAL\nA stale or missing core-scan heartbeat was observed before this run. '
                      'The current core scan has completed; uninterrupted hourly operation is not established. '
                      'Previous heartbeat: '+str(cadence.get('last_core_success_at'))+'. '
@@ -211,6 +212,7 @@ def notify_workflow(mode, *, now=None, state_path="operational_digest_state.json
             if sender(message) is not True:
                 raise NotificationError('Cadence gap receipt not confirmed')
             state['cadence_gap_confirmed_for']=marker
+            state['cadence_gap_confirmed_day']=day
             temporary=target.with_suffix(target.suffix+'.tmp')
             temporary.write_text(json.dumps(state,indent=2)+'\n')
             temporary.replace(target)
