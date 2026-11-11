@@ -16,7 +16,9 @@ on:
       - '*.json'
       - 'admission_evidence/**'
   schedule:
-    - cron: '7 * * * *'
+    # Three opportunities per hour reduce the impact of delayed GitHub schedules.
+    # The cadence guard suppresses redundant successful scans.
+    - cron: '7,27,47 * * * *'
 
 permissions:
   contents: write
