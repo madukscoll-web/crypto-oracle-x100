@@ -42,7 +42,7 @@ def run(fetch=None, *, now=None, cursor=2):
         pages_attempted=0, pages_received=[], assets_received=0,
         eligible_verified=0, fresh_provider_cap_observations=0,
         market_cap_unverified=0, invalid_rows=0, duplicate_rows=0,
-        provider_atl_candidates=0, historical_baselines_validated=0,
+        provider_atl_candidates=0, peg_like_excluded=0, historical_baselines_validated=0,
         assets_checked_against_validated_low=0, alerts_delivered=0,
         orders_allowed=False, buy_authorized=False, coverage_complete=False,
         status='UNAVAILABLE', errors=[], observations=[], next_cursor=cursor,
@@ -88,6 +88,10 @@ def run(fetch=None, *, now=None, cursor=2):
                 report['fresh_provider_cap_observations'] += 1
                 baseline = positive(row.get('atl'))
                 baseline_at = timestamp(row.get('atl_date'))
+                ceiling = positive(row.get('ath'))
+                peg_like = (baseline is not None and ceiling is not None
+                            and positive('0.98') <= price <= positive('1.02')
+                            and baseline >= positive('0.90') and ceiling <= positive('1.10'))
                 valid_date = baseline_at is not None and baseline_at <= updated
                 candidate = None
                 if baseline is not None and valid_date:
@@ -98,6 +102,7 @@ def run(fetch=None, *, now=None, cursor=2):
                             source_atl_usd=str(baseline), source_atl_date=baseline_at.isoformat(),
                             independently_verified=False, telegram_eligible=False)
                         report['provider_atl_candidates'] += 1
+                        report['peg_like_excluded'] += int(peg_like)
                 report['observations'].append(dict(provider_id=identifier,
                     symbol_hint=row.get('symbol'), market_cap_usd=str(cap),
                     indicative_price_usd=str(price), provider_last_updated=updated.isoformat(),
@@ -106,7 +111,7 @@ def run(fetch=None, *, now=None, cursor=2):
                     provider_reported_cap_category=cap_class(cap, verified=True, fresh=True),
                     history_status='PROVIDER_REPORTED_NOT_CORROBORATED',
                     atl_status='PROVIDER_REPORTED_NEAR_LOW' if candidate else 'NO_VERIFIED_ATL_EVENT',
-                    telegram_eligible=False, provider_atl_candidate=candidate))
+                    telegram_eligible=False, peg_like=peg_like, provider_atl_candidate=candidate))
             if page == cursor:
                 below_floor = [positive(x.get('market_cap')) for x in rows if isinstance(x, dict)]
                 reached_floor = any(x is not None and x < MID_CAP_FLOOR for x in below_floor)
@@ -135,8 +140,14 @@ def enrich(result, state, fetch, *, now, gate_evidence=None):
     pending=state.get('pending_leads',{})
     if not isinstance(pending,dict):raise ValueError('Invalid ATL pending queue')
     pending={k:v for k,v in pending.items() if isinstance(v,dict) and fresh(v.get('provider_last_updated'),now.timestamp())}
+    peg_dispositions=[]
     for observation in result.get('observations',[]):
         if observation.get('provider_atl_candidate'):
+            if observation.get('peg_like') is True:
+                peg_dispositions.append(dict(provider_id=observation['provider_id'],status='EXCLUDED_PEG_LIKE',
+                    reason='Price near $1 with lifetime range 0.90-1.10; stablecoin-like, no enrichment slot used'))
+                pending.pop(observation['provider_id'],None)
+                continue
             pending[observation['provider_id']]=observation
     leads=list(pending.values())
     leads.sort(key=lambda x:x['provider_id'])
@@ -148,6 +159,7 @@ def enrich(result, state, fetch, *, now, gate_evidence=None):
     result['research_dossiers']=[];result['enrichment_errors']=[]
     result['candidate_dispositions']=[dict(provider_id=x['provider_id'],status='DEFERRED',reason='Bounded enrichment budget') for x in leads]
     dispositions={x['provider_id']:x for x in result['candidate_dispositions']}
+    result['candidate_dispositions']+=peg_dispositions
     result['enrichment_deferred']=max(0,len(leads)-2)
     for observation in leads[:2]:
         identifier=slug(observation['provider_id'])
