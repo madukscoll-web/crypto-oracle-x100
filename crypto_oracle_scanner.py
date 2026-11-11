@@ -90,6 +90,31 @@ def fetch_json(url):
     return get_json(url, headers=HEADERS)
 
 
+MAX_COOLDOWN_WAIT_SECONDS = 75
+RATE_LIMIT_WAIT_BUDGET_SECONDS = 180
+_RATE_WAIT = {"used": 0.0}
+
+
+def fetch_discovery(url):
+    try:
+        return fetch_json(url)
+    except (ProviderRateLimited, urllib.error.HTTPError) as exc:
+        if isinstance(exc, urllib.error.HTTPError) and exc.code != 429:
+            raise
+        import oracle_http
+        host = urllib.parse.urlsplit(url).netloc
+        remaining = oracle_http.cooldown_remaining(host)
+        if not 0 < remaining <= MAX_COOLDOWN_WAIT_SECONDS:
+            raise
+        if _RATE_WAIT["used"] + remaining > RATE_LIMIT_WAIT_BUDGET_SECONDS:
+            raise
+        _RATE_WAIT["used"] += remaining
+        print(f"API {host}: waiting {remaining:.0f}s for provider cooldown, then one retry "
+              f"({_RATE_WAIT['used']:.0f}s of {RATE_LIMIT_WAIT_BUDGET_SECONDS}s budget used)", flush=True)
+        time.sleep(remaining + 1)
+        return fetch_json(url)
+
+
 def pause_after_discovery(error=None):
     # Local circuit-breaker skips made no remote request. The HTTP client's
     # shared host cooldown remains authoritative; no second sleep is needed.
@@ -971,6 +996,7 @@ def send_discovery_research(item):
 
 
 def main():
+    _RATE_WAIT["used"] = 0.0
     seen = load_state()
     watchlist = load_watchlist()
     deferred = deferred_candidates.load()
@@ -992,7 +1018,7 @@ def main():
                 request_error = None
                 try:
                     url = f"{API}/networks/{network}/{mode}?page={page}&include=base_token,quote_token"
-                    payload = fetch_json(url)
+                    payload = fetch_discovery(url)
                     received_at = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
                     pools = payload.get("data")
                     if not isinstance(pools, list):

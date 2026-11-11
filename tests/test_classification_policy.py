@@ -54,3 +54,17 @@ class ClassificationPolicyTests(unittest.TestCase):
 if __name__ == "__main__":
     unittest.main()
 
+
+
+class BotHealthLabelRegression(unittest.TestCase):
+    def test_bot_health_is_never_labelled_research_watch(self):
+        from classification_policy import format_message
+        message = "BOT HEALTH | OPERATIONAL\nA stale or missing core-scan heartbeat was observed."
+        out = format_message(message)
+        self.assertTrue(out.startswith("SYSTEM HEALTH REPORT\n"))
+        self.assertNotIn("RESEARCH WATCH", out)
+
+    def test_untrusted_text_still_cannot_claim_research_or_buy(self):
+        from classification_policy import classify_existing_message
+        self.assertEqual(classify_existing_message("BUY CANDIDATE — MANUAL REVIEW\nx"), "RESEARCH WATCH")
+        self.assertEqual(classify_existing_message("Token X looks great\nBOT HEALTH"), "RESEARCH WATCH")
