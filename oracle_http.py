@@ -44,6 +44,11 @@ def retry_delay(headers, attempt):
     return (12, 24)[min(attempt, 1)]
 
 
+def cooldown_remaining(host):
+    """Seconds left in a shared provider cooldown; zero when none is active."""
+    return max(0.0, _COOLDOWN_UNTIL.get(host, 0) - time.monotonic())
+
+
 def get_json(url, headers=None, *, retries=RETRIES, timeout=TIMEOUT):
     host = urllib.parse.urlsplit(url).netloc
     if time.monotonic() < _COOLDOWN_UNTIL.get(host, 0):
