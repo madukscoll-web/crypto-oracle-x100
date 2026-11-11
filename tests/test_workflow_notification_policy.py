@@ -19,7 +19,7 @@ class WorkflowNotificationPolicyTests(unittest.TestCase):
 
     def test_hourly_scan_and_diagnostics_preserved(self):
         workflow = (ROOT / ".github/workflows/main.yml").read_text(encoding="utf-8")
-        self.assertIn("cron: '7 * * * *'", workflow)
+        self.assertIn("cron: '7,27,47 * * * *'", workflow)
         self.assertIn("python -u crypto_oracle_scanner.py", workflow)
         self.assertIn("actions/upload-artifact@v4", workflow)
 

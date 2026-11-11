@@ -18,6 +18,15 @@ class CadenceTests(unittest.TestCase):
             self.assertFalse(decide('workflow_run', state, self.now, True)[0])
         self.assertTrue(decide('schedule', {}, self.now)[0])
 
+    def test_redundant_schedules_do_not_repeat_recent_scans(self):
+        recent_success = {'last_core_success_at': (self.now-dt.timedelta(minutes=30)).isoformat()}
+        self.assertFalse(decide('schedule', recent_success, self.now)[0])
+        self.assertTrue(decide('schedule', recent_success, self.now+dt.timedelta(minutes=26))[0])
+        recent_attempt = {'last_attempt_at': (self.now-dt.timedelta(minutes=10)).isoformat()}
+        self.assertFalse(decide('schedule', recent_attempt, self.now)[0])
+        self.assertTrue(decide('workflow_dispatch', recent_success, self.now)[0])
+        self.assertTrue(decide('schedule', {}, self.now)[0])
+
     def test_failed_or_stale_summary_never_advances_success(self):
         state = {'last_core_success_at': 'old'}
         for outcome, report in [('failure', {'github_run_id': '1', 'status': 'completed'}),
