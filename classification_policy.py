@@ -8,9 +8,11 @@ HEADINGS = (
     "NEW COIN", "BULLISH REVERSAL", "ALL TIME LOW", "NEAR ALL TIME LOW",
     "ATL RECOVERY WATCH", "UNVERIFIED ATL RESEARCH WATCH",
     "EARLY REVERSAL WATCH", "CONFIRMED TECHNICAL REVERSAL", "INVALIDATED SETUP",
+    "EARLY BULLISH REVERSAL WATCH", "CONFIRMED BULLISH REVERSAL",
     "WAIT / VERIFY", "RESEARCH WATCH", "BUY CANDIDATE — MANUAL REVIEW", "SYSTEM HEALTH REPORT",
+    "CRITICAL SYSTEM FAILURE",
 )
-_UNTRUSTED = frozenset(HEADINGS) - {"RESEARCH WATCH", "SYSTEM HEALTH REPORT"}
+_UNTRUSTED = frozenset(HEADINGS) - {"RESEARCH WATCH", "SYSTEM HEALTH REPORT", "CRITICAL SYSTEM FAILURE"}
 
 
 def classify_opportunity(candidate_data: dict, admission_result: dict = None) -> str:
@@ -27,6 +29,9 @@ def classify_existing_message(message):
         raise ValueError("Nonempty Telegram message required")
     first = message.lstrip().splitlines()[0].strip()
     upper = first.upper()
+    # Operational notices claim no market evidence, so they may be preserved.
+    if first == "CRITICAL SYSTEM FAILURE":
+        return first
     if (first == "SYSTEM HEALTH REPORT" or upper.startswith("BOT HEALTH")
             or "WORKFLOW FAILED" in upper or "DAILY PIPELINE HEALTH" in upper):
         return "SYSTEM HEALTH REPORT"

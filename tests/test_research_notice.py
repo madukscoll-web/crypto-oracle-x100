@@ -24,8 +24,8 @@ class ResearchNoticeTests(unittest.TestCase):
 
     def test_umbrella_prefix_preserves_computed_subtype_and_cannot_be_raw_authority(self):
         for subtype, prefix in (
-                ('EARLY REVERSAL WATCH','BULLISH REVERSAL WATCH'),
-                ('CONFIRMED TECHNICAL REVERSAL','BULLISH REVERSAL WATCH'),
+                ('EARLY REVERSAL WATCH','EARLY BULLISH REVERSAL WATCH'),
+                ('CONFIRMED TECHNICAL REVERSAL','CONFIRMED BULLISH REVERSAL'),
                 ('ALL TIME LOW','ALL-TIME LOW WATCH'),
                 ('NEAR ALL TIME LOW','ALL-TIME LOW WATCH'),
                 ('ATL RECOVERY WATCH','ALL-TIME LOW WATCH')):
