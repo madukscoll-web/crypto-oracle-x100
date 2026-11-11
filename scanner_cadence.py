@@ -23,8 +23,18 @@ def age(value, now):
 
 
 def decide(event, state, now, trusted=False):
+    if event == 'workflow_dispatch':
+        return True, 'explicitly requested scan'
+    if event == 'schedule':
+        attempt = age(state.get('last_attempt_at'), now)
+        success = age(state.get('last_core_success_at'), now)
+        if attempt is not None and attempt < 1200:
+            return False, 'recent scan attempt; scheduled retry throttled'
+        if success is not None and success < 3300:
+            return False, 'core scan completed within 55 minutes'
+        return True, 'scheduled scan due or heartbeat unavailable'
     if event != 'workflow_run':
-        return True, 'scheduled or explicitly requested scan'
+        return True, 'push-triggered scan'
     if not trusted:
         return False, 'untrusted companion event'
     attempt = age(state.get('last_attempt_at'), now)
