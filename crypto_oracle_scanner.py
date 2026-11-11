@@ -17,6 +17,7 @@ import urllib.parse
 
 from verification import binary_flag
 import signal_tracker
+import signal_revisit
 import canonical_outcomes
 import forward_ledger
 import traceback
@@ -1282,6 +1283,22 @@ def main():
     deferred_report['assessed_removed'] = deferred_candidates.complete(deferred, selected)
     deferred_report['pending'] = len(deferred['pending'])
     deferred_candidates.save(deferred)
+    revisit_report, performance = {"status": "UNAVAILABLE"}, {"conclusion": "UNAVAILABLE"}
+    try:
+        # Re-price every tracked signal, not only those rediscovered this run;
+        # otherwise collapsed tokens vanish from the sample and bias results upward.
+        revisit_state = signal_revisit.load_state()
+        revisit_now = dt.datetime.now(dt.timezone.utc)
+        revisit_report = signal_revisit.revisit(history, fetch_json, revisit_now, revisit_state)
+        signal_revisit.save_state(revisit_state)
+        performance = signal_revisit.performance_summary(history, revisit_state, revisit_now)
+        print(f"Signal revisit: {revisit_report}", flush=True)
+        for hours, row in performance["horizons"].items():
+            if row["measured"]:
+                print(f"Paper {hours}h measured n={row['measured']['n']} median={row['measured']['median_percent']:+.2f}% "
+                      f"net-of-assumed-cost median={row['net_of_assumed_cost']['median_percent']:+.2f}%; {performance['conclusion']}", flush=True)
+    except (OSError, ValueError, TypeError, KeyError) as exc:
+        warnings.append("Signal revisit unavailable: " + type(exc).__name__)
     signal_tracker.save(history)
     ledger_status = forward_ledger.capture(history, selected)
     print(f"Tracked pool histories: {len(history)}", flush=True)
@@ -1330,6 +1347,8 @@ def main():
               "hourly_evidence": hourly_collector.summary(),
               "gate_paper_candidates": sum(c.get("classification") == gate_spot_candidates.LABEL for c in gate_report.get("candidates", [])),
               "forward_ledger": ledger_status,
+              "signal_revisit": revisit_report,
+              "paper_performance_summary": performance,
               "signal_performance": {key: {"horizons": signal_tracker.outcomes(rows),
                                            "sampled_risk": signal_tracker.sampled_risk(rows)}
                                      for key, rows in history.items()},
