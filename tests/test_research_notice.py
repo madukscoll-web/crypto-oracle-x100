@@ -36,6 +36,21 @@ class ResearchNoticeTests(unittest.TestCase):
             with self.assertRaises(ValueError):verified_text(str(notice))
             with self.assertRaises(ValueError):_issue(prefix,'Caller supplied umbrella')
 
+    def test_research_alert_cannot_silently_lose_risk_disclosures(self):
+        from telegram_notify import NotificationError
+        # Astral symbols count as two UTF-16 units in Telegram.
+        notice = _issue('EARLY REVERSAL WATCH', 'Evidence ' + '\U0001f4c8' * 2100 + '\nRisk: full loss possible')
+        with patch('telegram_notify._send_message') as send:
+            with self.assertRaises(NotificationError):
+                send_research_message(notice)
+            send.assert_not_called()
+
+    def test_research_alert_at_telegram_limit_is_preserved(self):
+        notice = _issue('NEW TOKEN DISCOVERY', 'Evidence ' + 'x' * 4000)
+        with patch('telegram_notify._send_message', return_value=True) as send:
+            self.assertTrue(send_research_message(notice))
+            self.assertIn('x' * 4000, send.call_args.args[0])
+
     def test_research_transport_is_one_bounded_attempt(self):
         import urllib.error
         from telegram_notify import NotificationError
