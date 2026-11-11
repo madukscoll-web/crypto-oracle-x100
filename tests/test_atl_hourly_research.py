@@ -151,3 +151,37 @@ class ATLEnrichmentHealthTests(unittest.TestCase):
         self.assertFalse(report['failed_or_skipped_stages'])
         reports['atl']['research_delivery']={'failed':1}
         self.assertIn('atl_delivery',summarize(stages,reports)['failed_or_skipped_stages'])
+
+
+class PegLikeLeadTests(unittest.TestCase):
+    def stable(self, **changes):
+        values = dict(id='peg-usd', current_price=.998, atl=.988, ath=1.01,
+                      circulating_supply=3000000000, market_cap=2994000000)
+        values.update(changes)
+        return row(**values)
+
+    def test_stablecoin_like_lead_is_flagged_and_counted_not_hidden(self):
+        result = run(now=NOW, fetch=fetch_rows([self.stable()]))
+        self.assertEqual(result['provider_atl_candidates'], 1)
+        self.assertEqual(result['peg_like_excluded'], 1)
+        self.assertTrue(result['observations'][0]['peg_like'])
+        self.assertFalse(result['observations'][0]['telegram_eligible'])
+
+    def test_volatile_or_unknown_range_assets_are_never_peg_like(self):
+        for changes in (dict(ath=50), dict(ath=None), dict(atl=.3, ath=1.01)):
+            with self.subTest(changes=changes):
+                result = run(now=NOW, fetch=fetch_rows([self.stable(**changes)]))
+                self.assertFalse(result['observations'][0]['peg_like'])
+                self.assertEqual(result['peg_like_excluded'], 0)
+
+    def test_peg_like_lead_gets_explicit_disposition_and_no_enrichment_slot(self):
+        from atl_hourly_research import enrich
+        result = run(now=NOW, fetch=fetch_rows([self.stable()]))
+        def must_not_fetch(url):
+            raise AssertionError('peg-like lead consumed an enrichment request')
+        state = dict(version=1, cursor=2)
+        out = enrich(result, state, must_not_fetch, now=NOW)
+        self.assertEqual([d['status'] for d in out['candidate_dispositions']], ['EXCLUDED_PEG_LIKE'])
+        self.assertEqual(out['research_dossiers'], [])
+        self.assertEqual(state['pending_leads'], {})
+        self.assertFalse(out['buy_authorized'])
