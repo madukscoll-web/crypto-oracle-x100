@@ -317,9 +317,14 @@ def notify(dossiers,state,env,transport,*,now):
     day=dt.datetime.fromtimestamp(now,dt.timezone(dt.timedelta(hours=1))).date().isoformat()
     delivery=dict(delivered=0,failed=0,status='NO_ELIGIBLE_RESEARCH',buy_authorized=False,decisions=[])
     decisions=delivery['decisions']
-    confirmed_today=sum(1 for receipt in state.get('research_confirmed',{}).values()
-                        if isinstance(receipt,dict) and isinstance(receipt.get('at'),str)
-                        and receipt['at'][:10]==day)
+    def receipt_day(receipt):
+        try:
+            stamp=dt.datetime.fromisoformat(receipt['at'].replace('Z','+00:00'))
+            return stamp.astimezone(dt.timezone(dt.timedelta(hours=1))).date().isoformat() if stamp.tzinfo else None
+        except (KeyError,TypeError,ValueError,AttributeError):
+            return None
+    confirmed_today=sum(receipt_day(receipt)==day for receipt in state.get('research_confirmed',{}).values()
+                        if isinstance(receipt,dict))
     if confirmed_today>=3:
         delivery['status']='DAILY_LIMIT'
         decisions.extend(dict(provider_id=x.get('asset',{}).get('provider_id'),status='DAILY_LIMIT') for x in dossiers if isinstance(x,dict))
