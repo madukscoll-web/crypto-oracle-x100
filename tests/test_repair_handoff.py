@@ -118,6 +118,26 @@ class AuditAndHealthRegressions(unittest.TestCase):
         self.assertEqual(report['coverage']['selected_pair_ids'],['LINK_USDT'])
         self.assertEqual(report['coverage']['deferred_pair_ids'],['ONDO_USDT'])
 
+    def test_cadence_warning_deduplicated_across_distinct_heartbeats_same_day(self):
+        import tempfile,os,json,pathlib
+        from unittest.mock import patch
+        from telegram_notify import notify_workflow
+        with tempfile.TemporaryDirectory() as folder:
+            previous=os.getcwd()
+            try:
+                os.chdir(folder)
+                day=NOW.astimezone(__import__('datetime').timezone(__import__('datetime').timedelta(hours=1))).date().isoformat()
+                pathlib.Path('operational_digest_state.json').write_text(json.dumps(dict(version=1,confirmed_day=day,confirmed_format_version=2)))
+                sent=[]
+                with patch.dict(os.environ,{'GITHUB_RUN_ID':'9'}):
+                    for previous_heartbeat in ('2026-11-07T00:00:00Z','2026-11-07T01:00:00Z'):
+                        pathlib.Path('scan_summary.json').write_text(json.dumps(dict(status='completed',github_run_id='9')))
+                        pathlib.Path('scanner_cadence_report.json').write_text(json.dumps(dict(stale_or_missing_core_heartbeat=True,github_run_id='9',checked_at=AT,last_core_success_at=previous_heartbeat)))
+                        notify_workflow('success',now=NOW,sender=lambda message:sent.append(message) or True)
+                self.assertEqual(len(sent),1)
+                self.assertIn('BOT HEALTH | OPERATIONAL',sent[0])
+            finally:os.chdir(previous)
+
     def test_cadence_gap_bypasses_daily_digest_dedup_once_after_recovery(self):
         import tempfile,os,json,pathlib
         from unittest.mock import patch
