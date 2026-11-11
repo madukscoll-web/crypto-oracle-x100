@@ -260,22 +260,30 @@ def message(row, research, screened):
     statuses = ', '.join(s['network']+':'+s['status'] for s in screened['security']) or 'UNKNOWN / native-chain review incomplete'
     text = (
         f"{research['technical_classification']}\n"
-        'CRYPTO-ORACLE | TECHNICAL WATCH — NOT APPROVED FOR PURCHASE\n'
+        '🛑 CRYPTO-ORACLE | TECHNICAL WATCH — NOT APPROVED FOR PURCHASE\n'
         'SECURITY / FUNDAMENTALS NOT FULLY VERIFIED. NOT A BUY SIGNAL.\n'
+        '\n'
+        '📌 SETUP\n'
         f"Gate Spot: {row['pair']} | timeframe {row['interval']} | UTC {screened['observed_at']}\n"
-        f"Live bid/ask: {book['best_bid']}/{book['best_ask']} USDT; last closed candle: {research['metrics']['close']}.\n"
         f"Trigger reference: {research['entry_trigger']} USDT; require a fresh close/retest and volume confirmation.\n"
         f"Invalidation reference: {research['invalidation']} USDT; withdraw if this level fails.\n"
         f"Trigger-to-invalidation distance: {(1-float(research['invalidation'])/float(research['entry_trigger']))*100:.1f}%; "
         'price distance, not a position-loss limit or guaranteed stop. Target/risk-reward: UNKNOWN.\n'
         f"Volume / baseline: {research['metrics']['volume_ratio']}x; RSI(14, simple): {research['metrics']['rsi14']}.\n"
+        '\n'
+        '📊 MARKET DATA\n'
+        f"Live bid/ask: {book['best_bid']}/{book['best_ask']} USDT; last closed candle: {research['metrics']['close']}.\n"
         f"Displayed spread: {float(book['spread_bps']):.1f} bps; bid/ask depth within 1%: "
         f"{float(book['bid_depth_quote_within_1pct']):,.0f}/{float(book['ask_depth_quote_within_1pct']):,.0f} USDT.\n"
+        '\n'
+        '⚠️ RISK & UNRESOLVED\n'
         f"Provider contract screening: {statuses}; not an independent audit.\n"
         'Unresolved: authority, sellability, holders, supply/unlocks, fees and funded execution; DEX LP controls unverified.\n'
         'Reassess at the next closed candle and before acting; changed security/liquidity invalidates this review.\n'
         'Historical research references; no executable orders or guaranteed fills. False reversals and total loss are possible. '
         'No validated success probability.\n'
+        '\n'
+        '🔗 SOURCES\n'
         f"Sources: https://api.gateio.ws/api/v4/spot/currency_pairs/{row['pair']}\n"
         f"https://www.gate.com/trade/{row['pair']}"
     )
@@ -295,7 +303,8 @@ def message(row, research, screened):
         strategy_lab.candles_valid(candles, INTERVAL_SECONDS[row['interval']])
         plan = strategy_lab.plan(row['pair'], 'reversal_baseline', candles, p)
         if plan:
-            text += (f"\nEXPERIMENTAL PAPER PLAN {p['policy_id']}: next-bar buy-stop reference {plan['entry']:.8g}; "
+            text += '\n\n🧪 PAPER RESEARCH PLAN (not a trade instruction)'
+        text += (f"\nEXPERIMENTAL PAPER PLAN {p['policy_id']}: next-bar buy-stop reference {plan['entry']:.8g}; "
                      f"stop {plan['stop']:.8g}; hypothetical 2R target {plan['target']:.8g} USDT. "
                      f"Entry expires after {p['entry_expiry_bars']} bars; hold at most {p['maximum_holding_bars']} bars. "
                      'Assumed fee/slippage: 20/20 bps per side; costs reduce R. '
@@ -303,6 +312,7 @@ def message(row, research, screened):
                      'Not validated, executable, or approved. Target is a formula, not a price forecast.')
     if row['interval'] in ('1h', '4h') and research.get('conditional_plan'):
         plan = research['conditional_plan']
+        text += '\n\n🧪 CONDITIONAL RESEARCH (not a trade instruction)'
         text += (f"\nCONDITIONAL RESEARCH: entry reference {plan['entry_reference']:.8g}; "
                  f"invalidation {plan['invalidation_reference']:.8g}; arithmetic 2R scenario "
                  f"{plan['hypothetical_2r_target']:.8g} USDT. Require a fresh close/retest and volume. "
@@ -318,7 +328,7 @@ def message(row, research, screened):
     news_at = next((i for i,line in enumerate(context) if line.startswith('NEWS:')), None)
     if news_at is not None:
         useful.extend(context[news_at:])
-    text += '\nPROJECT FUNDAMENTALS — provider/source claims, not approval\n'
+    text += '\n\n🏢 PROJECT FUNDAMENTALS — provider/source claims, not approval\n'
     text += '\n'.join(useful) if useful else 'UNKNOWN; team, supply/unlocks and adoption require separate verification.'
     if len(text.encode('utf-16-le'))//2 > 3900:
         raise ValueError('Research disclosure exceeds message limit')
