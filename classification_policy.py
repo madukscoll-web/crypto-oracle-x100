@@ -27,7 +27,8 @@ def classify_existing_message(message):
         raise ValueError("Nonempty Telegram message required")
     first = message.lstrip().splitlines()[0].strip()
     upper = first.upper()
-    if first == "SYSTEM HEALTH REPORT" or "WORKFLOW FAILED" in upper or "DAILY PIPELINE HEALTH" in upper:
+    if (first == "SYSTEM HEALTH REPORT" or upper.startswith("BOT HEALTH")
+            or "WORKFLOW FAILED" in upper or "DAILY PIPELINE HEALTH" in upper):
         return "SYSTEM HEALTH REPORT"
     return "RESEARCH WATCH"
 
