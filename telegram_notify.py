@@ -32,7 +32,12 @@ def send_message(message):
 
 def send_research_message(notice):
     from research_notice import verified_text
-    return _send_message(verified_text(notice), max_attempts=1, request_timeout=8)
+    message = verified_text(notice)
+    # Never silently discard trailing risk disclosures or evidence limitations.
+    # Telegram's text ceiling is 4096 UTF-16 code units, not Python characters.
+    if len(message.encode('utf-16-le')) // 2 > 4096:
+        raise NotificationError('Research alert exceeds Telegram limit; delivery withheld to preserve risk disclosures')
+    return _send_message(message, max_attempts=1, request_timeout=8)
 
 
 def send_admission_message(item):
