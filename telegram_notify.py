@@ -103,7 +103,10 @@ def workflow_message(mode):
         failed = [name + '=' + value for name, value in outcomes.items()
                   if value in ('failure', 'cancelled', 'timed_out')]
         core = outcomes.get('scan', 'unknown')
-        return ("CRYPTO-ORACLE X100: workflow FAILED. Core scan outcome: " + core + ". "
+        # Only a failed core scan is critical; a failed follow-up stage leaves
+        # discovery intact and is reported as an ordinary health notice.
+        heading = "SYSTEM HEALTH REPORT" if core == "success" else "CRITICAL SYSTEM FAILURE"
+        return (heading + "\nCRYPTO-ORACLE X100: workflow FAILED. Core scan outcome: " + core + ". "
                 "Failed stage(s): " + (', '.join(failed) or 'see run logs') +
                 ". Full pipeline completion and alert delivery are not established. Inspect: " + run_url)
     report = json.loads(pathlib.Path("scan_summary.json").read_text(encoding="utf-8"))

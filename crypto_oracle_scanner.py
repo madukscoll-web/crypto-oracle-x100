@@ -958,6 +958,15 @@ def research_alert_eligible(item, now=None):
         return False
 
 
+def pool_class_text(item):
+    """State what was observed: a recent pool, never an asserted new token."""
+    age = item.get("age_hours")
+    age_text = f"{age:.1f}h" if isinstance(age, (int, float)) and not isinstance(age, bool) else "unknown age"
+    if item.get("pool_class") == "NEW POOL":
+        return f"NEW POOL (pool created {age_text} ago; the token itself may be older)"
+    return f"EXISTING POOL (pool created {age_text} ago; not a new listing)"
+
+
 def research_alert_text(item):
     decision, reason = decision_summary(item)
     setup, setup_reason = setup_assessment(item)
@@ -977,6 +986,7 @@ def research_alert_text(item):
         f"1h trades: {display_measurement(item.get('trades'), '.0f')}\n"
         f"Discovery score (not safety): {item.get('score', 'UNKNOWN')}\n"
         f"Discovery source: {item.get('source', 'UNKNOWN')}\n"
+        f"Discovery type: {pool_class_text(item)}\n"
         "Token launch origin/age: not established by pool discovery.\n"
         f"Source: {item.get('url', 'UNKNOWN')}\n"
         f"Unresolved evidence: {risks[:700]}\n"
