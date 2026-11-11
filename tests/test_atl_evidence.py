@@ -87,7 +87,25 @@ class ATLEvidenceTests(unittest.TestCase):
         self.assertEqual(log[-1][1]['parse_mode'],'HTML')
         self.assertIn('NOT A BUY SIGNAL',log[-1][1]['text'])
         result=notify([build()],state,env,transport(log),now=NOW.timestamp())
-        self.assertEqual(result['status'],'DAILY_DEDUP');self.assertEqual(len(log),2)
+        self.assertEqual(result['decisions'][0]['status'],'UNCHANGED_CONFIRMED_CONDITION');self.assertEqual(len(log),2)
+
+    def test_distinct_verified_research_receipts_not_blocked_by_first_daily_alert(self):
+        state={};log=[];env=dict(TELEGRAM_BOT_TOKEN='fixture',TELEGRAM_CHAT_ID='42')
+        for index in range(3):
+            observation,details,chart=inputs()
+            identifier='fixture-'+str(index)
+            observation['provider_id']=identifier
+            details['id']=identifier
+            details['name']=identifier
+            finding=dossier(observation,details,chart,observed_at=AT,now=NOW.timestamp())
+            result=notify([finding],state,env,transport(log),now=NOW.timestamp())
+            self.assertEqual(result['delivered'],1)
+            self.assertFalse(result['buy_authorized'])
+        observation,details,chart=inputs()
+        observation['provider_id']='fixture-3';details['id']='fixture-3';details['name']='fixture-3'
+        fourth=dossier(observation,details,chart,observed_at=AT,now=NOW.timestamp())
+        self.assertEqual(notify([fourth],state,env,transport(log),now=NOW.timestamp())['status'],'DAILY_LIMIT')
+        self.assertEqual(len([x for x in log if x[0]=='sendMessage']),3)
 
     def test_wrong_receipt_and_forged_summary_never_advance_state(self):
         env=dict(TELEGRAM_BOT_TOKEN='fixture',TELEGRAM_CHAT_ID='42');state={}

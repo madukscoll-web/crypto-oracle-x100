@@ -309,7 +309,7 @@ def format_research_html(d):
 
 
 def notify(dossiers,state,env,transport,*,now):
-    """One explicitly unverified research message/day, confirmed Bot API receipts.
+    """Up to three distinct unverified research messages/day, confirmed Bot API receipts.
 
     Evidence qualification remains research-only. Failed receipts never advance
     dedup state. Caller persists returned state with the serialized scanner state.
@@ -317,9 +317,17 @@ def notify(dossiers,state,env,transport,*,now):
     day=dt.datetime.fromtimestamp(now,dt.timezone(dt.timedelta(hours=1))).date().isoformat()
     delivery=dict(delivered=0,failed=0,status='NO_ELIGIBLE_RESEARCH',buy_authorized=False,decisions=[])
     decisions=delivery['decisions']
-    if state.get('research_confirmed_day')==day:
-        delivery['status']='DAILY_DEDUP'
-        decisions.extend(dict(provider_id=x.get('asset',{}).get('provider_id'),status='DAILY_DEDUP') for x in dossiers if isinstance(x,dict))
+    def receipt_day(receipt):
+        try:
+            stamp=dt.datetime.fromisoformat(receipt['at'].replace('Z','+00:00'))
+            return stamp.astimezone(dt.timezone(dt.timedelta(hours=1))).date().isoformat() if stamp.tzinfo else None
+        except (KeyError,TypeError,ValueError,AttributeError):
+            return None
+    confirmed_today=sum(receipt_day(receipt)==day for receipt in state.get('research_confirmed',{}).values()
+                        if isinstance(receipt,dict))
+    if confirmed_today>=3:
+        delivery['status']='DAILY_LIMIT'
+        decisions.extend(dict(provider_id=x.get('asset',{}).get('provider_id'),status='DAILY_LIMIT') for x in dossiers if isinstance(x,dict))
         return delivery
     for supplied in dossiers:
         decision=dict(provider_id=supplied.get('asset',{}).get('provider_id') if isinstance(supplied,dict) else None,status='WITHHELD')
