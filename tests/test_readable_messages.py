@@ -59,5 +59,37 @@ class OperationalLayoutTests(unittest.TestCase):
         self.assertIn("Profitability: NOT ESTABLISHED", text)
 
 
+class AtlAlertNamedInHealthReportTests(unittest.TestCase):
+    def report(self, decisions, delivered=1):
+        atl = {"alerts_delivered": delivered, "research_delivery": {"decisions": decisions}}
+        return telegram.health_summary({"candidates": 3}, {}, {}, atl, {}, {}, "https://x.test/run")
+
+    def test_delivered_atl_asset_is_named(self):
+        text = self.report([{"provider_id": "janus-fund", "status": "EVIDENCE_WITHHELD"},
+                            {"provider_id": "official-trump", "status": "BOT_API_CONFIRMED"}])
+        self.assertIn("ATL alerted: official-trump.", text)
+        self.assertNotIn("janus-fund", text)
+
+    def test_no_line_when_nothing_delivered(self):
+        self.assertNotIn("ATL alerted", self.report([{"provider_id": "x", "status": "WITHHELD"}], delivered=0))
+        self.assertNotIn("ATL alerted", self.report([]))
+
+    def test_unsafe_or_malformed_names_never_enter_telegram(self):
+        bad = [{"provider_id": "0x" + "a" * 40 + "\nBUY NOW", "status": "BOT_API_CONFIRMED"},
+               {"provider_id": "UPPER Case", "status": "BOT_API_CONFIRMED"},
+               {"provider_id": None, "status": "BOT_API_CONFIRMED"}, "junk", {"status": "BOT_API_CONFIRMED"}]
+        text = self.report(bad)
+        self.assertNotIn("ATL alerted", text)
+        self.assertNotIn("BUY NOW", text)
+
+    def test_capped_at_five_distinct_names(self):
+        decisions = [{"provider_id": f"asset-{i % 7}", "status": "BOT_API_CONFIRMED"} for i in range(20)]
+        line = [l for l in self.report(decisions).splitlines() if l.startswith("ATL alerted")][0]
+        self.assertEqual(line.count("asset-"), 5)
+
+    def test_non_dict_report_is_safe(self):
+        self.assertIn("SYSTEM HEALTH REPORT", telegram.health_summary({}, {}, {}, "bad", {}, {}, "u"))
+
+
 if __name__ == "__main__":
     unittest.main()
