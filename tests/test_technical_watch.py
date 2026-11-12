@@ -254,7 +254,7 @@ class ConciseResearchMessageTests(unittest.TestCase):
         self.assertIn('NOT A BUY SIGNAL',text)
         self.assertIn('supply/unlocks',text)
         self.assertNotIn('Dev commits/4w: UNKNOWN',text)
-        self.assertLess(len(text),2400)
+        self.assertLess(len(text),2800)
 
 
 class RetainedGateAdverseTests(unittest.TestCase):

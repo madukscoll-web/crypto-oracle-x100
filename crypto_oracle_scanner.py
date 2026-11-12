@@ -992,6 +992,16 @@ def pool_class_text(item):
     return f"EXISTING POOL (pool created {age_text} ago; not a new listing)"
 
 
+def readable_observed(value):
+    try:
+        parsed = dt.datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            return str(value)
+        return parsed.astimezone(dt.timezone.utc).strftime("%d %b %Y %H:%M UTC")
+    except ValueError:
+        return str(value)
+
+
 def research_alert_text(item):
     decision, reason = decision_summary(item)
     setup, setup_reason = setup_assessment(item)
@@ -1000,6 +1010,11 @@ def research_alert_text(item):
     return (
         "NEW TOKEN DISCOVERY\n"
         "🛑 NOT APPROVED FOR PURCHASE. NOT A BUY SIGNAL.\n"
+        "\n"
+        "🧭 IN PLAIN ENGLISH\n"
+        f"The scanner found a recently created trading pool for {item.get('token_symbol', 'UNKNOWN')} on {item['network']}. "
+        "It is a lead to research, not a recommendation. The bot has bought nothing.\n"
+        "Most brand-new tokens fail or are scams; the checks below show what is still unproven.\n"
         "\n"
         "📌 VERDICT\n"
         f"Decision: {decision} — {reason}\n"
@@ -1014,10 +1029,10 @@ def research_alert_text(item):
         "Token launch origin/age: not established by pool discovery.\n"
         "\n"
         "📊 MARKET DATA\n"
-        f"Liquidity USD: {display_measurement(item.get('liquidity'), ',.0f')}\n"
+        f"Liquidity USD: {display_measurement(item.get('liquidity'), ',.0f')} (money in the pool; low means you may not be able to sell)\n"
         f"24h volume USD: {display_measurement(item.get('volume'), ',.0f')}\n"
         f"1h trades: {display_measurement(item.get('trades'), '.0f')}\n"
-        f"Discovery score (not safety): {item.get('score', 'UNKNOWN')}\n"
+        f"Discovery score (not safety): {item.get('score', 'UNKNOWN')} (how active it looks, says nothing about safety)\n"
         "\n"
         "🏢 PROJECT CONTEXT\n"
         + context + "\n"
@@ -1030,7 +1045,7 @@ def research_alert_text(item):
         "🔗 SOURCE\n"
         f"Discovery source: {item.get('source', 'UNKNOWN')}\n"
         f"Source: {item.get('url', 'UNKNOWN')}\n"
-        f"Observed UTC: {item.get('observed_at', 'UNKNOWN')}"
+        f"Observed: {readable_observed(item.get('observed_at', 'UNKNOWN'))}"
     )
 
 
