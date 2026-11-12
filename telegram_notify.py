@@ -106,9 +106,14 @@ def workflow_message(mode):
         # Only a failed core scan is critical; a failed follow-up stage leaves
         # discovery intact and is reported as an ordinary health notice.
         heading = "SYSTEM HEALTH REPORT" if core == "success" else "CRITICAL SYSTEM FAILURE"
-        return (heading + "\nCRYPTO-ORACLE X100: workflow FAILED. Core scan outcome: " + core + ". "
-                "Failed stage(s): " + (', '.join(failed) or 'see run logs') +
-                ". Full pipeline completion and alert delivery are not established. Inspect: " + run_url)
+        return (heading + "\n🚨 CRYPTO-ORACLE X100: workflow FAILED.\n\n"
+                "🩺 STATUS\n"
+                "Core scan outcome: " + core + ".\n"
+                "Failed stage(s): " + (', '.join(failed) or 'see run logs') + ".\n\n"
+                "⚠️ WHAT THIS MEANS\n"
+                "Full pipeline completion and alert delivery are not established.\n\n"
+                "🔗 LINKS\n"
+                "Inspect: " + run_url)
     report = json.loads(pathlib.Path("scan_summary.json").read_text(encoding="utf-8"))
     if report.get("status") != "completed":
         raise NotificationError("Refusing completion summary for an unsuccessful scan")
@@ -155,16 +160,28 @@ def health_summary(report,reversal,health,atl,paper,followup,run_url):
     lines=[
         'SYSTEM HEALTH REPORT',
         'CRYPTO-ORACLE X100 daily pipeline health | '+at,
+        '',
+        '🩺 STATUS',
         'Execution: '+axes[0]+' | Coverage: '+axes[1]+' | Admission: '+axes[2],
+        '',
+        '🔎 DISCOVERY',
         'Discovery: '+metric(report,'candidates')+' candidates; '+metric(audit,'assessed_candidates')+' assessed; '+metric(audit,'discovery_pools_not_selected')+' deferred.',
         'Assessed: '+metric(audit,'assessed_candidates')+'; ineligible: '+metric(counts,'ineligible')+'. Evidence: '+metric(evidence,'REJECT')+' rejected; '+metric(evidence,'INSUFFICIENT EVIDENCE')+' incomplete.',
+        '',
+        '🔔 ALERTS',
         'BUY candidates for manual review: '+metric(report,'buy_candidates_delivered')+'; safety-reviewed entry WATCH alerts: '+metric(report,'signed_entry_watches_delivered')+'; research WATCH alerts: '+metric(report,'research_watch_delivered')+'.',
         'Reversals: '+metric(technical,'delivered')+' alerts; '+metric(coverage,'selected_pairs')+'/'+metric(coverage,'liquid_eligible_pairs')+' policy pairs assessed; '+metric(coverage,'all_liquid_eligible_pairs')+' liquid pairs overall.',
         'Reversal suppression: '+number(sum(v for v in suppressed.values() if type(v) is int and v>=0))+' cases. Exact reasons remain in diagnostics.',
         'ATL: '+metric(atl,'alerts_delivered')+' alerts; '+metric(atl,'provider_atl_candidates')+' provider leads; '+metric(atl,'enrichment_deferred')+' enrichment-deferred; '+metric(atl,'historical_baselines_validated')+' validated lifetime baselines.',
+        '',
+        '📈 PERFORMANCE',
         'Performance: '+number(closed)+' closed paper trades; '+number(opened)+' open paper positions. Sampled trigger reached: '+number(triggered)+'/'+number(watches)+' tracked watches.',
         'Profitability: NOT ESTABLISHED. Paper accounts are simulations; sampled prices are not fills.',
+        '',
+        '🧾 SUMMARY',
         'No qualifying tokens found.' if report.get('candidates')==0 else 'Research observations are not purchase approval.',
+        '',
+        '🔗 LINKS',
         'Full diagnostics: '+run_url]
     return '\n'.join(lines)
 
