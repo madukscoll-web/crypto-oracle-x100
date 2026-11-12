@@ -22,6 +22,11 @@ def request(token, method, data):
         return json.load(response)
 
 
+DELIVERY_TEST_TEXT = ('TELEGRAM DELIVERY TEST\n'
+                      'This only confirms the bot can reach this chat. It is not a scan, not a health report '
+                      'and not a signal. Nothing was bought; automated trading remains disabled.')
+
+
 def validate(env, send_test=False, transport=request):
     result = dict(observed_at=dt.datetime.now(dt.timezone.utc).isoformat(),
                   configured=False, bot_authenticated=False, chat_accessible=False,
@@ -54,7 +59,7 @@ def validate(env, send_test=False, transport=request):
         result.update(status='PREFLIGHT_OK', reason='Bot and destination checked; delivery not attempted')
         if send_test:
             response = transport(token, 'sendMessage', {'chat_id': chat, 'text':
-                'SYSTEM HEALTH REPORT\nCRYPTO-ORACLE deployment validation: notification delivery test. NO BUY SIGNAL. Automated trading remains disabled.'})
+                DELIVERY_TEST_TEXT})
             if not confirmed(response, returned_chat_id):
                 raise ValueError('Delivery not confirmed for configured destination')
             result.update(status='DELIVERY_CONFIRMED', delivery_confirmed=True,
