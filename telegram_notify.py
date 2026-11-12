@@ -129,6 +129,42 @@ def workflow_message(mode):
         optional('strategy_lab_state.json'), optional('technical_followup_state.json'),run_url)
 
 
+# Fixed plain-language categories for audit blockers. Only these phrases (never raw
+# provider text, addresses or diagnostics) can enter Telegram.
+BLOCKER_CATEGORIES=(
+    ('Critical provider security flag','flagged high-risk by the security provider'),
+    ('Provider security assessment unavailable','no security data yet (token too new for the provider)'),
+    ('Exact base-token identity unverified','token contract not identified'),
+    ('Positive pool liquidity and volume unavailable','market data refresh failed'),
+    ('Token-2022','Solana Token-2022 mint not yet supported'),
+    ('Circulating/maximum supply unverified','supply not verified'),
+    ('Complete LP withdrawal authority','LP lock and ownership not verified'),
+    ('Top-holder concentration','holder concentration not verified'),
+    ('executable quote','no live sell quote'),
+)
+
+
+# The first five categories explain WHY a particular token failed; the rest are checks
+# that are unverified for nearly every candidate, so they are listed after the specific ones.
+SPECIFIC_BLOCKERS=5
+
+
+def blocker_summary(counts,limit=5):
+    """Top blockers as 'N reason' phrases, specific causes first. Overlapping strings use the max count."""
+    if not isinstance(counts,dict):return []
+    totals={}
+    for raw,count in counts.items():
+        if not isinstance(raw,str) or type(count) is not int or count<=0:continue
+        for position,(needle,phrase) in enumerate(BLOCKER_CATEGORIES):
+            if needle in raw:
+                totals[phrase]=(position,max(totals.get(phrase,(position,0))[1],count))
+                break
+    ranked=sorted(((phrase,value[1],value[0]) for phrase,value in totals.items()),
+                  key=lambda item:(item[2]>=SPECIFIC_BLOCKERS,-item[1],item[0]))
+    ranked=[(phrase,count) for phrase,count,_ in ranked]
+    return [str(count)+' '+phrase for phrase,count in ranked[:limit]]
+
+
 def health_summary(report,reversal,health,atl,paper,followup,run_url):
     """Counts only. Raw arrays, addresses and diagnostics never enter Telegram."""
     def number(value):
@@ -169,6 +205,7 @@ def health_summary(report,reversal,health,atl,paper,followup,run_url):
                 names.append(slug)
         return names[:5]
     atl_names=alerted_assets(atl)
+    blockers=blocker_summary(audit.get('assessed_blocker_counts')) if number(report.get('candidates') if isinstance(report,dict) else None)!='unknown' else []
     lines=[
         'SYSTEM HEALTH REPORT',
         'CRYPTO-ORACLE X100 daily pipeline health | '+at,
@@ -179,6 +216,7 @@ def health_summary(report,reversal,health,atl,paper,followup,run_url):
         '🔎 DISCOVERY',
         'Discovery: '+metric(report,'candidates')+' candidates; '+metric(audit,'assessed_candidates')+' assessed; '+metric(audit,'discovery_pools_not_selected')+' deferred.',
         'Assessed: '+metric(audit,'assessed_candidates')+'; ineligible: '+metric(counts,'ineligible')+'. Evidence: '+metric(evidence,'REJECT')+' rejected; '+metric(evidence,'INSUFFICIENT EVIDENCE')+' incomplete.',
+        *(['','🔍 WHY NO ALERTS','Top blockers among assessed candidates: '+'; '.join(blockers)+'.'] if blockers else []),
         '',
         '🔔 ALERTS',
         'BUY candidates for manual review: '+metric(report,'buy_candidates_delivered')+'; safety-reviewed entry WATCH alerts: '+metric(report,'signed_entry_watches_delivered')+'; research WATCH alerts: '+metric(report,'research_watch_delivered')+'.',

@@ -91,5 +91,48 @@ class AtlAlertNamedInHealthReportTests(unittest.TestCase):
         self.assertIn("SYSTEM HEALTH REPORT", telegram.health_summary({}, {}, {}, "bad", {}, {}, "u"))
 
 
+class WhyNoAlertsTests(unittest.TestCase):
+    COUNTS = {"Critical provider security flag: independently investigate": 5,
+              "Provider security assessment unavailable": 2,
+              "Holder coverage: UNSUPPORTED; Mint evidence unavailable: Mint owner is not legacy SPL Token; Token-2022/other programs need reviewed extension parsing": 2,
+              "Supply comparison: UNSUPPORTED; Mint evidence unavailable: Mint owner is not legacy SPL Token; Token-2022/other programs need reviewed extension parsing": 2,
+              "Exact-pool fresh executable quote unavailable": 10,
+              "Order-specific executable quote, slippage and downside review remain unverified": 10,
+              "Some unknown provider detail 0xdeadbeef": 3}
+
+    def report(self, counts):
+        return telegram.health_summary({"candidates": 63, "filter_audit": {"assessed_candidates": 10,
+                                        "assessed_blocker_counts": counts}}, {}, {}, {}, {}, {}, "https://x.test/run")
+
+    def test_top_blockers_in_plain_language_ranked_by_count(self):
+        text = self.report(self.COUNTS)
+        self.assertIn("🔍 WHY NO ALERTS", text)
+        line = [l for l in text.splitlines() if l.startswith("Top blockers")][0]
+        self.assertTrue(line.startswith("Top blockers among assessed candidates: 5 flagged high-risk by the security provider; "))
+        self.assertLess(line.index("no security data yet"), line.index("no live sell quote"))
+        self.assertLess(line.index("Token-2022"), line.index("no live sell quote"))   # specific causes before universal gaps
+        self.assertLessEqual(line.count(";"), 4)   # capped at five phrases
+
+    def test_overlapping_reasons_use_max_not_sum(self):
+        phrases = telegram.blocker_summary({"Token-2022 a": 2, "Holder Token-2022 b": 2})
+        self.assertEqual(phrases, ["2 Solana Token-2022 mint not yet supported"])
+
+    def test_raw_provider_text_and_unknown_reasons_never_enter_telegram(self):
+        text = self.report(self.COUNTS)
+        for leaked in ("0xdeadbeef", "Some unknown provider detail", "Mint owner is not legacy"):
+            self.assertNotIn(leaked, text)
+
+    def test_malformed_or_missing_audit_adds_nothing_and_never_raises(self):
+        for counts in (None, "x", [], {"a": "b"}, {"Critical provider security flag": True}, {"Critical provider security flag": -1}):
+            self.assertNotIn("WHY NO ALERTS", self.report(counts))
+        text = telegram.health_summary({"candidates": 0}, {}, {}, {}, {}, {}, "u")
+        self.assertNotIn("WHY NO ALERTS", text)
+
+    def test_section_order_keeps_headings_in_reading_order(self):
+        text = self.report(self.COUNTS)
+        order = ["🩺 STATUS", "🔎 DISCOVERY", "🔍 WHY NO ALERTS", "🔔 ALERTS", "📈 PERFORMANCE", "🧾 SUMMARY", "🔗 LINKS"]
+        self.assertEqual([text.index(h) for h in order], sorted(text.index(h) for h in order))
+
+
 if __name__ == "__main__":
     unittest.main()
