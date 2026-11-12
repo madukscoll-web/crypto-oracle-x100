@@ -133,7 +133,8 @@ def enrich(result, state, fetch, *, now, gate_evidence=None):
     Failure details remain in the report. A failed provider is not retried in the
     same session. History availability never upgrades lifetime verification.
     """
-    from atl_evidence import dossier, slug, fresh, instrument, identity, DETAILS
+    from atl_evidence import dossier, slug, fresh, instrument, identity, gate_listing, DETAILS
+    import gate_history
     import atl_lifetime
     manifests=atl_lifetime.load_registry().get('manifests',{})
     if not isinstance(manifests,dict):raise ValueError('Invalid lifetime manifest registry')
@@ -186,7 +187,19 @@ def enrich(result, state, fetch, *, now, gate_evidence=None):
                 # Reject unexpectedly large/corrupt payloads before durable caching.
                 if len(json.dumps(snapshot))>300000:raise ValueError('Oversized ATL evidence')
                 cache[identifier]=snapshot
-            finding=dossier(observation,snapshot['details'],snapshot['chart'],observed_at=snapshot['observed_at'],now=now.timestamp(),gate_evidence=gate_evidence)
+            venue=None
+            if gate_evidence is not None:
+                # Venue history only for an exact-contract Gate listing; a failure
+                # leaves the alert as before and is recorded, never fatal.
+                try:
+                    listing=gate_listing(identity(snapshot['details'],identifier),gate_evidence,now.timestamp())
+                    if listing['status']=='EXACT_CONTRACT_METADATA_MATCH' and len(listing['pairs'])==1:
+                        venue=gate_history.collect_all(fetch,listing['pairs'][0],now=now.timestamp())
+                except (OSError,ValueError,TypeError,KeyError,AttributeError,ArithmeticError) as exc:
+                    venue=None
+                    result['enrichment_errors'].append(dict(provider_id=identifier,error_type=type(exc).__name__,
+                        reason='Gate venue history unavailable: '+str(exc)[:200]))
+            finding=dossier(observation,snapshot['details'],snapshot['chart'],observed_at=snapshot['observed_at'],now=now.timestamp(),gate_evidence=gate_evidence,venue=venue)
             result['research_dossiers'].append(finding)
             dispositions[identifier].update(status='RESEARCH_ELIGIBLE' if finding['telegram_research_eligible'] else 'WITHHELD',
                 reason='Provider-reported research only; independent lifetime and BUY remain unverified' if finding['telegram_research_eligible'] else finding['instrument']['reason'] if finding['instrument']['status']!='ORDINARY_CRYPTO_RESEARCH' else '; '.join(finding['gaps']))
@@ -216,7 +229,7 @@ def main():
         from atl_evidence import notify
         import telegram_validation
         now=dt.datetime.now(dt.timezone.utc)
-        with Session(max_requests=6,max_seconds=60,max_request_seconds=8) as session:
+        with Session(max_requests=14,max_seconds=90,max_request_seconds=8) as session:
             gate_evidence=dict(observed_at=now.isoformat(),currencies=[],pairs=[])
             try:
                 gate_evidence['currencies']=session.get('https://api.gateio.ws/api/v4/spot/currencies')

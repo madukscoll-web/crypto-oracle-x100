@@ -173,7 +173,7 @@ def gate_listing(asset, evidence, now):
                 pairs=matched,source_urls=['https://api.gateio.ws/api/v4/spot/currencies','https://api.gateio.ws/api/v4/spot/currency_pairs'],reason='Provider metadata contract join; not independent security' if len(matched)==1 else 'Missing or ambiguous exact-contract Gate spot mapping')
 
 
-def dossier(observation,details,chart,*,observed_at,now,gate_evidence=None):
+def dossier(observation,details,chart,*,observed_at,now,gate_evidence=None,venue=None):
     identifier=slug(observation['provider_id'])
     if not fresh(observed_at,now) or not fresh(observation['provider_last_updated'],now):
         raise ValueError('Stale market or metadata evidence')
@@ -238,6 +238,23 @@ def dossier(observation,details,chart,*,observed_at,now,gate_evidence=None):
     listing=gate_listing(asset,gate_evidence,now)
     if gate_evidence is not None and listing['status']!='EXACT_CONTRACT_METADATA_MATCH':
         eligible=False;gaps.append(listing['reason'])
+    venue_block=None
+    if venue is not None:
+        # Venue evidence is informational: it can only withhold (a lower traded
+        # price than the claimed ATL), never grant eligibility, BUY or orders.
+        try:
+            import gate_history
+            if listing['status']!='EXACT_CONTRACT_METADATA_MATCH' or len(listing['pairs'])!=1:
+                raise ValueError('No single exact Gate pair')
+            gate_history.validate(venue,listing['pairs'][0],now)
+            venue_block=venue
+            if gate_history.below_reported_low(venue['history'],low):
+                historical['conflicting']=True;historical['status']='CONFLICTING';eligible=False
+                gaps.append('Gate venue traded below the provider-reported ATL; provider ATL not corroborated')
+            elif not gate_history.covers_date(venue['history'],low_at):
+                gaps.append('Gate venue history begins after the provider-reported low date; low not checked on Gate')
+        except (ValueError,TypeError,KeyError,AttributeError,ArithmeticError) as exc:
+            gaps.append('Gate venue history rejected: '+str(exc)[:120])
     digest=hashlib.sha256(json.dumps({'identity':asset,'low':str(low),'type':kind['status']},sort_keys=True).encode()).hexdigest()
     return dict(schema_version=1,classification='UNVERIFIED ATL RESEARCH WATCH',
         name=text(details.get('name','UNKNOWN')),symbol=text(details.get('symbol','UNKNOWN')),
@@ -248,10 +265,29 @@ def dossier(observation,details,chart,*,observed_at,now,gate_evidence=None):
         evidence_class='PROVIDER_REPORTED_ATL_NOT_CORROBORATED',
         volume_24h_usd=str(positive((market.get('total_volume') or {}).get('usd')) or 'UNKNOWN'),
         liquidity_status='UNKNOWN',history=historical,historical_assessments=assessments,gaps=gaps,
-        source_urls=[DETAILS+identifier]+[x['source_url'] for x in assessments]+listing.get('source_urls',[]),
+        source_urls=[DETAILS+identifier]+[x['source_url'] for x in assessments]+listing.get('source_urls',[])+(venue_block['history']['source_urls'][:1] if venue_block else []),
+        venue_history=venue_block,
         telegram_research_eligible=eligible,evidence_fingerprint=digest,
         buy_authorized=False,orders_allowed=False,
-        _source_input=dict(observation=observation,details=details,chart=chart,observed_at=observed_at,gate_evidence=gate_evidence))
+        _source_input=dict(observation=observation,details=details,chart=chart,observed_at=observed_at,gate_evidence=gate_evidence,venue=venue))
+
+
+def venue_text(d):
+    """Plain-text Gate venue lines; empty when no validated venue evidence."""
+    v=d.get('venue_history')
+    if not v:return ''
+    h=v['history'];b=v.get('book')
+    try:
+        above=(Decimal(d['price_usd'])/Decimal(h['minimum_price_usd'])-1)*100
+        above_text=format(above,'+.2f')+'%'
+    except (ValueError,ArithmeticError,KeyError):above_text='unknown'
+    text=('Gate venue history: '+str(h['candles'])+' daily candles from '+h['earliest_candle_at'][:10]
+          +('' if h.get('reaches_first_candle') else ' (truncated)')+'; lowest daily low '+h['minimum_price_usd']
+          +' USDT on '+h['minimum_at'][:10]+'; price '+above_text+' above it. Venue only; not a verified lifetime low.\n')
+    if b:
+        text+=('Gate book: spread '+b['spread_bps']+' bps; depth within 1% bid/ask '+b['bid_depth_usdt_1pct']+'/'
+               +b['ask_depth_usdt_1pct']+' USDT (top '+str(b['levels_read'])+' levels, lower bound).\n')
+    return text
 
 
 def format_research(d):
@@ -264,6 +300,7 @@ def format_research(d):
         +'Observed USD price: '+d['price_usd']+' at '+d['observed_at']+'\n'
         +'Circulating market cap USD: '+d['circulating_market_cap_usd']+' (provider reported; unverified)\n'
         +'Provider-reported low USD: '+d['provider_low_usd']+' at '+d['provider_low_at']+'; above low: '+d['percent_above_provider_low']+'%\n'
+        +venue_text(d)
         +'24h volume USD: '+d['volume_24h_usd']+'; executable liquidity: UNKNOWN\n'
         +('Historical coverage: '+text(d['history']['earliest_observation'])+' onward; daily samples, limited to 365 days.\n' if d['historical_assessments'] else 'Historical coverage: unavailable; provider-reported ATL only.\n')
         +'Technical reversal, entry, invalidation and targets: NOT ESTABLISHED.\n'
@@ -279,6 +316,22 @@ def format_research_html(d):
         return '$'+format(number,',f') if number is not None else 'Unknown'
     def date(value):
         return dt.datetime.fromtimestamp(stamp(value),dt.timezone.utc).strftime('%d %b %Y %H:%M UTC')
+    venue=d.get('venue_history') or {}
+    venue_lines=[];depth_text='Unknown'
+    if venue.get('history'):
+        h=venue['history'];b=venue.get('book')
+        try:above=format((Decimal(d['price_usd'])/Decimal(h['minimum_price_usd'])-1)*100,'+.2f')+'%'
+        except (ValueError,ArithmeticError,KeyError):above='Unknown'
+        venue_lines=['', '📜 <b>Gate Venue History</b>',
+            '• <b>Coverage:</b> '+str(h['candles'])+' daily candles from '+escape(h['earliest_candle_at'][:10])
+                +('' if h.get('reaches_first_candle') else ' (truncated)')+' (Gate spot only)',
+            '• <b>Lowest Daily Low:</b> '+money(h['minimum_price_usd'])+' on '+escape(h['minimum_at'][:10]),
+            '• <b>Distance Above Venue Low:</b> '+above,
+            '• <b>Note:</b> Venue-only history; not a verified lifetime all-time low.']
+        if b:
+            depth_text=('Gate book bid $'+format(Decimal(b['bid_depth_usdt_1pct']),',f')+' / ask $'
+                        +format(Decimal(b['ask_depth_usdt_1pct']),',f')+' within 1% (top '+str(b['levels_read'])
+                        +' levels, lower bound); spread '+escape(b['spread_bps'])+' bps')
     lines=['🚨 <b>ALL-TIME LOW WATCH</b>',
         '<i>Unverified ATL Research Watch</i>',
         '⚠️ <b>NOT A VERIFIED ALL-TIME LOW • NOT A BUY SIGNAL</b>',
@@ -297,7 +350,8 @@ def format_research_html(d):
         '• <b>Distance Above Low:</b> '+format(Decimal(d['percent_above_provider_low']),'+.2f')+'%',
         '• <b>24h Volume:</b> '+money(d['volume_24h_usd'])+' (provider reported)',
         '• <b>Circulating Market Cap:</b> '+money(d['circulating_market_cap_usd'])+' (unverified)',
-        '• <b>Liquidity Depth:</b> Unknown',
+        '• <b>Liquidity Depth:</b> '+depth_text,
+        *venue_lines,
         '', '⚙️ <b>Technical &amp; Risk Assessment</b>',
         ('• <b>Historical Coverage:</b> Daily samples from '+date(d['history']['earliest_observation'])+'; bounded 365-day request, not full lifetime.' if d['historical_assessments'] else '• <b>Historical Coverage:</b> Unavailable; provider-reported ATL only.'),
         '• <b>Technical Setup:</b> Entry / invalidation / targets NOT established.',
@@ -335,7 +389,7 @@ def notify(dossiers,state,env,transport,*,now):
         try:
             source=supplied['_source_input']
             d=dossier(source['observation'],source['details'],source['chart'],
-                      observed_at=source['observed_at'],now=now,gate_evidence=source.get('gate_evidence'))
+                      observed_at=source['observed_at'],now=now,gate_evidence=source.get('gate_evidence'),venue=source.get('venue'))
         except (ValueError,TypeError,KeyError,AttributeError,ArithmeticError) as exc:
             decision.update(status='REPLAY_FAILED',reason=str(exc)[:200])
             continue
