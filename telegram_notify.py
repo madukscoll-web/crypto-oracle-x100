@@ -1,6 +1,7 @@
 """Telegram delivery with bounded retries and credential-safe diagnostics."""
 import datetime as dt
 import json
+import re
 import os
 import pathlib
 import sys
@@ -157,6 +158,17 @@ def health_summary(report,reversal,health,atl,paper,followup,run_url):
     if isinstance(hypotheses,dict) and all(isinstance(x,dict) and isinstance(x.get('samples'),list) for x in hypotheses.values()):
         watches=len(hypotheses)
         triggered=sum(any(isinstance(sample,dict) and sample.get('at_or_above_trigger_observed') is True for sample in x['samples']) for x in hypotheses.values())
+    def alerted_assets(source):
+        # Provider slugs only (never addresses or raw diagnostics), capped.
+        decisions=obj(source,'research_delivery').get('decisions') or []
+        names=[]
+        for entry in decisions if isinstance(decisions,list) else []:
+            slug=entry.get('provider_id') if isinstance(entry,dict) else None
+            if (isinstance(entry,dict) and entry.get('status')=='BOT_API_CONFIRMED' and isinstance(slug,str)
+                    and re.fullmatch(r'[a-z0-9][a-z0-9-]{0,79}',slug) and slug not in names):
+                names.append(slug)
+        return names[:5]
+    atl_names=alerted_assets(atl)
     lines=[
         'SYSTEM HEALTH REPORT',
         'CRYPTO-ORACLE X100 daily pipeline health | '+at,
@@ -173,6 +185,7 @@ def health_summary(report,reversal,health,atl,paper,followup,run_url):
         'Reversals: '+metric(technical,'delivered')+' alerts; '+metric(coverage,'selected_pairs')+'/'+metric(coverage,'liquid_eligible_pairs')+' policy pairs assessed; '+metric(coverage,'all_liquid_eligible_pairs')+' liquid pairs overall.',
         'Reversal suppression: '+number(sum(v for v in suppressed.values() if type(v) is int and v>=0))+' cases. Exact reasons remain in diagnostics.',
         'ATL: '+metric(atl,'alerts_delivered')+' alerts; '+metric(atl,'provider_atl_candidates')+' provider leads; '+metric(atl,'enrichment_deferred')+' enrichment-deferred; '+metric(atl,'historical_baselines_validated')+' validated lifetime baselines.',
+        *(['ATL alerted: '+', '.join(atl_names)+'.'] if atl_names else []),
         '',
         '📈 PERFORMANCE',
         'Performance: '+number(closed)+' closed paper trades; '+number(opened)+' open paper positions. Sampled trigger reached: '+number(triggered)+'/'+number(watches)+' tracked watches.',
