@@ -29,7 +29,7 @@ Telegram chat. Nothing here is investment advice, and **profitability is NOT EST
    CRITICAL SYSTEM FAILURE (only when the core scan did not succeed).
 
 ## Test before every PR
-`python -m unittest discover -s tests` (1004 tests on main at last count; CI runs `test` and
+`python -m unittest discover -s tests` (1031 tests on this branch; CI runs `test` and
 `regression`). New behaviour needs tests, including failure and abuse cases; check a test
 can fail by temporarily breaking the code it guards.
 
@@ -42,7 +42,8 @@ can fail by temporarily breaking the code it guards.
 - `hourly_evidence.py`, `verification.py`, `onchain.py` (eth/base/bsc RPC; `owner_control` reads owner() and EIP-1967 proxy slots, withhold-only),
   `solana_evidence.py` (legacy SPL and policy-checked Token-2022 mints), `evidence_coverage.py`: safety evidence.
   **No token identity means every check is skipped**, so identity failures cascade.
-- `atl_hourly_research.py`, `atl_evidence.py`, `atl_lifetime.py`, `gate_history.py`:
+- `atl_hourly_research.py`, `atl_evidence.py`, `atl_lifetime.py`, `gate_history.py`, `atl_onchain.py`
+  (exact-contract on-chain facts: code/mint exists, supply, authorities, owner/proxy; withhold-only):
   all-time-low pipeline. `atl_lifetime_registry.json` is empty, so no ATL can be verified.
   Gate venue history is informational and can only withhold an alert.
 - `signal_tracker.py`, `signal_revisit.py`, `forward_ledger.py`: paper outcome tracking.
@@ -66,7 +67,7 @@ per scan). #108 health report names the ATL asset. #109 outcome tracker waits ou
 #110 "why no alerts" health section. #112 and #113 reversal/discovery/ATL alerts open with a plain-English block and explain jargon inline.
 #114 Token-2022 parser (`solana_evidence.extension_policy`: benign allow-list, dangerous extensions FAIL, unknown extensions UNSUPPORTED; does not by itself make any token alert-eligible).
 #115 EVM `owner_control` (proxy = FAIL; active owner = UNKNOWN; renounced = LIMITED; never clears a token). #116 `pattern_lab` winner-pattern study (needs ~200 measured outcomes before it reports anything).
-Open: none of mine. Older open PRs #101, #100, #80, #58, #50, #48,
+Open: ATL missing-data PR (on-chain facts, Gate hourly low-day candles, "Checked / Needs a human / Not verified yet" message sections). The 4 items needing a human stay human: first-trade provenance, migration/split inventory, independent full history, circulating-supply vesting. Older open PRs #101, #100, #80, #58, #50, #48,
 #46, #45, #4 are the owner's; #101/#100 look superseded. Do not close or merge them
 without asking.
 
