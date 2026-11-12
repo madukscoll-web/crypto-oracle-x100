@@ -20,7 +20,7 @@ def item():
 
 
 class SolanaTests(unittest.TestCase):
-    def provider(self, authority=None, owner=sol.TOKEN_PROGRAM, supply='1000'):
+    def provider(self, authority=None, owner=sol.TOKEN_PROGRAM, supply='1000', program='spl-token', extensions=None, freeze=None):
         def request(url, payload):
             method = payload['method']
             if method == 'getGenesisHash':
@@ -29,9 +29,10 @@ class SolanaTests(unittest.TestCase):
                 self.assertEqual(payload['params'][0], MINT)
                 self.assertEqual(payload['params'][1]['commitment'], 'finalized')
                 result = dict(context=dict(slot=100), value=dict(owner=owner, executable=False,
-                    data=dict(program='spl-token', parsed=dict(type='mint', info=dict(
+                    data=dict(program=program, parsed=dict(type='mint', info=dict(
                         supply=supply, decimals=9, isInitialized=True,
-                        mintAuthority=authority, freezeAuthority=None)))))
+                        mintAuthority=authority, freezeAuthority=freeze,
+                        **({} if extensions is None else dict(extensions=extensions)))))))
             else:
                 self.assertEqual(method, 'getTokenLargestAccounts')
                 result = dict(context=dict(slot=101), value=[dict(address=POOL, amount='200', decimals=9)])
@@ -55,9 +56,58 @@ class SolanaTests(unittest.TestCase):
         self.assertTrue(hourly_evidence.adverse(dict(verification=result)))
 
     def test_other_token_program_cannot_inherit_legacy_checks(self):
-        result = sol.collect(item(), self.provider(owner='TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'))
+        result = sol.collect(item(), self.provider(owner='11111111111111111111111111111111'))
         self.assertEqual(result['onchain']['status'], 'UNSUPPORTED')
         self.assertNotIn('checks', result['onchain'])
+
+    def t22(self, extensions, **kw):
+        return sol.collect(item(), self.provider(owner=sol.TOKEN_2022_PROGRAM, program='spl-token-2022',
+                                                 extensions=extensions, **kw))
+
+    def test_token_2022_with_only_benign_extensions_is_read_but_not_approved(self):
+        result = self.t22([dict(extension='metadataPointer', state={}), dict(extension='tokenMetadata', state={})])
+        self.assertEqual(result['onchain']['checks']['token2022_extensions']['status'], 'VERIFIED')
+        self.assertEqual(result['onchain']['checks']['token2022_mint_identity']['status'], 'VERIFIED')
+        self.assertEqual(result['contract_security']['status'], 'UNKNOWN')
+        self.assertEqual(result['sellability']['status'], 'UNSUPPORTED')
+        self.assertFalse(scanner.telegram_eligible(dict(item(), verification=result)))
+
+    def test_token_2022_dangerous_extensions_fail(self):
+        for name in ('permanentDelegate', 'transferHook', 'pausableConfig', 'nonTransferable', 'confidentialTransferMint'):
+            result = self.t22([dict(extension=name, state={})])
+            self.assertEqual(result['contract_security']['status'], 'FAIL', name)
+            self.assertIn(name, result['contract_security']['reason'])
+            self.assertTrue(hourly_evidence.adverse(dict(verification=result)))
+
+    def test_token_2022_frozen_default_state_and_active_authority_fail(self):
+        self.assertEqual(self.t22([dict(extension='defaultAccountState', state=dict(accountState='frozen'))])['contract_security']['status'], 'FAIL')
+        self.assertEqual(self.t22([dict(extension='defaultAccountState', state={})])['contract_security']['status'], 'FAIL')
+        self.assertEqual(self.t22([], authority=MINT)['contract_security']['status'], 'FAIL')
+        self.assertEqual(self.t22([], freeze=MINT)['contract_security']['status'], 'FAIL')
+
+    def test_token_2022_transfer_fee_rules(self):
+        def fee(bps, authority=None):
+            side = dict(transferFeeBasisPoints=bps, maximumFee='1')
+            return self.t22([dict(extension='transferFeeConfig', state=dict(
+                olderTransferFee=side, newerTransferFee=dict(side), transferFeeConfigAuthority=authority))])
+        self.assertEqual(fee(50)['contract_security']['status'], 'UNKNOWN')
+        self.assertEqual(fee(101)['contract_security']['status'], 'FAIL')
+        self.assertEqual(fee(0, authority=MINT)['contract_security']['status'], 'FAIL')
+        malformed = self.t22([dict(extension='transferFeeConfig', state={})])
+        self.assertEqual(malformed['onchain']['status'], 'UNSUPPORTED')
+
+    def test_token_2022_unknown_or_malformed_extensions_fail_closed(self):
+        for extensions in ([dict(extension='someFutureExtension', state={})], [dict(state={})], 'x', [None]):
+            result = self.t22(extensions)
+            self.assertEqual(result['onchain']['status'], 'UNSUPPORTED', extensions)
+            self.assertNotIn('checks', result['onchain'])
+        # unknown alongside a benign one is still unsupported
+        mixed = self.t22([dict(extension='metadataPointer', state={}), dict(extension='scaledUiAmountConfig', state={})])
+        self.assertEqual(mixed['onchain']['status'], 'UNSUPPORTED')
+
+    def test_token_2022_owner_with_legacy_program_label_does_not_pass(self):
+        result = sol.collect(item(), self.provider(owner=sol.TOKEN_2022_PROGRAM, program='spl-token'))
+        self.assertNotEqual(result['onchain']['status'], 'LIMITED')
 
     def test_wrong_cluster_wrong_mint_type_and_malformed_supply(self):
         for kind in ('cluster', 'type', 'supply', 'missing_authority', 'duplicate_accounts'):

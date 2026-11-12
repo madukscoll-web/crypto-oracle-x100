@@ -29,7 +29,7 @@ Telegram chat. Nothing here is investment advice, and **profitability is NOT EST
    CRITICAL SYSTEM FAILURE (only when the core scan did not succeed).
 
 ## Test before every PR
-`python -m unittest discover -s tests` (964 tests on main at last count; CI runs `test` and
+`python -m unittest discover -s tests` (978 tests on this branch; CI runs `test` and
 `regression`). New behaviour needs tests, including failure and abuse cases; check a test
 can fail by temporarily breaking the code it guards.
 
@@ -58,7 +58,8 @@ reversal and failure labels, NEW POOL vs EXISTING POOL wording. #104 tracked sig
 re-priced independently of discovery. #105 sectioned Telegram messages. #106 Gate venue
 history and book depth. #107 enrichment waits out cooldowns (identity failures 5 -> 2
 per scan). #108 health report names the ATL asset. #109 outcome tracker waits out cooldowns.
-Open: #110 "why no alerts" health section. Older open PRs #101, #100, #80, #58, #50, #48,
+#110 "why no alerts" health section. #112 and #113 reversal/discovery/ATL alerts open with a plain-English block and explain jargon inline.
+Open: Token-2022 parser (`solana_evidence.extension_policy`: benign allow-list, dangerous extensions FAIL, unknown extensions UNSUPPORTED; does not by itself make any token alert-eligible). Older open PRs #101, #100, #80, #58, #50, #48,
 #46, #45, #4 are the owner's; #101/#100 look superseded. Do not close or merge them
 without asking.
 
@@ -71,11 +72,8 @@ GitHub's scheduler also skips many cron runs (one scheduled scan in about six ho
 observed), which is outside this repo's control.
 
 ## Next steps, in order
-1. Merge #110 (owner), then check the next scans.
-2. Solana Token-2022 support: allow only reviewed benign extensions (metadata, group
-   pointers); fail on permanent delegate, transfer hook, default frozen state, pausable,
-   non-transferable, confidential transfer, and high transfer fees. Fail closed on any
-   unknown shape.
+1. Check the next scans after the Token-2022 PR merges (owner merges).
+2. Token-2022 parser is implemented (see work log); extend its policy only after review.
 3. Tokens GoPlus has not seen: direct on-chain reads of owner and mint permissions.
 4. If rate limits still starve scans, move price refreshes to DexScreener (free, larger quota).
 5. Let outcome data accumulate (weeks), then test which filters separate winners from losers.
