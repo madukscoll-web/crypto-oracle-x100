@@ -98,6 +98,8 @@ _RATE_WAIT = {"used": 0.0}
 
 ENRICH_RATE_LIMIT_WAIT_BUDGET_SECONDS = 150
 _ENRICH_WAIT = {"used": 0.0}
+REVISIT_RATE_LIMIT_WAIT_BUDGET_SECONDS = 90
+_REVISIT_WAIT = {"used": 0.0}
 
 
 def _fetch_waiting(url, wait, budget):
@@ -123,6 +125,12 @@ def _fetch_waiting(url, wait, budget):
 
 def fetch_discovery(url):
     return _fetch_waiting(url, _RATE_WAIT, RATE_LIMIT_WAIT_BUDGET_SECONDS)
+
+
+def fetch_revisit(url):
+    """Outcome-tracker re-pricing runs last, after discovery and enrichment have spent
+    the provider quota; without a bounded wait it re-priced nothing (attempted: 0)."""
+    return _fetch_waiting(url, _REVISIT_WAIT, REVISIT_RATE_LIMIT_WAIT_BUDGET_SECONDS)
 
 
 def fetch_enrichment(url):
@@ -1038,6 +1046,7 @@ def send_discovery_research(item):
 def main():
     _RATE_WAIT["used"] = 0.0
     _ENRICH_WAIT["used"] = 0.0
+    _REVISIT_WAIT["used"] = 0.0
     seen = load_state()
     watchlist = load_watchlist()
     deferred = deferred_candidates.load()
@@ -1329,7 +1338,7 @@ def main():
         # otherwise collapsed tokens vanish from the sample and bias results upward.
         revisit_state = signal_revisit.load_state()
         revisit_now = dt.datetime.now(dt.timezone.utc)
-        revisit_report = signal_revisit.revisit(history, fetch_json, revisit_now, revisit_state)
+        revisit_report = signal_revisit.revisit(history, fetch_revisit, revisit_now, revisit_state)
         signal_revisit.save_state(revisit_state)
         performance = signal_revisit.performance_summary(history, revisit_state, revisit_now)
         print(f"Signal revisit: {revisit_report}", flush=True)

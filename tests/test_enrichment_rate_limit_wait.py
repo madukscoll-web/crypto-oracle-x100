@@ -119,3 +119,29 @@ class EnrichmentWaitTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RevisitWaitTests(unittest.TestCase):
+    def setUp(self):
+        scanner._REVISIT_WAIT["used"] = 0.0
+        oracle_http._COOLDOWN_UNTIL.pop(HOST, None)
+        self.addCleanup(oracle_http._COOLDOWN_UNTIL.pop, HOST, None)
+
+    def test_revisit_waits_out_short_cooldown_with_its_own_budget(self):
+        calls, sleeps = [], []
+        def fetch(url):
+            calls.append(url)
+            if len(calls) == 1:
+                oracle_http._COOLDOWN_UNTIL[HOST] = oracle_http.time.monotonic() + 50
+                raise too_many()
+            return {"data": []}
+        with patch.object(scanner, "fetch_json", fetch), patch.object(scanner.time, "sleep", sleeps.append):
+            self.assertEqual(scanner.fetch_revisit(URL), {"data": []})
+        self.assertEqual(len(calls), 2)
+        self.assertGreater(scanner._REVISIT_WAIT["used"], 45)
+        self.assertEqual(scanner._ENRICH_WAIT["used"], 0.0)
+
+    def test_revisit_is_wired_and_budget_resets_each_run(self):
+        source = inspect.getsource(scanner.main)
+        self.assertIn("signal_revisit.revisit(history, fetch_revisit,", source)
+        self.assertIn('_REVISIT_WAIT["used"] = 0.0', source)
