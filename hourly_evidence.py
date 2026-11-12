@@ -78,7 +78,13 @@ class HourlyEvidence:
                 # control or beneficial-owner verification is inferred.
                 report['supply_comparison'] = self.stage('supply_comparison', lambda: supply_evidence.collect(item, self.fetch))
                 report['onchain'] = self.stage('evm_rpc', lambda: onchain.collect(item, (info.get('holders') or [])[:8],
-                    lock_descriptors=self.registry.get('lp_locks', {}).get(item['network'] + ':' + item['address'].lower(), [])), seconds=9, requests=24)
+                    lock_descriptors=self.registry.get('lp_locks', {}).get(item['network'] + ':' + item['address'].lower(), [])), seconds=9, requests=30)
+                owner = (((report['onchain'].get('raw') or {}).get('results') or {}).get('owner_control')
+                         if isinstance(report['onchain'], dict) else None)
+                if isinstance(owner, dict) and owner.get('status') in ('FAIL', 'UNKNOWN', 'LIMITED'):
+                    report['owner_control'] = verification.observation('evm_rpc', report['onchain'].get('url', ''), None,
+                                                                       owner['status'], str(owner.get('reason', ''))[:300])
+                    report['owner_control']['metrics'] = owner.get('metrics')
                 report['source_controls'] = self.stage('sourcify', lambda: contract_sources.collect(item, self.fetch), seconds=5)
 
             report['unlocks'] = token_unlocks.collect(item, self.registry)

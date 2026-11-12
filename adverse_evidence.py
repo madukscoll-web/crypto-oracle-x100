@@ -7,7 +7,7 @@ CHECKS = ('contract_security', 'sellability', 'honeypot', 'holders', 'liquidity'
           'tokenomics', 'unlocks', 'unlock_provider', 'supply_comparison',
           'contract_source', 'custody', 'nft_custody', 'tokenized_stock_reference',
           'execution', 'execution_checks', 'kyber', 'kyber_execution',
-          'calldata_policy', 'pool_identity_followup')
+          'calldata_policy', 'pool_identity_followup', 'owner_control')
 ADVERSE = ('FAIL', 'FAILED', 'CONFLICTING', 'HIGH CONCERN')
 
 

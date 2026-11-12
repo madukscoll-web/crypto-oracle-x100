@@ -29,7 +29,7 @@ Telegram chat. Nothing here is investment advice, and **profitability is NOT EST
    CRITICAL SYSTEM FAILURE (only when the core scan did not succeed).
 
 ## Test before every PR
-`python -m unittest discover -s tests` (978 tests on this branch; CI runs `test` and
+`python -m unittest discover -s tests` (985 tests on this branch; CI runs `test` and
 `regression`). New behaviour needs tests, including failure and abuse cases; check a test
 can fail by temporarily breaking the code it guards.
 
@@ -39,8 +39,8 @@ can fail by temporarily breaking the code it guards.
 - `crypto_oracle_scanner.py`: discovery, per-candidate `enrich()`, research alerts.
   `oracle_http.py` has per-host 429 cooldowns; `_fetch_waiting` waits out one cooldown of
   at most 75s within a per-stage budget (discovery 180s, enrichment 150s, revisit 90s).
-- `hourly_evidence.py`, `verification.py`, `onchain.py` (eth/base/bsc RPC),
-  `solana_evidence.py` (legacy SPL mints only), `evidence_coverage.py`: safety evidence.
+- `hourly_evidence.py`, `verification.py`, `onchain.py` (eth/base/bsc RPC; `owner_control` reads owner() and EIP-1967 proxy slots, withhold-only),
+  `solana_evidence.py` (legacy SPL and policy-checked Token-2022 mints), `evidence_coverage.py`: safety evidence.
   **No token identity means every check is skipped**, so identity failures cascade.
 - `atl_hourly_research.py`, `atl_evidence.py`, `atl_lifetime.py`, `gate_history.py`:
   all-time-low pipeline. `atl_lifetime_registry.json` is empty, so no ATL can be verified.
@@ -59,7 +59,8 @@ re-priced independently of discovery. #105 sectioned Telegram messages. #106 Gat
 history and book depth. #107 enrichment waits out cooldowns (identity failures 5 -> 2
 per scan). #108 health report names the ATL asset. #109 outcome tracker waits out cooldowns.
 #110 "why no alerts" health section. #112 and #113 reversal/discovery/ATL alerts open with a plain-English block and explain jargon inline.
-Open: Token-2022 parser (`solana_evidence.extension_policy`: benign allow-list, dangerous extensions FAIL, unknown extensions UNSUPPORTED; does not by itself make any token alert-eligible). Older open PRs #101, #100, #80, #58, #50, #48,
+#114 Token-2022 parser (`solana_evidence.extension_policy`: benign allow-list, dangerous extensions FAIL, unknown extensions UNSUPPORTED; does not by itself make any token alert-eligible).
+Open: EVM `owner_control` (proxy = FAIL; active owner = UNKNOWN; renounced = LIMITED; never clears a token). Older open PRs #101, #100, #80, #58, #50, #48,
 #46, #45, #4 are the owner's; #101/#100 look superseded. Do not close or merge them
 without asking.
 
@@ -72,9 +73,9 @@ GitHub's scheduler also skips many cron runs (one scheduled scan in about six ho
 observed), which is outside this repo's control.
 
 ## Next steps, in order
-1. Check the next scans after the Token-2022 PR merges (owner merges).
-2. Token-2022 parser is implemented (see work log); extend its policy only after review.
-3. Tokens GoPlus has not seen: direct on-chain reads of owner and mint permissions.
+1. Check the next scans (Token-2022 parser merged; look for `owner_control` in the Filter audit).
+2. Extend Token-2022 or owner_control policy only after review.
+3. Done in the open PR: on-chain owner and proxy reads for tokens GoPlus has not seen.
 4. If rate limits still starve scans, move price refreshes to DexScreener (free, larger quota).
 5. Let outcome data accumulate (weeks), then test which filters separate winners from losers.
 6. Paid provider keys (e.g. Alchemy, Helius) only if free sources prove insufficient, as
