@@ -2,30 +2,30 @@
 
 Research only. No BUY approval, orders or assumed fills.
 
-Observed UTC: 2026-11-12T16:12:06.963957+00:00
+Observed UTC: 2026-11-12T16:21:32.146737+00:00
 
-## UNI_USDT | 1w
+## AAVE_USDT | 1w
 
-**RESEARCH_ONLY_NOT_APPROVED**
+**WITHHELD_ADVERSE_FINDING**
 
 | Item | Recorded evidence |
 |---|---|
-| Last closed candle | 6.788 USDT |
-| Conditional trigger reference | 10.933 USDT |
-| Invalidation reference | 2.564 USDT |
-| Volume / baseline | 1.271x |
+| Last closed candle | 126.15 USDT |
+| Conditional trigger reference | 187.55 USDT |
+| Invalidation reference | 67.9 USDT |
+| Volume / baseline | 1.375x |
 
 Require a fresh close/retest and volume; no entry or fill is inferred. Next closed candle and before acting; withdraw on invalidation or adverse evidence.
 
 Exact Gate Spot pair; independent on-chain identity is not established.
 
 PROJECT FUNDAMENTALS — evidence-labelled, not approval
-Use/value: UNI is the governance token for Uniswap, an Automated Market Marker DEX on the Ethereum blockchain. The UNI token allows token holders to partici [PROVIDER_REPORTED_UNVERIFIED]
+Use/value: Aave is a decentralized money market protocol where users can lend and borrow cryptocurrency across 20 different assets as collateral. The protoc [PROVIDER_REPORTED_UNVERIFIED]
 Token value capture: UNKNOWN
-Supply circ/max: 607.7M/1B; FDV/cap: 1.458 [PROVIDER_REPORTED_UNVERIFIED].
+Supply circ/max: 15.44M/16M; FDV/cap: 1.036 [PROVIDER_REPORTED_UNVERIFIED].
 Unlocks 30/90/365d, founder vesting, paying users and revenue: UNKNOWN.
-Context retrieved UTC: 2026-11-12T16:11:52.287393+00:00
-NEWS: NO_MATCH_IN_FETCHED_FEEDS (not safety or an entry signal).
+Context retrieved UTC: 2026-11-12T16:21:16.782830+00:00
+NEWS: IDENTITY_OR_FEED_UNAVAILABLE (not safety or an entry signal).
 Coverage is limited; absence of a match is not a clean news check.
 
 ### Outstanding evidence
@@ -38,8 +38,8 @@ Coverage is limited; absence of a match is not a clean news check.
 
 ### Source observations
 
-- https://api.gateio.ws/api/v4/spot/currency_pairs/UNI_USDT | retrieved 2026-11-12T16:11:49.907188+00:00 | raw SHA-256 0c9e590aa3941f296914bb8757d1a84230493ec2fcb7d72627187927dbf01a42
-- https://api.gateio.ws/api/v4/spot/candlesticks?currency_pair=UNI_USDT&interval=7d&limit=1000 | retrieved 2026-11-12T16:11:50.496591+00:00 | raw SHA-256 6c00469e40332f0fd6592ff5bcde850ab466cb4e70325ffa1577d34ed9de9888
+- https://api.gateio.ws/api/v4/spot/currency_pairs/AAVE_USDT | retrieved 2026-11-12T16:21:10.871249+00:00 | raw SHA-256 5f5a51242f6a08033968c793ff6134a65873d8e5bc4ef3218bda76260fee2043
+- https://api.gateio.ws/api/v4/spot/candlesticks?currency_pair=AAVE_USDT&interval=7d&limit=1000 | retrieved 2026-11-12T16:21:11.875573+00:00 | raw SHA-256 83102090932a6789157b7f23fb196ab895edb5bd6d7f045f336c531a12251e09
 
 Raw candles, project context and screening observations remain in the accompanying JSON reports.
 
