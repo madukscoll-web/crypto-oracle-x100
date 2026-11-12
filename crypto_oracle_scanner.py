@@ -18,6 +18,7 @@ import urllib.parse
 from verification import binary_flag
 import signal_tracker
 import signal_revisit
+import pattern_lab
 import canonical_outcomes
 import forward_ledger
 import traceback
@@ -1068,6 +1069,11 @@ def main():
     network_order = deferred_candidates.network_order(deferred, NETWORKS)
     deferred_candidates.save(deferred)
     history = signal_tracker.load()
+    try:
+        pattern_data = pattern_lab.load()
+    except (OSError, ValueError):
+        pattern_data = None   # a corrupt study file must never stop a scan
+    pattern_added = [0]
     candidates = []
     keys_in_run = set()
     warnings = []
@@ -1256,6 +1262,8 @@ def main():
         item["market_setup"] = setup
         if price_evidence(item)[0]:
             signal_tracker.record(history, item)
+            if pattern_data is not None:
+                pattern_lab.capture(pattern_data, item, dt.datetime.now(dt.timezone.utc), added=pattern_added)
         previous_watch = revisit_previous.get(item["key"], watchlist.get(item["key"]))
         transition = watchlist_transition(item, watchlist)
         if already_alerted(item, seen):
@@ -1363,6 +1371,17 @@ def main():
                       f"net-of-assumed-cost median={row['net_of_assumed_cost']['median_percent']:+.2f}%; {performance['conclusion']}", flush=True)
     except (OSError, ValueError, TypeError, KeyError) as exc:
         warnings.append("Signal revisit unavailable: " + type(exc).__name__)
+    pattern_report = {"status": "UNAVAILABLE"}
+    if pattern_data is not None:
+        try:
+            pattern_now = dt.datetime.now(dt.timezone.utc)
+            pattern_reprice = pattern_lab.reprice(pattern_data, fetch_revisit, pattern_now)
+            pattern_lab.save(pattern_data)
+            pattern_report = pattern_lab.study(pattern_data)
+            pattern_report["new_rows"], pattern_report["reprice"] = pattern_added[0], pattern_reprice
+            print(pattern_lab.summary_line(pattern_report), flush=True)
+        except (OSError, ValueError, TypeError, KeyError) as exc:
+            warnings.append("Pattern study unavailable: " + type(exc).__name__)
     signal_tracker.save(history)
     ledger_status = forward_ledger.capture(history, selected)
     print(f"Tracked pool histories: {len(history)}", flush=True)
@@ -1413,6 +1432,7 @@ def main():
               "forward_ledger": ledger_status,
               "signal_revisit": revisit_report,
               "paper_performance_summary": performance,
+              "pattern_study": pattern_report,
               "signal_performance": {key: {"horizons": signal_tracker.outcomes(rows),
                                            "sampled_risk": signal_tracker.sampled_risk(rows)}
                                      for key, rows in history.items()},

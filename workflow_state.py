@@ -13,7 +13,7 @@ import re
 import subprocess
 import tempfile
 
-FILES=('reported_pools.json','watchlist_state.json','signal_history.json','signal_revisit_state.json',
+FILES=('pattern_dataset.json','reported_pools.json','watchlist_state.json','signal_history.json','signal_revisit_state.json',
        'gate_paper_history.json','research_discovery_state.json','forward_events.jsonl',
        'operational_digest_state.json','reversal_universe_state.json','technical_watch_state.json','project_context_cache.json','scanner_runtime_state.json','technical_followup_state.json','strategy_lab_state.json','atl_research_state.json','deferred_candidate_state.json','research_dossiers.json','research_dossiers.md')
 

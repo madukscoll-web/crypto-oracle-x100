@@ -48,6 +48,11 @@ can fail by temporarily breaking the code it guards.
 - `signal_tracker.py`, `signal_revisit.py`, `forward_ledger.py`: paper outcome tracking.
   `signal_history.json` is append-only (guard in `workflow_state.py`). Summaries refuse a
   conclusion below 30 samples; the 3% round-trip cost is an assumption, not measured.
+- `pattern_lab.py` + state `pattern_dataset.json`: records features of EVERY candidate at first sight, re-prices
+  at 24/72/168h (net of assumed 3% cost, unexitable = -100%), and `study()` reports a feature pattern only if it
+  holds on a time-ordered held-out split with a CI and multiple-comparison correction; below 200 measured
+  outcomes it says INSUFFICIENT SAMPLE. It shows no score and never loosens a gate. Next step once a pattern is
+  validated: show it as research context only, never as an approval.
 - `technical_watch.py`: Gate spot reversal alerts. `telegram_notify.py`: health and
   failure messages. `research_notice.py`: signed notice envelope and labels.
 - State is committed by the bot as "Update scanner research state [skip ci]".
