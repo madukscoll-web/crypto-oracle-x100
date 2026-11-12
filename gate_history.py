@@ -55,6 +55,44 @@ def book_url(pair):
     return f'{BASE}/spot/order_book?currency_pair={_pair(pair)}&limit={BOOK_LEVELS}&with_id=true'
 
 
+def intraday_url(pair, start, end):
+    return f'{BASE}/spot/candlesticks?currency_pair={_pair(pair)}&interval=1h&from={int(start)}&to={int(end)}'
+
+
+def collect_intraday(get, pair, day_timestamp, *, now):
+    """Hourly candles for one completed UTC day (the provider's reported low date).
+
+    Venue evidence only: shows whether Gate traded below the claimed low within that day.
+    """
+    now = int(now)
+    day = int(day_timestamp) // DAY * DAY
+    if day + DAY > now:
+        raise ValueError('Low date is not a completed UTC day')
+    url = intraday_url(pair, day, day + DAY - 1)
+    rows = get(url)
+    if not isinstance(rows, list):
+        raise ValueError('Malformed Gate hourly response')
+    hours = {}
+    for row in rows:
+        if not isinstance(row, (list, tuple)) or len(row) < 6:
+            raise ValueError('Malformed Gate hourly candle')
+        try:
+            timestamp, high, low = int(row[0]), _decimal(row[3]), _decimal(row[4])
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ValueError('Invalid Gate hourly values') from exc
+        if not day <= timestamp < day + DAY or timestamp + 3600 > now or low <= 0 or high <= 0 or low > high:
+            continue
+        if timestamp in hours:
+            raise ValueError('Duplicate Gate hourly timestamps')
+        hours[timestamp] = low
+    if not hours:
+        raise ValueError('No usable Gate hourly candles')
+    low_at = min(hours, key=lambda t: (hours[t], t))
+    return dict(pair=_pair(pair), day=_iso(day)[:10], source_url=url, observed_at=_iso(now),
+                minimum_price_usd=str(hours[low_at]), minimum_at=_iso(low_at), hours_covered=len(hours),
+                hours_expected=24, scope='Gate spot hourly candles for the provider low date; venue only')
+
+
 def parse_candles(rows, now):
     """Closed daily candles as (timestamp, low, high). Rejects malformed data."""
     if not isinstance(rows, list):
@@ -190,6 +228,16 @@ def validate(evidence, pair, now, *, max_age_seconds=7200):
     count = history.get('candles')
     if isinstance(count, bool) or not isinstance(count, int) or count < 1:
         raise ValueError('Invalid venue candle count')
+    intraday = evidence.get('intraday')
+    if intraday is not None:
+        if (not isinstance(intraday, dict) or intraday.get('pair') != pair or not _host_ok(intraday.get('source_url'))
+                or _decimal(intraday.get('minimum_price_usd')) <= 0):
+            raise ValueError('Venue intraday evidence invalid')
+        covered = intraday.get('hours_covered')
+        if isinstance(covered, bool) or not isinstance(covered, int) or not 1 <= covered <= 24:
+            raise ValueError('Venue intraday coverage invalid')
+        if _stamp(intraday.get('observed_at')) > now:
+            raise ValueError('Venue intraday timestamp in the future')
     book = evidence.get('book')
     if book is not None:
         if not isinstance(book, dict) or book.get('pair') != pair or not _host_ok(book.get('source_url')):

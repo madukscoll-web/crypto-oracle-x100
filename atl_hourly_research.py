@@ -127,13 +127,13 @@ def run(fetch=None, *, now=None, cursor=2):
     return report
 
 
-def enrich(result, state, fetch, *, now, gate_evidence=None):
+def enrich(result, state, fetch, *, now, gate_evidence=None, rpc_request=None, rpc_factory=None):
     """Two rotating leads/run; cache valid snapshots for two hours, bound storage.
 
     Failure details remain in the report. A failed provider is not retried in the
     same session. History availability never upgrades lifetime verification.
     """
-    from atl_evidence import dossier, slug, fresh, instrument, identity, gate_listing, DETAILS
+    from atl_evidence import dossier, slug, fresh, instrument, identity, gate_listing, stamp, DETAILS
     import gate_history
     import atl_lifetime
     manifests=atl_lifetime.load_registry().get('manifests',{})
@@ -195,11 +195,28 @@ def enrich(result, state, fetch, *, now, gate_evidence=None):
                     listing=gate_listing(identity(snapshot['details'],identifier),gate_evidence,now.timestamp())
                     if listing['status']=='EXACT_CONTRACT_METADATA_MATCH' and len(listing['pairs'])==1:
                         venue=gate_history.collect_all(fetch,listing['pairs'][0],now=now.timestamp())
+                        try:
+                            low_day=stamp(observation['provider_atl_candidate']['source_atl_date'])
+                            venue['intraday']=gate_history.collect_intraday(fetch,listing['pairs'][0],low_day,now=now.timestamp())
+                        except (OSError,ValueError,TypeError,KeyError,ArithmeticError) as exc:
+                            result['enrichment_errors'].append(dict(provider_id=identifier,error_type=type(exc).__name__,
+                                reason='Gate hourly low-day candles unavailable: '+str(exc)[:160]))
                 except (OSError,ValueError,TypeError,KeyError,AttributeError,ArithmeticError) as exc:
                     venue=None
                     result['enrichment_errors'].append(dict(provider_id=identifier,error_type=type(exc).__name__,
                         reason='Gate venue history unavailable: '+str(exc)[:200]))
-            finding=dossier(observation,snapshot['details'],snapshot['chart'],observed_at=snapshot['observed_at'],now=now.timestamp(),gate_evidence=gate_evidence,venue=venue)
+            chain=None
+            if rpc_request is not None or rpc_factory is not None:
+                # Independent on-chain facts; a failure leaves the alert as before.
+                try:
+                    import atl_onchain
+                    chain=atl_onchain.collect(identity(snapshot['details'],identifier)['contracts'],now=now.timestamp(),
+                                              solana_request=rpc_request,rpc_factory=rpc_factory) or None
+                except (OSError,ValueError,TypeError,KeyError,AttributeError,ArithmeticError) as exc:
+                    chain=None
+                    result['enrichment_errors'].append(dict(provider_id=identifier,error_type=type(exc).__name__,
+                        reason='On-chain evidence unavailable: '+str(exc)[:160]))
+            finding=dossier(observation,snapshot['details'],snapshot['chart'],observed_at=snapshot['observed_at'],now=now.timestamp(),gate_evidence=gate_evidence,venue=venue,onchain=chain)
             result['research_dossiers'].append(finding)
             dispositions[identifier].update(status='RESEARCH_ELIGIBLE' if finding['telegram_research_eligible'] else 'WITHHELD',
                 reason='Provider-reported research only; independent lifetime and BUY remain unverified' if finding['telegram_research_eligible'] else finding['instrument']['reason'] if finding['instrument']['status']!='ORDINARY_CRYPTO_RESEARCH' else '; '.join(finding['gaps']))
@@ -229,14 +246,15 @@ def main():
         from atl_evidence import notify
         import telegram_validation
         now=dt.datetime.now(dt.timezone.utc)
-        with Session(max_requests=14,max_seconds=90,max_request_seconds=8) as session:
+        with Session(max_requests=26,max_seconds=120,max_request_seconds=8) as session:
             gate_evidence=dict(observed_at=now.isoformat(),currencies=[],pairs=[])
             try:
                 gate_evidence['currencies']=session.get('https://api.gateio.ws/api/v4/spot/currencies')
                 gate_evidence['pairs']=session.get('https://api.gateio.ws/api/v4/spot/currency_pairs')
             except (OSError,ValueError,TypeError):
                 result['gate_metadata_error']='Gate metadata unavailable; exact listing not established'
-            enrich(result,state,session.get,now=now,gate_evidence=gate_evidence)
+            import onchain as onchain_module
+            enrich(result,state,session.get,now=now,gate_evidence=gate_evidence,rpc_request=session.json,rpc_factory=onchain_module.Rpc)
             result['enrichment_provider_session']=session.summary()
         import atl_lifetime
         def persist(current):

@@ -227,7 +227,7 @@ class EnrichmentTests(unittest.TestCase):
 
     def test_enrichment_fetches_gate_history_for_exact_listing(self):
         pages = [rows(60, 1)]
-        result, calls = self.run_enrich(lambda url: GOOD_BOOK if '/order_book' in url else pages.pop(0))
+        result, calls = self.run_enrich(lambda url: GOOD_BOOK if '/order_book' in url else [] if 'interval=1h' in url else pages.pop(0))
         self.assertTrue(any('/spot/candlesticks' in c for c in calls))
         self.assertIsNotNone(result['research_dossiers'][0]['venue_history'])
 

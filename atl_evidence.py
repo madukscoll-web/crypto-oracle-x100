@@ -173,7 +173,7 @@ def gate_listing(asset, evidence, now):
                 pairs=matched,source_urls=['https://api.gateio.ws/api/v4/spot/currencies','https://api.gateio.ws/api/v4/spot/currency_pairs'],reason='Provider metadata contract join; not independent security' if len(matched)==1 else 'Missing or ambiguous exact-contract Gate spot mapping')
 
 
-def dossier(observation,details,chart,*,observed_at,now,gate_evidence=None,venue=None):
+def dossier(observation,details,chart,*,observed_at,now,gate_evidence=None,venue=None,onchain=None):
     identifier=slug(observation['provider_id'])
     if not fresh(observed_at,now) or not fresh(observation['provider_last_updated'],now):
         raise ValueError('Stale market or metadata evidence')
@@ -238,7 +238,7 @@ def dossier(observation,details,chart,*,observed_at,now,gate_evidence=None,venue
     listing=gate_listing(asset,gate_evidence,now)
     if gate_evidence is not None and listing['status']!='EXACT_CONTRACT_METADATA_MATCH':
         eligible=False;gaps.append(listing['reason'])
-    venue_block=None
+    venue_block=None;verified=[]
     if venue is not None:
         # Venue evidence is informational: it can only withhold (a lower traded
         # price than the claimed ATL), never grant eligibility, BUY or orders.
@@ -253,8 +253,42 @@ def dossier(observation,details,chart,*,observed_at,now,gate_evidence=None,venue
                 gaps.append('Gate venue traded below the provider-reported ATL; provider ATL not corroborated')
             elif not gate_history.covers_date(venue['history'],low_at):
                 gaps.append('Gate venue history begins after the provider-reported low date; low not checked on Gate')
+            intraday=venue.get('intraday')
+            if intraday is not None:
+                if intraday['day']!=dt.datetime.fromtimestamp(low_at,dt.timezone.utc).date().isoformat():
+                    raise ValueError('Venue intraday day does not match the provider low date')
+                if Decimal(intraday['minimum_price_usd'])<low*Decimal('.95'):
+                    historical['conflicting']=True;historical['status']='CONFLICTING';eligible=False
+                    gaps.append('Gate hourly candles on the provider low date traded below the provider ATL; not corroborated')
+                else:
+                    verified.append('Gate hourly low on the provider low date: '+intraday['minimum_price_usd']+' USDT ('
+                        +str(intraday['hours_covered'])+'/24 hours covered); not below the provider low')
         except (ValueError,TypeError,KeyError,AttributeError,ArithmeticError) as exc:
+            venue_block=None   # rejected evidence is not displayed or trusted
             gaps.append('Gate venue history rejected: '+str(exc)[:120])
+    onchain_block=None
+    if onchain is not None:
+        # On-chain facts can only withhold; they never grant eligibility or BUY.
+        try:
+            import atl_onchain
+            entries=atl_onchain.validate(onchain,asset,now)
+            onchain_block=entries
+            proven=[e for e in entries if e['identity']=='VERIFIED']
+            for e in proven:verified.extend(e['facts'])
+            if proven:
+                gaps[:]=[g for g in gaps if g!='On-chain contract identity/security not independently verified']
+                gaps.append('On-chain security review incomplete: pool/liquidity controls, holder concentration and sell route not verified')
+            for e in entries:
+                if e['security_status']=='FAIL':
+                    eligible=False;gaps.append('On-chain red flag: '+e['security_reason'])
+            if len(entries)==1 and entries[0]['total_supply'] and len(asset['contracts'])==1:
+                if supply>Decimal(entries[0]['total_supply'])*Decimal('1.01'):
+                    eligible=False;gaps.append('Provider circulating supply exceeds on-chain total supply; conflict')
+        except (ValueError,TypeError,KeyError,AttributeError,ArithmeticError) as exc:
+            onchain_block=None
+            gaps.append('On-chain evidence rejected: '+str(exc)[:120])
+    if venue_block is not None and venue_block.get('intraday') is not None:
+        gaps[:]=[('Independent circulating supply (vesting and unlocks) required' if g=='Intraday low coverage and independent circulating supply required' else g) for g in gaps]
     digest=hashlib.sha256(json.dumps({'identity':asset,'low':str(low),'type':kind['status']},sort_keys=True).encode()).hexdigest()
     return dict(schema_version=1,classification='UNVERIFIED ATL RESEARCH WATCH',
         name=text(details.get('name','UNKNOWN')),symbol=text(details.get('symbol','UNKNOWN')),
@@ -266,10 +300,21 @@ def dossier(observation,details,chart,*,observed_at,now,gate_evidence=None,venue
         volume_24h_usd=str(positive((market.get('total_volume') or {}).get('usd')) or 'UNKNOWN'),
         liquidity_status='UNKNOWN',history=historical,historical_assessments=assessments,gaps=gaps,
         source_urls=[DETAILS+identifier]+[x['source_url'] for x in assessments]+listing.get('source_urls',[])+(venue_block['history']['source_urls'][:1] if venue_block else []),
-        venue_history=venue_block,
+        venue_history=venue_block,onchain_evidence=onchain_block,verified_facts=verified,
         telegram_research_eligible=eligible,evidence_fingerprint=digest,
         buy_authorized=False,orders_allowed=False,
-        _source_input=dict(observation=observation,details=details,chart=chart,observed_at=observed_at,gate_evidence=gate_evidence,venue=venue))
+        _source_input=dict(observation=observation,details=details,chart=chart,observed_at=observed_at,gate_evidence=gate_evidence,venue=venue,onchain=onchain))
+
+
+def distance_text(percent):
+    value=Decimal(percent)
+    if value<0:
+        return format(abs(value),'.2f')+'% BELOW the recorded low (price is at or under it; a fresh low is possible)'
+    return format(value,'.2f')+'% above the low (how far price has risen from it)'
+
+
+HUMAN_REQUIRED=('Independently sourced exact-contract full trading history','First-trade/inception provenance',
+                'Migration, redenomination','circulating supply')
 
 
 def venue_text(d):
@@ -283,7 +328,7 @@ def venue_text(d):
     except (ValueError,ArithmeticError,KeyError):above_text='unknown'
     text=('Gate venue history: '+str(h['candles'])+' daily candles from '+h['earliest_candle_at'][:10]
           +('' if h.get('reaches_first_candle') else ' (truncated)')+'; lowest daily low '+h['minimum_price_usd']
-          +' USDT on '+h['minimum_at'][:10]+'; price '+above_text+' above it. Venue only; not a verified lifetime low.\n')
+          +' USDT on '+h['minimum_at'][:10]+'; price is '+(above_text[1:]+' below it' if above_text.startswith('-') else above_text+' above it')+'. Venue only; not a verified lifetime low.\n')
     if b:
         text+=('Gate book: spread '+b['spread_bps']+' bps; depth within 1% bid/ask '+b['bid_depth_usdt_1pct']+'/'
                +b['ask_depth_usdt_1pct']+' USDT (top '+str(b['levels_read'])+' levels, lower bound).\n')
@@ -308,7 +353,7 @@ def format_research(d):
         +'Missing: '+'; '.join(d['gaps'])+'\nSources: '+'\n'.join(d['source_urls']))
 
 
-def format_research_html(d):
+def format_research_html(d,compact=False):
     """Escape provider text; preserve values and full dates without claiming BUY."""
     escape=lambda value: html.escape(str(value),quote=True)
     def money(value):
@@ -320,13 +365,13 @@ def format_research_html(d):
     venue_lines=[];depth_text='Unknown'
     if venue.get('history'):
         h=venue['history'];b=venue.get('book')
-        try:above=format((Decimal(d['price_usd'])/Decimal(h['minimum_price_usd'])-1)*100,'+.2f')+'%'
+        try:above=distance_text((Decimal(d['price_usd'])/Decimal(h['minimum_price_usd'])-1)*100).replace('the recorded low','the lowest closed daily low').replace('(price is at or under it; a fresh low is possible)','(a new venue low today)').replace('above the low (how far price has risen from it)','above the lowest closed daily low')
         except (ValueError,ArithmeticError,KeyError):above='Unknown'
         venue_lines=['', '📜 <b>Gate Venue History</b>',
             '• <b>Coverage:</b> '+str(h['candles'])+' daily candles from '+escape(h['earliest_candle_at'][:10])
                 +('' if h.get('reaches_first_candle') else ' (truncated)')+' (Gate spot only)',
             '• <b>Lowest Daily Low:</b> '+money(h['minimum_price_usd'])+' on '+escape(h['minimum_at'][:10]),
-            '• <b>Distance Above Venue Low:</b> '+above,
+            '• <b>Distance From Venue Low:</b> '+above,
             '• <b>Note:</b> Venue-only history; not a verified lifetime all-time low.']
         if b:
             depth_text=('Gate book bid $'+format(Decimal(b['bid_depth_usdt_1pct']),',f')+' / ask $'
@@ -335,10 +380,10 @@ def format_research_html(d):
     lines=['🚨 <b>ALL-TIME LOW WATCH</b>',
         '<i>Unverified ATL Research Watch</i>',
         '⚠️ <b>NOT A VERIFIED ALL-TIME LOW • NOT A BUY SIGNAL</b>',
-        '', '🧭 <b>In Plain English</b>',
+        *([] if compact else ['', '🧭 <b>In Plain English</b>',
         escape(d['name'])+' is trading close to the lowest price its data provider has on record. '
         'That does not prove it is the true all-time low, and it does not mean the price will rise. '
-        'Research alert only; the bot has bought nothing and nothing is required from you.',
+        'Research alert only; the bot has bought nothing and nothing is required from you.']),
         '', '<b>Token Identity</b>',
         '• <b>Asset:</b> '+escape(d['name'])+' ('+escape(d['symbol'].upper())+')']
     names={'eth':'Ethereum','bsc':'BNB Smart Chain','solana':'Solana','base':'Base',
@@ -351,7 +396,7 @@ def format_research_html(d):
         '', '📊 <b>Market Data</b>',
         '• <b>Observed Price:</b> '+money(d['price_usd'])+' ('+date(d['observed_at'])+')',
         '• <b>Provider Low:</b> '+money(d['provider_low_usd'])+' ('+date(d['provider_low_at'])+')',
-        '• <b>Distance Above Low:</b> '+format(Decimal(d['percent_above_provider_low']),'+.2f')+'% (how far price has risen from that low)',
+        '• <b>Distance From Low:</b> '+distance_text(d['percent_above_provider_low']),
         '• <b>24h Volume:</b> '+money(d['volume_24h_usd'])+' (provider reported)',
         '• <b>Circulating Market Cap:</b> '+money(d['circulating_market_cap_usd'])+' (unverified)',
         '• <b>Liquidity Depth:</b> '+depth_text,
@@ -360,8 +405,16 @@ def format_research_html(d):
         ('• <b>Historical Coverage:</b> Daily samples from '+date(d['history']['earliest_observation'])+'; bounded 365-day request, not full lifetime.' if d['historical_assessments'] else '• <b>Historical Coverage:</b> Unavailable; provider-reported ATL only.'),
         '• <b>Technical Setup:</b> Entry / invalidation / targets NOT established.',
         '• <b>Security &amp; Fundamentals:</b> NOT verified. High risk / full loss possible.',
-        '', '❗ <b>Missing Data</b>']
-    lines+=['• '+escape(gap) for gap in d['gaps']]
+        ]
+    if d.get('verified_facts'):
+        lines+=['', '✅ <b>Checked by the bot</b>']+['• '+escape(fact) for fact in d['verified_facts']]
+    human=[g for g in d['gaps'] if any(k in g for k in HUMAN_REQUIRED)]
+    other=[g for g in d['gaps'] if g not in human]
+    if human:
+        lines+=['', '🙋 <b>Needs a human to confirm</b> (the bot will not guess these)']+['• '+escape(g) for g in human]
+        lines+=['<i>These clear only when sourced evidence is added to the ATL registry.</i>']
+    if other:
+        lines+=['', '❗ <b>Not verified yet</b>']+['• '+escape(g) for g in other]
     lines+=['', '<b>Sources</b>']+[escape(url) for url in d['source_urls']]
     return '\n'.join(lines)
 
@@ -393,7 +446,7 @@ def notify(dossiers,state,env,transport,*,now):
         try:
             source=supplied['_source_input']
             d=dossier(source['observation'],source['details'],source['chart'],
-                      observed_at=source['observed_at'],now=now,gate_evidence=source.get('gate_evidence'),venue=source.get('venue'))
+                      observed_at=source['observed_at'],now=now,gate_evidence=source.get('gate_evidence'),venue=source.get('venue'),onchain=source.get('onchain'))
         except (ValueError,TypeError,KeyError,AttributeError,ArithmeticError) as exc:
             decision.update(status='REPLAY_FAILED',reason=str(exc)[:200])
             continue
@@ -430,6 +483,8 @@ def notify(dossiers,state,env,transport,*,now):
             message=verified_text(_issue('UNVERIFIED ATL RESEARCH WATCH',format_research(d).split('\n',1)[1]))
             # Only the freshly replayed, capability-checked dossier reaches HTML.
             message=format_research_html(d)
+            if len(message.encode('utf-16-le'))//2>3900:
+                message=format_research_html(d,compact=True)   # drop the plain-English block rather than lose the alert
             if len(message.encode('utf-16-le'))//2>3900:raise ValueError('Research message too long')
             receipt=transport(token,'sendMessage',{'chat_id':chat,'text':message,'parse_mode':'HTML','disable_web_page_preview':'true'})
             if not confirmed(receipt,str(destination)):raise ValueError('Delivery not confirmed')
