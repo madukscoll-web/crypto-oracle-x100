@@ -29,7 +29,7 @@ Telegram chat. Nothing here is investment advice, and **profitability is NOT EST
    CRITICAL SYSTEM FAILURE (only when the core scan did not succeed).
 
 ## Test before every PR
-`python -m unittest discover -s tests` (985 tests on this branch; CI runs `test` and
+`python -m unittest discover -s tests` (1004 tests on main at last count; CI runs `test` and
 `regression`). New behaviour needs tests, including failure and abuse cases; check a test
 can fail by temporarily breaking the code it guards.
 
@@ -65,7 +65,8 @@ history and book depth. #107 enrichment waits out cooldowns (identity failures 5
 per scan). #108 health report names the ATL asset. #109 outcome tracker waits out cooldowns.
 #110 "why no alerts" health section. #112 and #113 reversal/discovery/ATL alerts open with a plain-English block and explain jargon inline.
 #114 Token-2022 parser (`solana_evidence.extension_policy`: benign allow-list, dangerous extensions FAIL, unknown extensions UNSUPPORTED; does not by itself make any token alert-eligible).
-Open: EVM `owner_control` (proxy = FAIL; active owner = UNKNOWN; renounced = LIMITED; never clears a token). Older open PRs #101, #100, #80, #58, #50, #48,
+#115 EVM `owner_control` (proxy = FAIL; active owner = UNKNOWN; renounced = LIMITED; never clears a token). #116 `pattern_lab` winner-pattern study (needs ~200 measured outcomes before it reports anything).
+Open: none of mine. Older open PRs #101, #100, #80, #58, #50, #48,
 #46, #45, #4 are the owner's; #101/#100 look superseded. Do not close or merge them
 without asking.
 
@@ -78,7 +79,7 @@ GitHub's scheduler also skips many cron runs (one scheduled scan in about six ho
 observed), which is outside this repo's control.
 
 ## Next steps, in order
-1. Check the next scans (Token-2022 parser merged; look for `owner_control` in the Filter audit).
+1. Check the next scans: look for `Pattern study` lines (outcomes measured/200) and `owner_control` in the Filter audit.
 2. Extend Token-2022 or owner_control policy only after review.
 3. Done in the open PR: on-chain owner and proxy reads for tokens GoPlus has not seen.
 4. If rate limits still starve scans, move price refreshes to DexScreener (free, larger quota).
