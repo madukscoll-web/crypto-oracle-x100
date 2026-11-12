@@ -55,7 +55,7 @@ class Rpc:
             return json.load(response)
 
     def call(self, method, params):
-        if method not in ('eth_chainId', 'eth_getBlockByNumber', 'eth_getCode', 'eth_call', 'eth_gasPrice', 'eth_getBalance', 'eth_simulateV1', 'web3_sha3'):
+        if method not in ('eth_chainId', 'eth_getBlockByNumber', 'eth_getCode', 'eth_call', 'eth_gasPrice', 'eth_getBalance', 'eth_getStorageAt', 'eth_simulateV1', 'web3_sha3'):
             raise ValueError('RPC method is not read-only allowlisted')
         payload = dict(jsonrpc='2.0', id=len(self.calls) + 1, method=method, params=params)
         raw = self.transport(payload)
@@ -202,6 +202,56 @@ def holder_concentration(rpc, token, provider_rows, pair=None):
                 limitation='Unknown holders or common control may own all non-burn supply; provider tags are unverified')
 
 
+EIP1967_SLOTS = (
+    ('implementation', '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc'),
+    ('beacon', '0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50'))
+
+
+def owner_control(rpc, token):
+    """Read-only ownership and upgradeability facts for an EVM token at the pinned block.
+
+    Works for tokens that security providers have never seen. It can only withhold:
+    nothing here proves a token safe, and an unreadable answer is UNKNOWN, never clear.
+    """
+    token = address(token)
+    facts = dict(proxy=None, owner=None, owner_kind=None)
+    for name, slot in EIP1967_SLOTS:
+        try:
+            value = rpc.call('eth_getStorageAt', [token, slot, rpc.block['number']])
+            if not isinstance(value, str) or not re.fullmatch('0x[0-9a-fA-F]{1,64}', value):
+                raise ValueError('Invalid storage word')
+            if int(value, 16) != 0:
+                facts['proxy'] = name
+                break
+            facts['proxy'] = facts['proxy'] or 'NONE_FOUND'
+        except (ValueError, TypeError, OSError):
+            facts['proxy'] = 'UNREADABLE'
+            break
+    try:
+        owner = word_address(rpc.read(token, '8da5cb5b'))
+        facts['owner'] = owner
+        if owner in (ZERO, DEAD):
+            facts['owner_kind'] = 'RENOUNCED'
+        else:
+            code = rpc.call('eth_getCode', [owner, rpc.block['number']])
+            if not isinstance(code, str) or not re.fullmatch('0x[0-9a-fA-F]*', code):
+                raise ValueError('Invalid code response')
+            facts['owner_kind'] = 'CONTRACT' if code not in ('0x', '0x0') else 'EOA'
+    except (ValueError, TypeError, OSError):
+        facts['owner_kind'] = 'UNREADABLE'
+    if facts['proxy'] in ('implementation', 'beacon'):
+        status, reason = 'FAIL', 'Upgradeable proxy (EIP-1967 %s set): the issuer can replace the token code' % facts['proxy']
+    elif facts['owner_kind'] == 'EOA':
+        status, reason = 'UNKNOWN', 'Token has an active owner wallet; what the owner can change is unverified'
+    elif facts['owner_kind'] == 'CONTRACT':
+        status, reason = 'UNKNOWN', 'Token owner is a contract (multisig/timelock unverified); powers unknown'
+    elif facts['owner_kind'] == 'RENOUNCED' and facts['proxy'] == 'NONE_FOUND':
+        status, reason = 'LIMITED', 'owner() is renounced and no EIP-1967 proxy found; other admin roles and non-standard upgrades not ruled out'
+    else:
+        status, reason = 'UNKNOWN', 'Ownership or upgradeability could not be established on-chain'
+    return dict(status=status, reason=reason, metrics=facts)
+
+
 def collect(item, provider_rows=(), rpc=None, lock_descriptors=()):
     try:
         rpc = rpc or Rpc(item['network'])
@@ -224,6 +274,10 @@ def collect(item, provider_rows=(), rpc=None, lock_descriptors=()):
         except (KeyError, ValueError, TypeError, OSError, AttributeError, OverflowError) as exc:
             from evidence_coverage import unavailable
             results['holders'] = unavailable('evm_rpc', rpc.url, exc)
+        try:
+            results['owner_control'] = owner_control(rpc, item['token_address'])
+        except (KeyError, ValueError, TypeError, OSError, AttributeError):
+            results['owner_control'] = dict(status='UNKNOWN', reason='Ownership or upgradeability could not be established on-chain')
         rpc.unchanged()
         return observation('evm_rpc', rpc.url, dict(block=block, calls=rpc.calls, results=results),
                            'LIMITED', 'Pinned-block independent observations; beneficial ownership and timelock coverage not established')
