@@ -165,6 +165,15 @@ def blocker_summary(counts,limit=5):
     return [str(count)+' '+phrase for phrase,count in ranked[:limit]]
 
 
+def pattern_lines(study):
+    """One honest line on the winner-pattern study; never a score or a recommendation."""
+    if not isinstance(study, dict) or not isinstance(study.get('labeled'), int):
+        return []
+    text = str(study.get('conclusion', ''))[:150]
+    return ['Pattern study (24h outcomes): '+str(study['labeled'])+'/'+str(study.get('minimum_total', 200))
+            +' measured. '+text+'.']
+
+
 def health_summary(report,reversal,health,atl,paper,followup,run_url):
     """Counts only. Raw arrays, addresses and diagnostics never enter Telegram."""
     def number(value):
@@ -228,6 +237,7 @@ def health_summary(report,reversal,health,atl,paper,followup,run_url):
         '📈 PERFORMANCE',
         'Performance: '+number(closed)+' closed paper trades; '+number(opened)+' open paper positions. Sampled trigger reached: '+number(triggered)+'/'+number(watches)+' tracked watches.',
         'Profitability: NOT ESTABLISHED. Paper accounts are simulations; sampled prices are not fills.',
+        *pattern_lines(report.get('pattern_study')),
         '',
         '🧾 SUMMARY',
         'No qualifying tokens found.' if report.get('candidates')==0 else 'Research observations are not purchase approval.',
