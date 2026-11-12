@@ -335,6 +335,10 @@ def format_research_html(d):
     lines=['🚨 <b>ALL-TIME LOW WATCH</b>',
         '<i>Unverified ATL Research Watch</i>',
         '⚠️ <b>NOT A VERIFIED ALL-TIME LOW • NOT A BUY SIGNAL</b>',
+        '', '🧭 <b>In Plain English</b>',
+        escape(d['name'])+' is trading close to the lowest price its data provider has on record. '
+        'That does not prove it is the true all-time low, and it does not mean the price will rise. '
+        'Research alert only; the bot has bought nothing and nothing is required from you.',
         '', '<b>Token Identity</b>',
         '• <b>Asset:</b> '+escape(d['name'])+' ('+escape(d['symbol'].upper())+')']
     names={'eth':'Ethereum','bsc':'BNB Smart Chain','solana':'Solana','base':'Base',
@@ -347,7 +351,7 @@ def format_research_html(d):
         '', '📊 <b>Market Data</b>',
         '• <b>Observed Price:</b> '+money(d['price_usd'])+' ('+date(d['observed_at'])+')',
         '• <b>Provider Low:</b> '+money(d['provider_low_usd'])+' ('+date(d['provider_low_at'])+')',
-        '• <b>Distance Above Low:</b> '+format(Decimal(d['percent_above_provider_low']),'+.2f')+'%',
+        '• <b>Distance Above Low:</b> '+format(Decimal(d['percent_above_provider_low']),'+.2f')+'% (how far price has risen from that low)',
         '• <b>24h Volume:</b> '+money(d['volume_24h_usd'])+' (provider reported)',
         '• <b>Circulating Market Cap:</b> '+money(d['circulating_market_cap_usd'])+' (unverified)',
         '• <b>Liquidity Depth:</b> '+depth_text,

@@ -265,6 +265,16 @@ def readable_utc(value):
         return f'UTC {value}'
 
 
+def plain_summary(classification, row):
+    what = {
+        'EARLY BULLISH REVERSAL WATCH': 'Price has stopped falling and shows early signs of turning up. This is early and unconfirmed; it can fail.',
+        'CONFIRMED BULLISH REVERSAL': 'Price has turned up and closed above its trigger with volume. Better evidence, still not a guarantee.',
+    }.get(classification, 'A technical chart pattern was detected that needs a human to review it.')
+    return (f"{row['pair']}: {what}\n"
+            'This is a research alert only. The bot has NOT bought anything and is not telling you to buy.\n'
+            'What to do: nothing is required. If you look at it yourself, check the risks below first.\n')
+
+
 def message(row, research, screened):
     book = screened['book']
     statuses = ', '.join(s['network']+':'+s['status'] for s in screened['security']) or 'UNKNOWN / native-chain review incomplete'
@@ -273,18 +283,21 @@ def message(row, research, screened):
         '🛑 CRYPTO-ORACLE | TECHNICAL WATCH — NOT APPROVED FOR PURCHASE\n'
         'SECURITY / FUNDAMENTALS NOT FULLY VERIFIED. NOT A BUY SIGNAL.\n'
         '\n'
+        '🧭 IN PLAIN ENGLISH\n'
+        + plain_summary(research['technical_classification'], row) +
+        '\n'
         '📌 SETUP\n'
         f"Gate Spot: {row['pair']} | timeframe {row['interval']} | {readable_utc(screened['observed_at'])}\n"
-        f"Trigger reference: {research['entry_trigger']} USDT; require a fresh close/retest and volume confirmation.\n"
-        f"Invalidation reference: {research['invalidation']} USDT; withdraw if this level fails.\n"
+        f"Trigger reference: {research['entry_trigger']} USDT (the price that would need to be beaten to support the idea); require a fresh close/retest and volume confirmation.\n"
+        f"Invalidation reference: {research['invalidation']} USDT (if price closes below this, the idea is wrong; withdraw).\n"
         f"Trigger-to-invalidation distance: {(1-float(research['invalidation'])/float(research['entry_trigger']))*100:.1f}%; "
         'price distance, not a position-loss limit or guaranteed stop. Target/risk-reward: UNKNOWN.\n'
-        f"Volume / baseline: {research['metrics']['volume_ratio']}x; RSI(14, simple): {research['metrics']['rsi14']}.\n"
+        f"Volume / baseline: {research['metrics']['volume_ratio']}x (trading activity vs its normal level); RSI(14, simple): {research['metrics']['rsi14']} (momentum, 0-100; under 30 is weak, over 70 is hot).\n"
         '\n'
         '📊 MARKET DATA\n'
         f"Live bid/ask: {book['best_bid']}/{book['best_ask']} USDT; last closed candle: {research['metrics']['close']}.\n"
-        f"Displayed spread: {float(book['spread_bps']):.1f} bps; bid/ask depth within 1%: "
-        f"{float(book['bid_depth_quote_within_1pct']):,.0f}/{float(book['ask_depth_quote_within_1pct']):,.0f} USDT.\n"
+        f"Displayed spread: {float(book['spread_bps']):.1f} bps (gap between buy and sell price; 100 bps = 1%); bid/ask depth within 1%: "
+        f"{float(book['bid_depth_quote_within_1pct']):,.0f}/{float(book['ask_depth_quote_within_1pct']):,.0f} USDT (how much could trade near the current price; more is safer).\n"
         '\n'
         '⚠️ RISK & UNRESOLVED\n'
         f"Provider contract screening: {statuses}; not an independent audit.\n"
@@ -340,6 +353,8 @@ def message(row, research, screened):
         useful.extend(context[news_at:])
     text += '\n\n🏢 PROJECT FUNDAMENTALS — provider/source claims, not approval\n'
     text += '\n'.join(useful) if useful else 'UNKNOWN; team, supply/unlocks and adoption require separate verification.'
+    if len(text.encode('utf-16-le'))//2 > 3900:
+        text = text.replace(' (trading activity vs its normal level)','').replace(' (momentum, 0-100; under 30 is weak, over 70 is hot)','')
     if len(text.encode('utf-16-le'))//2 > 3900:
         raise ValueError('Research disclosure exceeds message limit')
     return text
