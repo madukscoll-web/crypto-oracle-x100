@@ -1,0 +1,37 @@
+name: Gate listings snapshot (read-only research)
+
+on:
+  workflow_dispatch:
+    inputs:
+      symbols:
+        description: 'Space-separated base symbols to check (optional)'
+        required: false
+        default: ''
+  push:
+    branches: ['claude/gate-listings-snapshot']
+    paths:
+      - 'gate_listings.py'
+      - '.github/workflows/gate-listings.yml'
+      - 'screen_symbols.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Read Gate public spot pairs (no keys, no orders)
+        env:
+          INPUT_SYMBOLS: ${{ github.event.inputs.symbols }}
+        run: |
+          symbols="$INPUT_SYMBOLS"
+          if [ -z "$symbols" ] && [ -f screen_symbols.txt ]; then symbols="$(tr '\n' ' ' < screen_symbols.txt)"; fi
+          python gate_listings.py $symbols
