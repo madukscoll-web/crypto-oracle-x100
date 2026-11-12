@@ -255,6 +255,16 @@ def screen(row, research, gate, currencies, negatives, now, retain_adverse=None,
     return result
 
 
+def readable_utc(value):
+    try:
+        parsed = dt.datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+        if parsed.tzinfo is None:
+            return f'UTC {value}'
+        return parsed.astimezone(dt.timezone.utc).strftime('%d %b %Y %H:%M UTC')
+    except ValueError:
+        return f'UTC {value}'
+
+
 def message(row, research, screened):
     book = screened['book']
     statuses = ', '.join(s['network']+':'+s['status'] for s in screened['security']) or 'UNKNOWN / native-chain review incomplete'
@@ -264,7 +274,7 @@ def message(row, research, screened):
         'SECURITY / FUNDAMENTALS NOT FULLY VERIFIED. NOT A BUY SIGNAL.\n'
         '\n'
         '📌 SETUP\n'
-        f"Gate Spot: {row['pair']} | timeframe {row['interval']} | UTC {screened['observed_at']}\n"
+        f"Gate Spot: {row['pair']} | timeframe {row['interval']} | {readable_utc(screened['observed_at'])}\n"
         f"Trigger reference: {research['entry_trigger']} USDT; require a fresh close/retest and volume confirmation.\n"
         f"Invalidation reference: {research['invalidation']} USDT; withdraw if this level fails.\n"
         f"Trigger-to-invalidation distance: {(1-float(research['invalidation'])/float(research['entry_trigger']))*100:.1f}%; "
