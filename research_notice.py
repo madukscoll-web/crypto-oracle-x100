@@ -42,7 +42,9 @@ def _issue(classification, body):
     prefix = PREFIXES.get(classification, classification)
     # The umbrella is navigation, not stronger evidence. Preserve the exact
     # computed subtype so provider-reported lows never become lifetime claims.
-    subtype = 'Research subtype: '+classification+'\n' if prefix != classification else ''
+    # Reversal headings already name their subtype; repeating it is noise.
+    redundant = classification in ('EARLY REVERSAL WATCH', 'CONFIRMED TECHNICAL REVERSAL')
+    subtype = 'Research subtype: '+classification+'\n' if prefix != classification and not redundant else ''
     return ResearchNotice(prefix+'\n'+subtype+body, _capability=_CONSTRUCTOR)
 
 

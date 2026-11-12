@@ -31,7 +31,11 @@ class ResearchNoticeTests(unittest.TestCase):
                 ('ATL RECOVERY WATCH','ALL-TIME LOW WATCH')):
             notice=_issue(subtype,subtype+'\nOriginal evidence limitations')
             text=verified_text(notice)
-            self.assertEqual(text.splitlines()[:2],[prefix,'Research subtype: '+subtype])
+            lines=text.splitlines()
+            if subtype in ('EARLY REVERSAL WATCH','CONFIRMED TECHNICAL REVERSAL'):
+                self.assertEqual(lines[0],prefix); self.assertNotIn('Research subtype',lines[1])
+            else:
+                self.assertEqual(lines[:2],[prefix,'Research subtype: '+subtype])
             self.assertIn('Original evidence limitations',text)
             with self.assertRaises(ValueError):verified_text(str(notice))
             with self.assertRaises(ValueError):_issue(prefix,'Caller supplied umbrella')
