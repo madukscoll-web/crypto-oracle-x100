@@ -96,7 +96,12 @@ RATE_LIMIT_WAIT_BUDGET_SECONDS = 180
 _RATE_WAIT = {"used": 0.0}
 
 
-def fetch_discovery(url):
+ENRICH_RATE_LIMIT_WAIT_BUDGET_SECONDS = 150
+_ENRICH_WAIT = {"used": 0.0}
+
+
+def _fetch_waiting(url, wait, budget):
+    """One bounded wait-and-retry for a short provider cooldown; other errors are never retried."""
     try:
         return fetch_json(url)
     except (ProviderRateLimited, urllib.error.HTTPError) as exc:
@@ -107,13 +112,23 @@ def fetch_discovery(url):
         remaining = oracle_http.cooldown_remaining(host)
         if not 0 < remaining <= MAX_COOLDOWN_WAIT_SECONDS:
             raise
-        if _RATE_WAIT["used"] + remaining > RATE_LIMIT_WAIT_BUDGET_SECONDS:
+        if wait["used"] + remaining > budget:
             raise
-        _RATE_WAIT["used"] += remaining
+        wait["used"] += remaining
         print(f"API {host}: waiting {remaining:.0f}s for provider cooldown, then one retry "
-              f"({_RATE_WAIT['used']:.0f}s of {RATE_LIMIT_WAIT_BUDGET_SECONDS}s budget used)", flush=True)
+              f"({wait['used']:.0f}s of {budget}s budget used)", flush=True)
         time.sleep(remaining + 1)
         return fetch_json(url)
+
+
+def fetch_discovery(url):
+    return _fetch_waiting(url, _RATE_WAIT, RATE_LIMIT_WAIT_BUDGET_SECONDS)
+
+
+def fetch_enrichment(url):
+    """Per-candidate identity/market refresh. A 429 here used to leave the token
+    identity UNVERIFIED, which silently skipped every downstream safety check."""
+    return _fetch_waiting(url, _ENRICH_WAIT, ENRICH_RATE_LIMIT_WAIT_BUDGET_SECONDS)
 
 
 def pause_after_discovery(error=None):
@@ -364,7 +379,8 @@ def enrich(item, fetch=None, delay=None):
     item.update(base_token_price_usd=0, price_source="Pool price refresh unavailable")
     item.pop("market_raw", None)
     network = item["network"]
-    fetch = fetch or fetch_json
+    optional_fetch = fetch or fetch_json   # previous-pool history is optional: never spend wait budget on it
+    fetch = fetch or fetch_enrichment
     delay = ENRICHMENT_DELAY_SECONDS if delay is None else delay
     try:
         pool_url = f"{API}/networks/{urllib.parse.quote(network, safe='')}/pools/{urllib.parse.quote(item['address'], safe='')}?include=base_token,quote_token"
@@ -425,7 +441,7 @@ def enrich(item, fetch=None, delay=None):
     try:
         url = (f"{API}/networks/{urllib.parse.quote(network, safe='')}/tokens/"
                f"{urllib.parse.quote(address, safe='')}/pools?page=1")
-        response = fetch(url)
+        response = optional_fetch(url)
         older = 0
         for pool in response.get("data") or []:
             created = (pool.get("attributes") or {}).get("pool_created_at")
@@ -1021,6 +1037,7 @@ def send_discovery_research(item):
 
 def main():
     _RATE_WAIT["used"] = 0.0
+    _ENRICH_WAIT["used"] = 0.0
     seen = load_state()
     watchlist = load_watchlist()
     deferred = deferred_candidates.load()
