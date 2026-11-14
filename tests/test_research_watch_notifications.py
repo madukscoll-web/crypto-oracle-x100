@@ -8,7 +8,7 @@ class ResearchWatchTests(unittest.TestCase):
         from tests.test_opportunity_alerts import candidate, NOW
         import datetime as dt
         import opportunity_alerts
-        x=candidate();x.update(token_symbol='TEST',source='Fixture discovery',risk_reasons=['Advanced evidence incomplete'])
+        x=candidate();x.update(token_symbol='TEST',source='Fixture discovery',pool_class='NEW POOL',risk_reasons=['Advanced evidence incomplete'])
         self.assertTrue(scanner.research_alert_eligible(x,now=NOW))
         self.assertFalse(scanner.telegram_eligible(x))
         real_classify=opportunity_alerts.classify
