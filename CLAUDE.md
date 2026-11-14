@@ -24,12 +24,12 @@ Telegram chat. Nothing here is investment advice, and **profitability is NOT EST
    cannot show. A provider-reported ATL is never a verified lifetime ATL.
 6. Telegram message **first line is the exact classification label**
    (`classification_policy.py`); untrusted text can never claim a BUY label.
-   Labels: NEW TOKEN DISCOVERY, EARLY BULLISH REVERSAL WATCH, CONFIRMED BULLISH REVERSAL,
+   Labels: NEW TOKEN DISCOVERY (pool created within 72h), EXISTING POOL DISCOVERY (older pool), EARLY BULLISH REVERSAL WATCH, CONFIRMED BULLISH REVERSAL,
    ALL-TIME LOW WATCH, RESEARCH WATCH, BUY CANDIDATE | MANUAL REVIEW, SYSTEM HEALTH REPORT,
    CRITICAL SYSTEM FAILURE (only when the core scan did not succeed).
 
 ## Test before every PR
-`python -m unittest discover -s tests` (1031 tests on this branch; CI runs `test` and
+`python -m unittest discover -s tests` (1038 tests on this branch; CI runs `test` and
 `regression`). New behaviour needs tests, including failure and abuse cases; check a test
 can fail by temporarily breaking the code it guards.
 
@@ -67,6 +67,7 @@ per scan). #108 health report names the ATL asset. #109 outcome tracker waits ou
 #110 "why no alerts" health section. #112 and #113 reversal/discovery/ATL alerts open with a plain-English block and explain jargon inline.
 #114 Token-2022 parser (`solana_evidence.extension_policy`: benign allow-list, dangerous extensions FAIL, unknown extensions UNSUPPORTED; does not by itself make any token alert-eligible).
 #115 EVM `owner_control` (proxy = FAIL; active owner = UNKNOWN; renounced = LIMITED; never clears a token). #116 `pattern_lab` winner-pattern study (needs ~200 measured outcomes before it reports anything).
+Discovery headline now matches the pool: NEW TOKEN DISCOVERY only when the pool is NEW POOL (created within 72h); older or unknown pools say EXISTING POOL DISCOVERY and the plain-English block says it is not a new listing.
 Open: ATL missing-data PR (on-chain facts, Gate hourly low-day candles, "Checked / Needs a human / Not verified yet" message sections). The 4 items needing a human stay human: first-trade provenance, migration/split inventory, independent full history, circulating-supply vesting. Older open PRs #101, #100, #80, #58, #50, #48,
 #46, #45, #4 are the owner's; #101/#100 look superseded. Do not close or merge them
 without asking.

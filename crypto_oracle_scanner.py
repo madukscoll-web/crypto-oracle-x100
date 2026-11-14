@@ -1003,19 +1003,35 @@ def readable_observed(value):
         return str(value)
 
 
+def discovery_label(item):
+    """Headline matches the observed facts: only a pool created within the window is NEW.
+
+    An unknown or missing pool class is treated as not new, never the other way round.
+    """
+    return "NEW TOKEN DISCOVERY" if item.get("pool_class") == "NEW POOL" else "EXISTING POOL DISCOVERY"
+
+
 def research_alert_text(item):
     decision, reason = decision_summary(item)
     setup, setup_reason = setup_assessment(item)
     risks = "; ".join(item.get("risk_reasons") or []) or "Independent safety and execution verification incomplete"
     context = project_context.summary(item.get("project_context"), expected={"network":item.get("network"),"token_address":item.get("token_address")})
-    return (
-        "NEW TOKEN DISCOVERY\n"
-        "🛑 NOT APPROVED FOR PURCHASE. NOT A BUY SIGNAL.\n"
-        "\n"
-        "🧭 IN PLAIN ENGLISH\n"
+    is_new = item.get("pool_class") == "NEW POOL"
+    plain = (
         f"The scanner found a recently created trading pool for {item.get('token_symbol', 'UNKNOWN')} on {item['network']}. "
         "It is a lead to research, not a recommendation. The bot has bought nothing.\n"
         "Most brand-new tokens fail or are scams; the checks below show what is still unproven.\n"
+    ) if is_new else (
+        f"The scanner found an older trading pool for {item.get('token_symbol', 'UNKNOWN')} on {item['network']} that is active right now. "
+        "This is not a new listing and the token may be much older. It is a lead to research, not a recommendation. The bot has bought nothing.\n"
+        "Older pools can still be risky; the checks below show what is still unproven.\n"
+    )
+    return (
+        discovery_label(item) + "\n"
+        "🛑 NOT APPROVED FOR PURCHASE. NOT A BUY SIGNAL.\n"
+        "\n"
+        "🧭 IN PLAIN ENGLISH\n"
+        + plain +
         "\n"
         "📌 VERDICT\n"
         f"Decision: {decision} — {reason}\n"
@@ -1056,7 +1072,7 @@ def send_discovery_research(item):
         raise ValueError('Discovery research evidence unavailable or expired')
     from research_notice import _issue
     from telegram_notify import send_research_message
-    return send_research_message(_issue('NEW TOKEN DISCOVERY', research_alert_text(item)))
+    return send_research_message(_issue(discovery_label(item), research_alert_text(item)))
 
 
 def main():
