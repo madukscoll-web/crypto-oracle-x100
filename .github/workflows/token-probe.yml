@@ -1,0 +1,36 @@
+name: Token probe (read-only research)
+
+on:
+  workflow_dispatch:
+    inputs:
+      token:
+        description: 'EVM token contract address (0x...)'
+        required: true
+  push:
+    branches: ['claude/token-probe']
+    paths:
+      - 'token_probe.py'
+      - 'probe_target.txt'
+      - '.github/workflows/token-probe.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Read public on-chain and security data (no keys, no orders)
+        env:
+          INPUT_TOKEN: ${{ github.event.inputs.token }}
+        run: |
+          token="$INPUT_TOKEN"
+          if [ -z "$token" ] && [ -f probe_target.txt ]; then token="$(head -n1 probe_target.txt | tr -d ' \r')"; fi
+          python token_probe.py "$token"
