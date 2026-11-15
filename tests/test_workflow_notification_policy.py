@@ -17,6 +17,13 @@ class WorkflowNotificationPolicyTests(unittest.TestCase):
         self.assertIn("python telegram_notify.py failure", workflow)
         self.assertIn("if: failure()", workflow)
 
+    def test_failed_companion_cannot_start_scanner_job(self):
+        workflow = (ROOT / ".github/workflows/main.yml").read_text(encoding="utf-8")
+        self.assertIn(
+            "  scan:\n    if: github.event_name != 'workflow_run' || "
+            "github.event.workflow_run.conclusion == 'success'\n    runs-on:", workflow
+        )
+
     def test_hourly_scan_and_diagnostics_preserved(self):
         workflow = (ROOT / ".github/workflows/main.yml").read_text(encoding="utf-8")
         self.assertIn("cron: '7,27,47 * * * *'", workflow)

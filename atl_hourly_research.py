@@ -167,6 +167,8 @@ def enrich(result, state, fetch, *, now, gate_evidence=None, rpc_request=None, r
         state['enrichment_after']=identifier
         snapshot=cache.get(identifier)
         try:
+            if snapshot is not None and snapshot.get('chart_error'):
+                snapshot=None
             if snapshot is not None and not fresh(snapshot.get('observed_at'),now.timestamp(),120):
                 bound=identity(snapshot['details'],identifier)
                 if any(a['network']+':'+a['contract'] in manifests for a in bound['contracts']):
@@ -186,7 +188,6 @@ def enrich(result, state, fetch, *, now, gate_evidence=None, rpc_request=None, r
                 snapshot=dict(details=details,chart=chart,observed_at=now.isoformat(),chart_error=chart_error)
                 # Reject unexpectedly large/corrupt payloads before durable caching.
                 if len(json.dumps(snapshot))>300000:raise ValueError('Oversized ATL evidence')
-                cache[identifier]=snapshot
             venue=None
             if gate_evidence is not None:
                 # Venue history only for an exact-contract Gate listing; a failure
@@ -220,13 +221,18 @@ def enrich(result, state, fetch, *, now, gate_evidence=None, rpc_request=None, r
             result['research_dossiers'].append(finding)
             dispositions[identifier].update(status='RESEARCH_ELIGIBLE' if finding['telegram_research_eligible'] else 'WITHHELD',
                 reason='Provider-reported research only; independent lifetime and BUY remain unverified' if finding['telegram_research_eligible'] else finding['instrument']['reason'] if finding['instrument']['status']!='ORDINARY_CRYPTO_RESEARCH' else '; '.join(finding['gaps']))
-            pending.pop(identifier,None)
             if finding['instrument']['status']=='ORDINARY_CRYPTO_RESEARCH' and not finding['historical_assessments']:
+                dispositions[identifier].update(status='HISTORY_UNAVAILABLE',
+                    reason='Bounded historical provider failed or returned invalid/stale observations')
+                cache.pop(identifier,None)
                 result['enrichment_errors'].append(dict(provider_id=identifier,error_type='HistoricalEvidenceUnavailable',
-                    reason='Bounded historical provider failed or returned invalid/stale observations'))
+                    reason=dispositions[identifier]['reason']))
+            else:
+                cache[identifier]=snapshot
+                pending.pop(identifier,None)
         except (OSError,ValueError,TypeError,KeyError,AttributeError,ArithmeticError) as exc:
             dispositions[identifier].update(status='ENRICHMENT_FAILED',reason=str(exc)[:250],error_type=type(exc).__name__)
-            pending.pop(identifier,None)
+            cache.pop(identifier,None)
             result['enrichment_errors'].append(dict(provider_id=identifier,error_type=type(exc).__name__,reason=str(exc)[:250]))
     state['pending_leads']=pending
     result['pending_leads']=len(pending)
@@ -286,10 +292,8 @@ def main():
     print('ATL research coverage:', json.dumps({k:v for k,v in result.items() if k not in ('observations','research_dossiers')}))
     # Provider-limited enrichment is degraded DATA, not a crashed process.
     # Keep it explicit in the report/health digest; transport failure is fatal.
-    healthy=(result['status']=='OBSERVATIONS_UNVERIFIED'
-             and not (result.get('research_delivery') or {}).get('failed')
-             and not (result.get('lifetime_validation') or {}).get('failed'))
-    return 0 if healthy else 1
+    return int(bool((result.get('research_delivery') or {}).get('failed')
+                    or (result.get('lifetime_validation') or {}).get('failed')))
 
 
 if __name__ == '__main__':

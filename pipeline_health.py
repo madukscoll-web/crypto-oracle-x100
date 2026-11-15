@@ -15,9 +15,9 @@ def summarize(stages, reports):
         missing.append('atl')
     atl=reports.get('atl',{})
     atl=atl if isinstance(atl,dict) else {}
-    if 'atl' in stages and atl.get('status') != 'OBSERVATIONS_UNVERIFIED':
-        failures['atl_data']=atl.get('status','MISSING')
     data_degradation={}
+    if 'atl' in stages and atl.get('status') != 'OBSERVATIONS_UNVERIFIED':
+        data_degradation['atl']='ATL coverage is '+str(atl.get('status','MISSING'))
     # A zero exit code establishes computation, not complete provider coverage.
     scan=reports.get('scan',{})
     if isinstance(scan,dict) and scan.get('warnings'):
@@ -49,7 +49,7 @@ def summarize(stages, reports):
     if not isinstance(atl_delivery,dict):
         data_degradation['atl']='Malformed ATL delivery diagnostics'
         atl_delivery={}
-    if atl_delivery.get('failed'):
+    if atl_delivery.get('failed') or lifetime.get('failed'):
         failures['atl_delivery']='Unconfirmed Telegram research delivery' 
     if 'multichain' in stages:
         market=reports.get('multichain')

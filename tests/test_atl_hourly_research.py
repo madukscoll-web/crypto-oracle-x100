@@ -90,7 +90,7 @@ class HourlyATLTests(unittest.TestCase):
                 if report is not None:r['atl']=report
                 self.assertEqual(pipeline_health.summarize(stages,r)['status'],'DEGRADED')
 
-    def test_main_returns_nonzero_and_preserves_cursor_on_outage(self):
+    def test_main_reports_data_outage_and_preserves_cursor(self):
         import tempfile
         from pathlib import Path
         import os
@@ -99,7 +99,7 @@ class HourlyATLTests(unittest.TestCase):
             try:
                 os.chdir(folder)
                 with patch('atl_hourly_research.run',return_value=dict(status='UNAVAILABLE',next_cursor=3)):
-                    self.assertEqual(main(),1)
+                    self.assertEqual(main(),0)
                 self.assertFalse(Path('atl_research_state.json').exists())
                 self.assertTrue(Path('atl_coverage_report.json').exists())
             finally:os.chdir(previous)
@@ -149,6 +149,10 @@ class ATLEnrichmentHealthTests(unittest.TestCase):
         self.assertEqual(report['status'],'DEGRADED')
         self.assertIn('atl', report['data_degradation'])
         self.assertFalse(report['failed_or_skipped_stages'])
+        reports['atl']['status']='UNAVAILABLE'
+        report = summarize(stages, reports)
+        self.assertEqual(report['execution_status'],'COMPLETED')
+        self.assertEqual(report['coverage_status'],'DEGRADED')
         reports['atl']['research_delivery']={'failed':1}
         self.assertIn('atl_delivery',summarize(stages,reports)['failed_or_skipped_stages'])
 
