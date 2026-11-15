@@ -107,7 +107,8 @@ def main():
     if args.mode == 'guard':
         event = read(os.environ.get('GITHUB_EVENT_PATH', ''))
         source = event.get('workflow_run') or {}
-        trusted = (source.get('head_branch') == 'main' and
+        trusted = (source.get('conclusion') == 'success' and
+                   source.get('head_branch') == 'main' and
                    (source.get('head_repository') or {}).get('full_name') == os.environ.get('GITHUB_REPOSITORY') and
                    source.get('event') in ('schedule', 'workflow_dispatch', 'push'))
         run, reason = decide(os.environ.get('GITHUB_EVENT_NAME'), state, now, trusted)

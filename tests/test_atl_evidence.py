@@ -117,6 +117,26 @@ class ATLEvidenceTests(unittest.TestCase):
         d=build();d['_source_input']['details']['categories']=['Stablecoins'];d['telegram_research_eligible']=True
         self.assertEqual(notify([d],state,env,transport(log),now=NOW.timestamp())['delivered'],0)
 
+    def test_transient_chart_failure_is_retried_on_next_cycle(self):
+        observation,details,chart=inputs()
+        report={'observations':[observation]}
+        state={}
+        def unavailable(url):
+            if '/market_chart?' in url:
+                raise OSError('provider cooldown')
+            return details
+        enrich(report,state,unavailable,now=NOW)
+        self.assertEqual(report['candidate_dispositions'][0]['status'],'HISTORY_UNAVAILABLE')
+        self.assertIn('example',state['pending_leads'])
+        self.assertNotIn('example',state['evidence_cache'])
+
+        report={'observations':[]}
+        enrich(report,state,lambda url: chart if '/market_chart?' in url else details,now=NOW)
+        self.assertEqual(state['pending_leads'],{})
+        self.assertIn('example',state['evidence_cache'])
+        self.assertTrue(report['research_dossiers'][0]['historical_assessments'])
+        self.assertFalse(report['research_dossiers'][0]['history']['lifetime_verified'])
+
     def test_rotation_cache_and_provider_failure_are_bounded(self):
         observation,details,chart=inputs();observations=[]
         for identifier in ('aaa','bbb','ccc'):
