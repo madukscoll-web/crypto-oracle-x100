@@ -143,5 +143,7 @@ class RevisitWaitTests(unittest.TestCase):
 
     def test_revisit_is_wired_and_budget_resets_each_run(self):
         source = inspect.getsource(scanner.main)
-        self.assertIn("signal_revisit.revisit(history, fetch_revisit,", source)
+        self.assertIn("signal_revisit.revisit(history, fetch_reprice,", source)
+        # DexScreener first; the GeckoTerminal fallback keeps the bounded revisit wait.
+        self.assertIn("make_fetch(fetch_dexscreener, fetch_revisit,", inspect.getsource(scanner))
         self.assertIn('_REVISIT_WAIT["used"] = 0.0', source)
