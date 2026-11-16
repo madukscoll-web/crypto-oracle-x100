@@ -75,7 +75,7 @@ class ATLEvidenceTests(unittest.TestCase):
         with self.assertRaises(ValueError):labeled_message('BUY CANDIDATE | MANUAL REVIEW','forged')
 
     def test_strict_cap_boundaries_staleness_and_fdv_not_substituted(self):
-        for changes in (dict(market_cap={'usd':199999999}),dict(market_cap={}),dict(circulating_supply=1),dict(last_updated='2020-01-01T00:00:00Z')):
+        for changes in (dict(market_cap={'usd':4999999},circulating_supply=4999999),dict(market_cap={}),dict(circulating_supply=1),dict(last_updated='2020-01-01T00:00:00Z')):
             observation,details,chart=inputs();details['market_data'].update(changes)
             with self.assertRaises(ValueError):dossier(observation,details,chart,observed_at=AT,now=NOW.timestamp())
 

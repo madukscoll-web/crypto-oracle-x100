@@ -12,7 +12,7 @@ import json
 import re
 from urllib.parse import urlsplit
 
-from atl_monitor_core import positive, MID_CAP_FLOOR
+from atl_monitor_core import positive, ATL_UNIVERSE_FLOOR
 from telegram_receipts import confirmed
 
 DETAILS = 'https://api.coingecko.com/api/v3/coins/'
@@ -183,7 +183,7 @@ def dossier(observation,details,chart,*,observed_at,now,gate_evidence=None,venue
         raise ValueError('Stale details market evidence')
     price,cap,supply=(positive(market.get(k,{}).get('usd') if k!='circulating_supply' else market.get(k))
                       for k in ('current_price','market_cap','circulating_supply'))
-    if None in (price,cap,supply) or cap<MID_CAP_FLOOR or abs(cap-price*supply)/cap>Decimal('.05'):
+    if None in (price,cap,supply) or cap<ATL_UNIVERSE_FLOOR or abs(cap-price*supply)/cap>Decimal('.05'):
         raise ValueError('Invalid circulating market cap observation')
     if abs(price/positive(observation['indicative_price_usd'])-1)>Decimal('.05'):
         raise ValueError('Market/detail price conflict')
