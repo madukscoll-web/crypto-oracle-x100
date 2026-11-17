@@ -2,30 +2,30 @@
 
 Research only. No BUY approval, orders or assumed fills.
 
-Observed UTC: 2026-11-16T06:30:14.204809+00:00
+Observed UTC: 2026-11-17T00:35:38.377574+00:00
 
-## AAVE_USDT | 1h
+## NEAR_USDT | 1w
 
-**WITHHELD_ADVERSE_FINDING**
+**RESEARCH_ONLY_NOT_APPROVED**
 
 | Item | Recorded evidence |
 |---|---|
-| Last closed candle | 109.15 USDT |
-| Conditional trigger reference | 110.29 USDT |
-| Invalidation reference | 104.69 USDT |
-| Volume / baseline | 1.606x |
+| Last closed candle | 3.215 USDT |
+| Conditional trigger reference | 6.01 USDT |
+| Invalidation reference | 1.537 USDT |
+| Volume / baseline | 1.29x |
 
 Require a fresh close/retest and volume; no entry or fill is inferred. Next closed candle and before acting; withdraw on invalidation or adverse evidence.
 
 Exact Gate Spot pair; independent on-chain identity is not established.
 
 PROJECT FUNDAMENTALS — evidence-labelled, not approval
-Use/value: Aave is a decentralized money market protocol where users can lend and borrow cryptocurrency across 20 different assets as collateral. The protoc [PROVIDER_REPORTED_UNVERIFIED]
-Token value capture: UNKNOWN
-Supply circ/max: 15.44M/16M; FDV/cap: 1.036 [PROVIDER_REPORTED_UNVERIFIED].
+Use/value: NEAR pays transaction fees, covers on-chain storage and supports validator staking. [PRIMARY_DOCUMENTATION_REVIEWED_NOT_CORROBORATED]
+Token value capture: Storage balances are locked while data remains; delegated staking can earn rewards. Holding alone does not guarantee project profit sharing.
+Supply circ/max: 1.312B/UNKNOWN; FDV/cap: 1 [PROVIDER_REPORTED_UNVERIFIED].
 Unlocks 30/90/365d, founder vesting, paying users and revenue: UNKNOWN.
-Context retrieved UTC: 2026-11-16T06:29:56.488599+00:00
-NEWS: IDENTITY_OR_FEED_UNAVAILABLE (not safety or an entry signal).
+Context retrieved UTC: 2026-11-17T00:35:22.750669+00:00
+NEWS: NO_MATCH_IN_FETCHED_FEEDS (not safety or an entry signal).
 Coverage is limited; absence of a match is not a clean news check.
 
 ### Outstanding evidence
@@ -38,8 +38,8 @@ Coverage is limited; absence of a match is not a clean news check.
 
 ### Source observations
 
-- https://api.gateio.ws/api/v4/spot/currency_pairs/AAVE_USDT | retrieved 2026-11-16T06:29:31.581210+00:00 | raw SHA-256 5f5a51242f6a08033968c793ff6134a65873d8e5bc4ef3218bda76260fee2043
-- https://api.gateio.ws/api/v4/spot/candlesticks?currency_pair=AAVE_USDT&interval=1h&limit=1000 | retrieved 2026-11-16T06:29:32.578931+00:00 | raw SHA-256 1e72929b3559e3f4f4a3023ec82cc879e5c1b9c9c872c1b6d3c55dfb12ea555a
+- https://api.gateio.ws/api/v4/spot/currency_pairs/NEAR_USDT | retrieved 2026-11-17T00:35:17.139203+00:00 | raw SHA-256 c9bb2b5bbbd57aef17f0f342f01b26acc1ee00d64bcb0dacb8af9d25aafb3425
+- https://api.gateio.ws/api/v4/spot/candlesticks?currency_pair=NEAR_USDT&interval=7d&limit=1000 | retrieved 2026-11-17T00:35:18.302258+00:00 | raw SHA-256 b37b9aa05588d5cab2350ff9010cd3d13f64f69a56cb1f6ce56bf7cccc19ea9b
 
 Raw candles, project context and screening observations remain in the accompanying JSON reports.
 

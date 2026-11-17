@@ -62,7 +62,7 @@ def record(history, item):
         "entry_pattern": str(item.get("entry_pattern", "UNCLASSIFIED")),
         "market_setup": str(item.get("market_setup", "UNCLASSIFIED")),
         "token_address": str(item["token_address"]),
-        "source": "GeckoTerminal indicative pool price",
+        "source": str(item.get("price_source") or "GeckoTerminal indicative pool price"),
     })
     return True
 
