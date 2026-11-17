@@ -2,6 +2,11 @@ name: CRYPTO-ORACLE X100 Scanner
 
 on:
   workflow_dispatch:
+    inputs:
+      trigger:
+        description: 'Set to external only from an outside timer; it is throttled like a scheduled run'
+        required: false
+        default: 'manual'
   workflow_run:
     workflows: ['Multichain read-only research', 'Gate catalog-first live discovery (research only)']
     types: [completed]
