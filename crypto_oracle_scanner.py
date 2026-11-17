@@ -18,6 +18,7 @@ import urllib.parse
 from verification import binary_flag
 import signal_tracker
 import signal_revisit
+import dexscreener_prices
 import pattern_lab
 import canonical_outcomes
 import forward_ledger
@@ -132,6 +133,17 @@ def fetch_revisit(url):
     """Outcome-tracker re-pricing runs last, after discovery and enrichment have spent
     the provider quota; without a bounded wait it re-priced nothing (attempted: 0)."""
     return _fetch_waiting(url, _REVISIT_WAIT, REVISIT_RATE_LIMIT_WAIT_BUDGET_SECONDS)
+
+
+REPRICE_SOURCES = {}
+
+
+def fetch_dexscreener(url):
+    """DexScreener has its own free quota; a 429 there falls back to GeckoTerminal."""
+    return get_json(url, headers=HEADERS)
+
+
+fetch_reprice = dexscreener_prices.make_fetch(fetch_dexscreener, fetch_revisit, REPRICE_SOURCES)
 
 
 def fetch_enrichment(url):
@@ -1377,10 +1389,11 @@ def main():
         # otherwise collapsed tokens vanish from the sample and bias results upward.
         revisit_state = signal_revisit.load_state()
         revisit_now = dt.datetime.now(dt.timezone.utc)
-        revisit_report = signal_revisit.revisit(history, fetch_revisit, revisit_now, revisit_state)
+        revisit_report = signal_revisit.revisit(history, fetch_reprice, revisit_now, revisit_state)
         signal_revisit.save_state(revisit_state)
         performance = signal_revisit.performance_summary(history, revisit_state, revisit_now)
         print(f"Signal revisit: {revisit_report}", flush=True)
+        print(f"Reprice sources: {REPRICE_SOURCES}", flush=True)
         for hours, row in performance["horizons"].items():
             if row["measured"]:
                 print(f"Paper {hours}h measured n={row['measured']['n']} median={row['measured']['median_percent']:+.2f}% "
@@ -1391,7 +1404,7 @@ def main():
     if pattern_data is not None:
         try:
             pattern_now = dt.datetime.now(dt.timezone.utc)
-            pattern_reprice = pattern_lab.reprice(pattern_data, fetch_revisit, pattern_now)
+            pattern_reprice = pattern_lab.reprice(pattern_data, fetch_reprice, pattern_now)
             pattern_lab.save(pattern_data)
             pattern_report = pattern_lab.study(pattern_data)
             pattern_report["new_rows"], pattern_report["reprice"] = pattern_added[0], pattern_reprice

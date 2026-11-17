@@ -89,7 +89,9 @@ observed), which is outside this repo's control.
 1. Check the next scans: look for `Pattern study` lines (outcomes measured/200) and `owner_control` in the Filter audit.
 2. Extend Token-2022 or owner_control policy only after review.
 3. Done in the open PR: on-chain owner and proxy reads for tokens GoPlus has not seen.
-4. If rate limits still starve scans, move price refreshes to DexScreener (free, larger quota).
+4. Price refreshes now go to DexScreener first (`dexscreener_prices.py`, used by `signal_revisit` and
+   `pattern_lab` via `fetch_reprice`); pools DexScreener omits are re-asked from GeckoTerminal, never marked
+   vanished. Check the `Reprice sources:` log line. Next: consider DexScreener for enrichment too.
 5. Let outcome data accumulate (weeks), then test which filters separate winners from losers.
 6. Paid provider keys (e.g. Alchemy, Helius) only if free sources prove insufficient, as
    GitHub secrets set by the owner.
