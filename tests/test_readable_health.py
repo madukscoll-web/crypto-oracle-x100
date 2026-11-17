@@ -1,6 +1,6 @@
 """Readable production summaries; fixtures do not establish market performance."""
 import unittest
-from telegram_notify import health_summary
+from telegram_notify import health_summary, scan_gap_line
 
 class ReadableHealthTests(unittest.TestCase):
     def report(self):
@@ -56,3 +56,24 @@ class ReadableHealthTests(unittest.TestCase):
                 self.assertEqual(saved['cadence_gap_confirmed_for'],'preserved')
                 self.assertEqual(saved['confirmed_format_version'],2)
             finally:os.chdir(before)
+
+
+class ScanGapTests(unittest.TestCase):
+    def test_gap_is_shown_in_hours_and_flags_slow_cadence(self):
+        self.assertEqual(scan_gap_line({'core_success_age_seconds': 3600}), 'Scan gap: previous completed scan was 1.0 h before this one.')
+        self.assertIn('less often than planned', scan_gap_line({'core_success_age_seconds': 6.5 * 3600}))
+        self.assertNotIn('less often', scan_gap_line({'core_success_age_seconds': 7200}))
+
+    def test_missing_or_malformed_gap_is_unknown_never_zero(self):
+        for bad in (None, {}, [], {'core_success_age_seconds': None}, {'core_success_age_seconds': -1},
+                    {'core_success_age_seconds': 'inf'}, {'core_success_age_seconds': float('nan')},
+                    {'core_success_age_seconds': float('inf')}, {'core_success_age_seconds': True},
+                    {'core_success_age_seconds': '<b>x</b>'}):
+            self.assertTrue(scan_gap_line(bad).startswith('Scan gap: unknown'), bad)
+
+    def test_health_digest_carries_the_gap_line_and_still_works_without_it(self):
+        report = ReadableHealthTests().report()
+        with_gap = health_summary(report, {}, {}, {}, {}, {}, 'https://github.com/example', {'core_success_age_seconds': 23400})
+        self.assertIn('Scan gap: previous completed scan was 6.5 h', with_gap)
+        self.assertIn('Full diagnostics: https://github.com/example', with_gap)
+        self.assertIn('Scan gap: unknown', health_summary(report, {}, {}, {}, {}, {}, 'https://github.com/example'))
