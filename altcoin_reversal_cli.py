@@ -28,7 +28,7 @@ def fetch_public(url):
     return json.loads(data)
 
 
-def run(pairs, interval="1d", *, fetch=fetch_public, now=None):
+def run(pairs, interval="1d", *, fetch=fetch_public, now=None, keep_observations=False):
     if interval not in INTERVAL_SECONDS:
         raise ValueError("Unsupported interval")
     now = dt.datetime.now(dt.timezone.utc).timestamp() if now is None else now
@@ -71,10 +71,13 @@ def run(pairs, interval="1d", *, fetch=fetch_public, now=None):
             backtest = walk_forward(pair.replace("_", "/"), candles,
                                     source=source, interval=interval, horizon=10)
             # Avoid outputting every overlapping paper observation in the compact CLI.
-            backtest.pop("observations", None)
+            if not keep_observations:
+                backtest.pop("observations", None)
             record.update(status="RESEARCH_ONLY", candle_count=len(candles),
                           latest_closed_candle=candles[-1]["timestamp"],
                           research=research, backtest=backtest)
+            if keep_observations:
+                record["candles"] = candles
         except (ValueError, KeyError, TypeError, OSError, urllib.error.URLError,
                 json.JSONDecodeError) as exc:
             record["reason"] = type(exc).__name__ + ": " + str(exc)[:180]

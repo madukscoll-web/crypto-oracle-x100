@@ -1,0 +1,24 @@
+name: Reversal backtest (read-only research)
+on:
+  workflow_dispatch:
+  push:
+    branches: ['claude/reversal-backtest-report']
+    paths:
+      - 'reversal_backtest_report.py'
+      - 'altcoin_reversal_cli.py'
+      - '.github/workflows/reversal-backtest.yml'
+permissions:
+  contents: read
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Walk-forward reversal report (public Gate data, no keys, no orders)
+        run: python -u reversal_backtest_report.py
