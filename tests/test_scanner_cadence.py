@@ -47,3 +47,54 @@ class CadenceWorkflowFailureTests(unittest.TestCase):
         self.assertIn('        if: failure()\n',notification)
         self.assertNotIn("steps.cadence.outputs.run == 'true'",notification)
         self.assertIn('cadence_refresh=${{ steps.cadence_refresh.outcome }}',notification)
+
+
+class ExternalTriggerTests(unittest.TestCase):
+    """An outside timer dispatches main.yml with trigger=external; it must be throttled."""
+    def setUp(self):
+        self.now = dt.datetime(2026, 11, 17, 12, tzinfo=dt.timezone.utc)
+
+    def stamp(self, minutes):
+        return (self.now - dt.timedelta(minutes=minutes)).isoformat()
+
+    def test_external_dispatch_is_throttled_like_a_schedule(self):
+        self.assertFalse(decide('workflow_dispatch', {'last_core_success_at': self.stamp(30)}, self.now, trigger='external')[0])
+        self.assertFalse(decide('workflow_dispatch', {'last_attempt_at': self.stamp(10)}, self.now, trigger='external')[0])
+
+    def test_external_dispatch_runs_when_due_or_heartbeat_missing(self):
+        self.assertTrue(decide('workflow_dispatch', {'last_core_success_at': self.stamp(56)}, self.now, trigger='external')[0])
+        self.assertTrue(decide('workflow_dispatch', {}, self.now, trigger='external')[0])
+        self.assertTrue(decide('workflow_dispatch', {'last_core_success_at': 'garbage'}, self.now, trigger='external')[0])
+
+    def test_manual_or_unknown_trigger_always_runs(self):
+        recent = {'last_core_success_at': self.stamp(5), 'last_attempt_at': self.stamp(2)}
+        for trigger in (None, '', 'manual', 'EXTERNAL', 'external ', 7, ['external']):
+            self.assertTrue(decide('workflow_dispatch', recent, self.now, trigger=trigger)[0], trigger)
+
+    def test_trigger_value_does_not_affect_other_events(self):
+        recent = {'last_core_success_at': self.stamp(5)}
+        self.assertFalse(decide('schedule', recent, self.now, trigger='manual')[0])
+        self.assertFalse(decide('workflow_run', recent, self.now, True, trigger='manual')[0])
+        self.assertTrue(decide('push', recent, self.now, trigger='external')[0])
+
+    def test_guard_cli_reads_the_dispatch_input_and_fails_open_on_malformed_payload(self):
+        import json, os, subprocess, sys, tempfile
+        root = pathlib.Path(__file__).resolve().parents[1]
+        recent = {'last_core_success_at': dt.datetime.now(dt.timezone.utc).isoformat()}
+        cases = [({'inputs': {'trigger': 'external'}}, 'false'), ({'inputs': {'trigger': 'manual'}}, 'true'),
+                 ({'inputs': 'external'}, 'true'), ({'inputs': ['external']}, 'true'), ({}, 'true')]
+        for payload, expected in cases:
+            with tempfile.TemporaryDirectory() as folder:
+                folder = pathlib.Path(folder)
+                (folder / 'scanner_runtime_state.json').write_text(json.dumps(recent))
+                (folder / 'event.json').write_text(json.dumps(payload))
+                out = folder / 'out.txt'
+                env = dict(os.environ, GITHUB_EVENT_NAME='workflow_dispatch', GITHUB_EVENT_PATH=str(folder / 'event.json'),
+                           GITHUB_OUTPUT=str(out), GITHUB_RUN_ID='1')
+                subprocess.run([sys.executable, str(root / 'scanner_cadence.py'), 'guard'], cwd=folder, env=env, check=True,
+                               capture_output=True, text=True)
+                self.assertIn('run=' + expected, out.read_text(), payload)
+
+    def test_workflow_declares_the_trigger_input(self):
+        text = (pathlib.Path(__file__).resolve().parents[1] / '.github/workflows/main.yml').read_text()
+        self.assertIn('inputs:\n      trigger:', text)

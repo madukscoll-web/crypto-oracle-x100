@@ -22,10 +22,17 @@ def age(value, now):
         return None
 
 
-def decide(event, state, now, trusted=False):
-    if event == 'workflow_dispatch':
+EXTERNAL = 'external'
+
+
+def decide(event, state, now, trusted=False, trigger=None):
+    """Run/skip decision. A dispatch carrying trigger='external' (an outside timer used
+    because GitHub skips cron slots) is throttled exactly like a scheduled run; any
+    other dispatch, including a missing or unknown trigger value, is a manual request
+    and always runs. The input can only reduce runs, never add them."""
+    if event == 'workflow_dispatch' and trigger != EXTERNAL:
         return True, 'explicitly requested scan'
-    if event == 'schedule':
+    if event in ('schedule', 'workflow_dispatch'):
         attempt = age(state.get('last_attempt_at'), now)
         success = age(state.get('last_core_success_at'), now)
         if attempt is not None and attempt < 1200:
@@ -111,7 +118,9 @@ def main():
                    source.get('head_branch') == 'main' and
                    (source.get('head_repository') or {}).get('full_name') == os.environ.get('GITHUB_REPOSITORY') and
                    source.get('event') in ('schedule', 'workflow_dispatch', 'push'))
-        run, reason = decide(os.environ.get('GITHUB_EVENT_NAME'), state, now, trusted)
+        inputs = event.get('inputs')
+        trigger = inputs.get('trigger') if isinstance(inputs, dict) else None
+        run, reason = decide(os.environ.get('GITHUB_EVENT_NAME'), state, now, trusted, trigger)
         report = {'run': run, 'reason': reason, 'checked_at': now.isoformat(),
                   'github_run_id':run_id,
                   'last_core_success_at': state.get('last_core_success_at'),
