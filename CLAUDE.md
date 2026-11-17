@@ -29,7 +29,7 @@ Telegram chat. Nothing here is investment advice, and **profitability is NOT EST
    CRITICAL SYSTEM FAILURE (only when the core scan did not succeed).
 
 ## Test before every PR
-`python -m unittest discover -s tests` (1058 tests on this branch; CI runs `test` and
+`python -m unittest discover -s tests` (1061 tests on this branch; CI runs `test` and
 `regression`). New behaviour needs tests, including failure and abuse cases; check a test
 can fail by temporarily breaking the code it guards.
 
@@ -72,6 +72,7 @@ per scan). #108 health report names the ATL asset. #109 outcome tracker waits ou
 Discovery headline now matches the pool: NEW TOKEN DISCOVERY only when the pool is NEW POOL (created within 72h); older or unknown pools say EXISTING POOL DISCOVERY and the plain-English block says it is not a new listing.
 #119 `gate_listings.py` + workflow `gate-listings.yml`: read-only snapshot of Gate Spot tradable USDT bases, printed in the job log (`GATE_BASES`, `GATE_CHECK`), so token screens can be filtered to what is buyable on Gate; no state file, no gate change.
 #120 `token_probe.py` + workflow `token-probe.yml`: read-only one-off probe of an EVM token contract (public RPC reads, GoPlus, DexScreener) printed as `PROBE` log lines; no keys, no orders, no gate change.
+Health report shows `Scan gap:` (hours between the previous completed scan and this one, from the cadence guard report; unknown if missing). It is the visible measure of how many cron slots GitHub skipped.
 Open: ATL missing-data PR (on-chain facts, Gate hourly low-day candles, "Checked / Needs a human / Not verified yet" message sections). The 4 items needing a human stay human: first-trade provenance, migration/split inventory, independent full history, circulating-supply vesting. Older open PRs #101, #100, #80, #58, #50, #48,
 #46, #45, #4 are the owner's; #101/#100 look superseded. Do not close or merge them
 without asking.
