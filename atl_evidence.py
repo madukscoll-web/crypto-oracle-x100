@@ -419,6 +419,33 @@ def format_research_html(d,compact=False):
     return '\n'.join(lines)
 
 
+REPEAT_COOLDOWN_DAYS=7
+REPEAT_DROP_PERCENT=10
+
+
+def repeat_guard(previous,low,now):
+    """Decide whether a fresh low for an already-alerted asset may be sent again.
+
+    Returns None (first alert for this asset), the previous record (repeat allowed:
+    the low fell a further REPEAT_DROP_PERCENT or the cooldown expired), or
+    'SUPPRESS'. A corrupt record suppresses rather than re-alerts (fail-closed).
+    """
+    if previous is None:
+        return None
+    try:
+        sent=dt.datetime.fromisoformat(str(previous['at']).replace('Z','+00:00'))
+        if sent.tzinfo is None:return 'SUPPRESS'
+        previous_low=Decimal(str(previous['low']));current_low=Decimal(str(low))
+        if previous_low<=0 or current_low<=0:return 'SUPPRESS'
+    except (KeyError,TypeError,ValueError,ArithmeticError):
+        return 'SUPPRESS'
+    if now-sent.timestamp()>=REPEAT_COOLDOWN_DAYS*86400:
+        return previous
+    if current_low<=previous_low*(1-Decimal(REPEAT_DROP_PERCENT)/100):
+        return previous
+    return 'SUPPRESS'
+
+
 def notify(dossiers,state,env,transport,*,now):
     """Up to three distinct unverified research messages/day, confirmed Bot API receipts.
 
@@ -469,6 +496,15 @@ def notify(dossiers,state,env,transport,*,now):
         fingerprint=d['evidence_fingerprint']
         if fingerprint in state.get('research_confirmed',{}):
             decision['status']='UNCHANGED_CONFIRMED_CONDITION';continue
+        # A coin in a steady decline sets a slightly lower provider low every day or
+        # two, which changes the fingerprint. Re-alert the same asset only after a
+        # further material drop or a full cooldown, so one falling coin cannot
+        # monopolise the feed. This only suppresses repeats; it never admits an alert.
+        asset_id=str(d['asset'].get('provider_id'))
+        previous=repeat_guard(state.get('research_last_by_asset',{}).get(asset_id),d['provider_low_usd'],now)
+        if previous=='SUPPRESS':
+            decision.update(status='REPEAT_COOLDOWN',reason='Same asset alerted within '+str(REPEAT_COOLDOWN_DAYS)
+                            +' days and the low has not fallen a further '+str(REPEAT_DROP_PERCENT)+'%');continue
         token,chat=(env.get(k,'').strip() for k in ('TELEGRAM_BOT_TOKEN','TELEGRAM_CHAT_ID'))
         if not token or not chat:
             delivery['status']='TRANSPORT_NOT_CONFIGURED';decision['status']=delivery['status'];return delivery
@@ -485,6 +521,10 @@ def notify(dossiers,state,env,transport,*,now):
             message=format_research_html(d)
             if len(message.encode('utf-16-le'))//2>3900:
                 message=format_research_html(d,compact=True)   # drop the plain-English block rather than lose the alert
+            if previous is not None:
+                message+=('\n\n🔁 <b>Repeat alert:</b> last sent '+html.escape(str(previous['at'])[:10])+' when the low was $'
+                          +html.escape(str(previous['low']))+'. The low has since fallen a further '+str(REPEAT_DROP_PERCENT)
+                          +'%+ or '+str(REPEAT_COOLDOWN_DAYS)+' days have passed.')
             if len(message.encode('utf-16-le'))//2>3900:raise ValueError('Research message too long')
             receipt=transport(token,'sendMessage',{'chat_id':chat,'text':message,'parse_mode':'HTML','disable_web_page_preview':'true'})
             if not confirmed(receipt,str(destination)):raise ValueError('Delivery not confirmed')
@@ -492,6 +532,9 @@ def notify(dossiers,state,env,transport,*,now):
             state.setdefault('research_confirmed',{})[fingerprint]=dict(at=dt.datetime.fromtimestamp(now,dt.timezone.utc).isoformat(),message_id=receipt['result']['message_id'])
             # Bound state without forgetting recent confirmed conditions.
             state['research_confirmed']=dict(list(state['research_confirmed'].items())[-200:])
+            state.setdefault('research_last_by_asset',{})[asset_id]=dict(
+                at=dt.datetime.fromtimestamp(now,dt.timezone.utc).isoformat(),low=str(d['provider_low_usd']))
+            state['research_last_by_asset']=dict(list(state['research_last_by_asset'].items())[-200:])
             delivery.update(delivered=1,status='BOT_API_CONFIRMED',message_id=receipt['result']['message_id'])
             decision.update(status='BOT_API_CONFIRMED',message_id=receipt['result']['message_id'])
             return delivery
