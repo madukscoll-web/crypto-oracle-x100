@@ -90,7 +90,7 @@ def slice_verdict(signal_returns, baseline_returns_, variants):
     mean_s, var_s = _mean_var(signal_returns)
     mean_b, var_b = _mean_var(baseline_returns_)
     error = math.sqrt(var_s / n + var_b / effective)
-    if error == 0:
+    if error < 1e-12:  # floating-point dust counts as no variation
         return 'INSUFFICIENT SAMPLE: no variation in returns; no conclusion', None
     z = (mean_s - mean_b) / error
     bar = Z95 + 0.5 * math.log(max(variants, 1))
