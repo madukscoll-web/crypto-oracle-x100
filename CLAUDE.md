@@ -29,13 +29,15 @@ Telegram chat. Nothing here is investment advice, and **profitability is NOT EST
    CRITICAL SYSTEM FAILURE (only when the core scan did not succeed).
 
 ## Test before every PR
-`python -m unittest discover -s tests` (1062 tests on this branch; CI runs `test` and
+`python -m unittest discover -s tests` (1095 tests on this branch; CI runs `test` and
 `regression`). New behaviour needs tests, including failure and abuse cases; check a test
 can fail by temporarily breaking the code it guards.
 
 ## Where things are
 - `.github/workflows/main.yml`: scanner (cron `7,27,47 * * * *`, push and workflow_run
   triggers, cadence guard, scanner step limit 15 min, state published as git blobs).
+  An outside timer may start it with `workflow_dispatch` input `trigger=external`; the guard throttles that like a
+  scheduled run (a plain manual dispatch always runs). Never point a timer at it without `trigger=external`.
 - `crypto_oracle_scanner.py`: discovery, per-candidate `enrich()`, research alerts.
   `oracle_http.py` has per-host 429 cooldowns; `_fetch_waiting` waits out one cooldown of
   at most 75s within a per-stage budget (discovery 180s, enrichment 150s, revisit 90s).
@@ -70,7 +72,8 @@ per scan). #108 health report names the ATL asset. #109 outcome tracker waits ou
 Discovery headline now matches the pool: NEW TOKEN DISCOVERY only when the pool is NEW POOL (created within 72h); older or unknown pools say EXISTING POOL DISCOVERY and the plain-English block says it is not a new listing.
 #119 `gate_listings.py` + workflow `gate-listings.yml`: read-only snapshot of Gate Spot tradable USDT bases, printed in the job log (`GATE_BASES`, `GATE_CHECK`), so token screens can be filtered to what is buyable on Gate; no state file, no gate change.
 #120 `token_probe.py` + workflow `token-probe.yml`: read-only one-off probe of an EVM token contract (public RPC reads, GoPlus, DexScreener) printed as `PROBE` log lines; no keys, no orders, no gate change.
-`reversal_backtest_report.py` + workflow `reversal-backtest.yml`: read-only fee-adjusted walk-forward of the Gate reversal rule on 10 pairs (1h, 4h) with an enter-every-window baseline; signals closer than one horizon count once; under 30 independent signals it says INSUFFICIENT SAMPLE. Output is `BACKTEST` log lines; no state, no gate change.
+`reversal_backtest_report.py` + workflow `reversal-backtest.yml`: read-only fee-adjusted walk-forward of the Gate reversal rule on 10 pairs (1h, 4h) with an enter-every-window baseline; signals closer than one horizon count once; under 30 independent signals it says INSUFFICIENT SAMPLE. It also splits results by BTC regime (FALLING/SIDEWAYS/RISING from a fixed 24-bar +-3% rule, not tuned), prints `variants_tested` (every pooled test and slice counts) and raises the significance bar with that count. Output is `BACKTEST` log lines; no state, no gate change.
+Health report shows `Scan gap:` (hours between the previous completed scan and this one, from the cadence guard report; unknown if missing). It is the visible measure of how many cron slots GitHub skipped.
 Open: ATL missing-data PR (on-chain facts, Gate hourly low-day candles, "Checked / Needs a human / Not verified yet" message sections). The 4 items needing a human stay human: first-trade provenance, migration/split inventory, independent full history, circulating-supply vesting. Older open PRs #101, #100, #80, #58, #50, #48,
 #46, #45, #4 are the owner's; #101/#100 look superseded. Do not close or merge them
 without asking.
@@ -87,7 +90,9 @@ observed), which is outside this repo's control.
 1. Check the next scans: look for `Pattern study` lines (outcomes measured/200) and `owner_control` in the Filter audit.
 2. Extend Token-2022 or owner_control policy only after review.
 3. Done in the open PR: on-chain owner and proxy reads for tokens GoPlus has not seen.
-4. If rate limits still starve scans, move price refreshes to DexScreener (free, larger quota).
+4. Price refreshes now go to DexScreener first (`dexscreener_prices.py`, used by `signal_revisit` and
+   `pattern_lab` via `fetch_reprice`); pools DexScreener omits are re-asked from GeckoTerminal, never marked
+   vanished. Check the `Reprice sources:` log line. Next: consider DexScreener for enrichment too.
 5. Let outcome data accumulate (weeks), then test which filters separate winners from losers.
 6. Paid provider keys (e.g. Alchemy, Helius) only if free sources prove insufficient, as
    GitHub secrets set by the owner.

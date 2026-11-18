@@ -126,7 +126,8 @@ def workflow_message(mode):
             return {}
     return health_summary(report, optional('altcoin_reversal_report.json'),
         optional('pipeline_health_report.json'), optional('atl_coverage_report.json'),
-        optional('strategy_lab_state.json'), optional('technical_followup_state.json'),run_url)
+        optional('strategy_lab_state.json'), optional('technical_followup_state.json'),run_url,
+        optional('scanner_cadence_report.json'))
 
 
 # Fixed plain-language categories for audit blockers. Only these phrases (never raw
@@ -174,7 +175,18 @@ def pattern_lines(study):
             +' measured. '+text+'.']
 
 
-def health_summary(report,reversal,health,atl,paper,followup,run_url):
+def scan_gap_line(cadence):
+    """Hours between the previous completed core scan and this scan's start. Only a finite
+    non-negative number from the cadence guard is shown; anything else is 'unknown'."""
+    seconds=cadence.get('core_success_age_seconds') if isinstance(cadence,dict) else None
+    if isinstance(seconds,bool) or not isinstance(seconds,(int,float)) or not 0<=seconds<=10**8 or seconds!=seconds:
+        return 'Scan gap: unknown (no previous completed scan recorded).'
+    hours=seconds/3600
+    note=' Scans are running less often than planned.' if hours>2 else ''
+    return 'Scan gap: previous completed scan was '+format(hours,'.1f')+' h before this one.'+note
+
+
+def health_summary(report,reversal,health,atl,paper,followup,run_url,cadence=None):
     """Counts only. Raw arrays, addresses and diagnostics never enter Telegram."""
     def number(value):
         return str(value) if type(value) is int and 0<=value<=10**12 else 'unknown'
@@ -221,6 +233,7 @@ def health_summary(report,reversal,health,atl,paper,followup,run_url):
         '',
         '🩺 STATUS',
         'Execution: '+axes[0]+' | Coverage: '+axes[1]+' | Admission: '+axes[2],
+        scan_gap_line(cadence),
         '',
         '🔎 DISCOVERY',
         'Discovery: '+metric(report,'candidates')+' candidates; '+metric(audit,'assessed_candidates')+' assessed; '+metric(audit,'discovery_pools_not_selected')+' deferred.',

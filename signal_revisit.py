@@ -174,6 +174,8 @@ def revisit(history, fetch, now, state, *, max_batches=MAX_BATCHES_PER_RUN):
                 continue
             item = {"key": key, "network": network, "token_address": history[key][0]["token_address"],
                     "observed_at": stamp, "base_token_price_usd": price, "entry_pattern": "REVISIT"}
+            if attrs.get("price_source") == "dexscreener":
+                item["price_source"] = "DexScreener indicative pair price"
             if signal_tracker.record(history, item):
                 report["priced"] += 1
     return report

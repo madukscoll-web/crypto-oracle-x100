@@ -98,3 +98,91 @@ class EndToEndTests(unittest.TestCase):
         self.assertIn('contents: read', text)
         self.assertNotIn('schedule:', text)
         self.assertNotIn('secrets.', text)
+
+
+def btc(closes):
+    return [dict(timestamp=1700000000 + i * H, open=c, close=c, high=c, low=c, volume=1, closed=True)
+            for i, c in enumerate(closes)]
+
+
+class RegimeTests(unittest.TestCase):
+    def test_labels_follow_btc_trend_with_fixed_thresholds(self):
+        falling = rb.regime_map(btc([100.0] * 24 + [96.0]))
+        rising = rb.regime_map(btc([100.0] * 24 + [104.0]))
+        flat = rb.regime_map(btc([100.0] * 24 + [101.0]))
+        t = 1700000000 + 24 * H
+        self.assertEqual((falling[t], rising[t], flat[t]), ('FALLING', 'RISING', 'SIDEWAYS'))
+        self.assertEqual(rb.regime_map(btc([100.0] * 10)), {})
+
+    def test_a_label_never_uses_later_candles(self):
+        base = [100.0] * 24 + [96.0, 90.0, 80.0]
+        changed = base[:25] + [200.0, 300.0]
+        a, b = rb.regime_map(btc(base)), rb.regime_map(btc(changed))
+        self.assertEqual(a[1700000000 + 24 * H], b[1700000000 + 24 * H])
+
+    def test_baseline_points_share_the_signal_time_convention(self):
+        c = candles(80)
+        points = rb.baseline_points(c)
+        self.assertEqual(points[0][0], c[rb.WARMUP - 1]['timestamp'])
+        self.assertEqual([r for _, r in points], rb.baseline_returns(c))
+
+
+class SliceVerdictTests(unittest.TestCase):
+    def test_small_or_degenerate_samples_make_no_claim(self):
+        self.assertTrue(rb.slice_verdict([0.1] * 10, [0.0] * 500, 8)[0].startswith('INSUFFICIENT SAMPLE: 10'))
+        self.assertTrue(rb.slice_verdict([0.1] * 40, [0.0] * 5, 8)[0].startswith('INSUFFICIENT BASELINE'))
+        self.assertTrue(rb.slice_verdict([0.1] * 40, [0.1] * 500, 8)[0].startswith('INSUFFICIENT SAMPLE: no variation'))
+
+    def test_clear_edge_and_clear_loss_are_named_after_correction(self):
+        good = [0.05 + 0.001 * (i % 5) for i in range(60)]
+        bad = [-0.05 - 0.001 * (i % 5) for i in range(60)]
+        base = [0.0 + 0.001 * (i % 7) for i in range(1000)]
+        self.assertTrue(rb.slice_verdict(good, base, 8)[0].startswith('EDGE vs baseline after correcting for 8 variants'))
+        self.assertTrue(rb.slice_verdict(bad, base, 8)[0].startswith('WORSE than baseline'))
+
+    def test_noise_is_not_an_edge_and_more_variants_raise_the_bar(self):
+        base = [0.001 * ((i * 7) % 11 - 5) for i in range(1000)]
+        noise = [0.001 * ((i * 3) % 11 - 5) + 0.0005 for i in range(40)]
+        self.assertIn('NO MEASURABLE EDGE', rb.slice_verdict(noise, base, 8)[0])
+        edge = [0.002 * ((i * 3) % 11 - 5) + 0.0035 for i in range(40)]
+        few, many = rb.slice_verdict(edge, base, 1), rb.slice_verdict(edge, base, 5000)
+        self.assertTrue(few[0].startswith('EDGE'))
+        self.assertIn('NO MEASURABLE EDGE', many[0])
+        self.assertEqual(few[1], many[1])
+
+
+class RegimeReportTests(unittest.TestCase):
+    def result(self):
+        c = candles(80)
+        return dict(results=[row('P%d_USDT' % i, [0.05] * 12, c) for i in range(3)])
+
+    def test_regime_slices_are_reported_with_the_variant_count(self):
+        ref = btc([100.0] * 30 + [95.0] * 20 + [100.0] * 30)
+        out = rb.summarise(self.result(), '1h', ref, 8)
+        self.assertEqual(out['variants_tested'], 8)
+        self.assertEqual(out['regime_status'], 'OK')
+        self.assertEqual(set(out['regimes']), set(rb.REGIMES))
+        self.assertIn('fixed in advance', out['regime_definition'])
+        self.assertTrue(all(v['verdict'] for v in out['regimes'].values()))
+
+    def test_missing_reference_gives_unavailable_regimes_not_a_crash(self):
+        for ref in (None, [], btc([100.0] * 5)):
+            out = rb.summarise(self.result(), '1h', ref, 8)
+            self.assertIsNone(out['regimes'])
+            self.assertTrue(out['regime_status'].startswith('UNAVAILABLE'))
+            self.assertIn('pooled_test', out)
+
+    def test_report_counts_every_pooled_test_and_regime_slice_as_a_variant(self):
+        out = rb.report(('LINK_USDT',), ('1h', '4h'), fetch=fake_fetch, now=1700000000 + 101 * H)
+        self.assertTrue(all(o['variants_tested'] == 8 for o in out))
+        self.assertTrue(all(o['regime_status'] == 'OK' for o in out))
+
+    def test_reference_fetch_failure_does_not_stop_the_report(self):
+        def flaky(url):
+            if 'BTC_USDT' in url and 'candlesticks' in url:
+                raise OSError('boom')
+            return fake_fetch(url)
+        out = rb.report(('LINK_USDT',), ('1h',), fetch=flaky, now=1700000000 + 101 * H)
+        self.assertTrue(out[0]['regime_status'].startswith('UNAVAILABLE'))
+        self.assertEqual(out[0]['pairs'][0]['pair'], 'LINK_USDT')
+
