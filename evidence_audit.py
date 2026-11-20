@@ -3,6 +3,7 @@
 No missing field can become a pass. This is deliberately not a contract audit,
 execution simulator, or authorization to buy.
 """
+import identity_sources
 import math
 import adverse_evidence
 
@@ -12,8 +13,7 @@ def audit(item):
     admission = authenticated_admission.evaluate(item)
     checks = {}
     checks["token_identity"] = "PASS" if (
-        item.get("token_identity_status") ==
-        "Base token from GeckoTerminal pool relationship" and
+        identity_sources.identity_verified(item) and
         item.get("token_address") not in (None, "", "UNVERIFIED")
     ) else "UNKNOWN"
     checks["provider_risk"] = (

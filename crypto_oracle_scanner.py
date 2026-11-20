@@ -4,6 +4,7 @@ No contract audit, token inception date, price forecast, or calibrated return
 probability is inferred from pool-level GeckoTerminal market data.
 """
 
+import identity_sources
 import datetime as dt
 import copy
 import json
@@ -663,8 +664,7 @@ def decision_summary(item):
     # A BUY CANDIDATE is permitted only after independent verification.
     # These fields are not inferred from activity scores or missing API data.
     if (risk == "RESEARCH CANDIDATE — LIMITED CHECKS"
-            and item.get("token_identity_status") ==
-                "Base token from GeckoTerminal pool relationship"
+            and identity_sources.identity_verified(item)
             and item.get("sellability_verified") is True
             and item.get("liquidity_lock_verified") is True
             and item.get("holder_distribution_verified") is True

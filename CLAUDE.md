@@ -29,7 +29,7 @@ Telegram chat. Nothing here is investment advice, and **profitability is NOT EST
    CRITICAL SYSTEM FAILURE (only when the core scan did not succeed).
 
 ## Test before every PR
-`python -m unittest discover -s tests` (1075 tests on this branch; CI runs `test` and
+`python -m unittest discover -s tests` (1084 tests on this branch; CI runs `test` and
 `regression`). New behaviour needs tests, including failure and abuse cases; check a test
 can fail by temporarily breaking the code it guards.
 
@@ -44,6 +44,8 @@ can fail by temporarily breaking the code it guards.
 - `hourly_evidence.py`, `verification.py`, `onchain.py` (eth/base/bsc RPC; `owner_control` reads owner() and EIP-1967 proxy slots, withhold-only),
   `solana_evidence.py` (legacy SPL and policy-checked Token-2022 mints), `evidence_coverage.py`: safety evidence.
   **No token identity means every check is skipped**, so identity failures cascade.
+  `enrich()` asks DexScreener for the exact pool first (`dexscreener_prices.pool_payload`), GeckoTerminal as fallback.
+  Gates accept identity only via `identity_sources.VERIFIED_IDENTITY_STATUSES` (GeckoTerminal or DexScreener pool relationship).
 - `atl_hourly_research.py`, `atl_evidence.py`, `atl_lifetime.py`, `gate_history.py`, `atl_onchain.py`
   (exact-contract on-chain facts: code/mint exists, supply, authorities, owner/proxy; withhold-only):
   all-time-low pipeline. `atl_lifetime_registry.json` is empty, so no ATL can be verified.

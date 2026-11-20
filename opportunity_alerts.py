@@ -3,6 +3,7 @@
 INELIGIBLE is internal/silent. ENTRY WATCH is a watch subtype, never a BUY.
 The original independent audit and decision gate exclusively control VERIFIED BUY.
 """
+import identity_sources
 from telegram_receipts import confirmed as receipt_confirmed
 import copy
 import datetime as dt
@@ -98,7 +99,7 @@ def classify(item,config=None,now=None):
     try:
         token=item['token_address'];network=item['network'];chain=verification.CHAINS[network]
         if not re.fullmatch('0x[0-9a-fA-F]{40}',token):raise ValueError('Exact EVM contract unavailable')
-        if item.get('token_identity_status')!='Base token from GeckoTerminal pool relationship':raise ValueError('Independent pool/token relationship unavailable')
+        if not identity_sources.identity_verified(item):raise ValueError('Independent pool/token relationship unavailable')
         if not fresh(item.get('observed_at'),now,config['maximum_market_age_seconds']):raise ValueError('Market data stale, future-dated or UNKNOWN')
         corroboration=item.get('market_corroboration',{})
         if corroboration.get('status')!='CORROBORATED' or not fresh(corroboration.get('observed_at'),now,config['maximum_market_age_seconds']):raise ValueError('Fresh independent market corroboration unavailable')
