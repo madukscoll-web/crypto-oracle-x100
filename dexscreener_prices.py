@@ -113,3 +113,66 @@ def make_fetch(dex_fetch, gecko_fetch, report=None):
         return {"data": data}
 
     return fetch
+
+
+def _count(value):
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return int(number) if math.isfinite(number) and number >= 0 and number.is_integer() else None
+
+
+def _finite(value):
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return number if math.isfinite(number) else None
+
+
+def pool_payload(network, address, dex_fetch):
+    """One pool as a GeckoTerminal-shaped payload (with included tokens) from DexScreener.
+
+    Used for per-candidate identity so GeckoTerminal rate limits stop leaving tokens
+    UNVERIFIED. Returns None when DexScreener cannot prove the exact requested pool
+    on the exact chain with both token addresses; the caller then asks GeckoTerminal.
+    """
+    if network not in CHAINS or not address:
+        return None
+    try:
+        payload = dex_fetch(f"{DEX}/{CHAINS[network]}/{address}")
+    except (OSError, ValueError, TypeError):
+        return None
+    pairs = payload.get("pairs") if isinstance(payload, dict) else None
+    if not isinstance(pairs, list):
+        return None
+    for pair in pairs:
+        if not isinstance(pair, dict) or pair.get("chainId") != CHAINS[network]:
+            continue
+        if _norm(network, str(pair.get("pairAddress") or "")) != _norm(network, address):
+            continue
+        base, quote = pair.get("baseToken") or {}, pair.get("quoteToken") or {}
+        if not base.get("address") or not quote.get("address"):
+            return None
+        txns = (pair.get("txns") or {}).get("h1") or {}
+        changes = pair.get("priceChange") or {}
+        price = _positive(pair.get("priceUsd"))
+        liquidity = _positive((pair.get("liquidity") or {}).get("usd"))
+        volume = _finite((pair.get("volume") or {}).get("h24"))
+        base_id, quote_id = network + "_" + str(base["address"]), network + "_" + str(quote["address"])
+        return {
+            "data": {"attributes": {
+                "address": address,
+                "base_token_price_usd": None if price is None else str(price),
+                "reserve_in_usd": None if liquidity is None else str(liquidity),
+                "volume_usd": {"h24": None if volume is None or volume < 0 else str(volume)},
+                "transactions": {"h1": {"buys": _count(txns.get("buys")), "sells": _count(txns.get("sells"))}},
+                "price_change_percentage": {"h1": _finite(changes.get("h1")), "h24": _finite(changes.get("h24"))},
+                "price_source": "dexscreener"},
+                "relationships": {"base_token": {"data": {"id": base_id}}, "quote_token": {"data": {"id": quote_id}}}},
+            "included": [
+                {"type": "token", "id": base_id, "attributes": {"address": str(base["address"]), "symbol": base.get("symbol") or "UNKNOWN"}},
+                {"type": "token", "id": quote_id, "attributes": {"address": str(quote["address"]), "symbol": quote.get("symbol") or "UNKNOWN"}}],
+        }
+    return None

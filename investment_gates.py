@@ -1,4 +1,5 @@
 """Source-aware, fail-closed research assessments; never authorizes an order."""
+import identity_sources
 import datetime as dt
 import math
 import os
@@ -40,7 +41,7 @@ def assess(item, now=None):
         risk = "AVOID / HIGH CONCERN"
     if risk == "AVOID / HIGH CONCERN":
         blockers.append("Critical provider security flag: independently investigate")
-    if item.get("token_identity_status") != "Base token from GeckoTerminal pool relationship":
+    if not identity_sources.identity_verified(item):
         blockers.append("Exact base-token identity unverified")
     if not str(item.get("security_source") or "").startswith("GoPlus token_security API"):
         blockers.append("Provider security assessment unavailable")

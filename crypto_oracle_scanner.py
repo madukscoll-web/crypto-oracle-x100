@@ -4,6 +4,7 @@ No contract audit, token inception date, price forecast, or calibrated return
 probability is inferred from pool-level GeckoTerminal market data.
 """
 
+import identity_sources
 import datetime as dt
 import copy
 import json
@@ -382,7 +383,7 @@ def risk_gate_unavailable(reason):
     return "WAIT / VERIFY", [reason]
 
 
-def enrich(item, fetch=None, delay=None):
+def enrich(item, fetch=None, delay=None, pool_source=None):
     """Best-effort token identification; never suppress an alert on API failure."""
     item.update(token_address="UNVERIFIED", token_symbol="UNVERIFIED",
                 previous_pools="UNKNOWN", security_source="NOT CHECKED",
@@ -409,9 +410,14 @@ def enrich(item, fetch=None, delay=None):
         if cached:
             payload, pool_observed_at, pool_source_url = cached
         else:
-            payload = fetch(pool_url)
+            # DexScreener first (separate free quota) so GeckoTerminal 429s stop leaving
+            # tokens UNVERIFIED; GeckoTerminal answers whenever DexScreener cannot prove the pool.
+            payload = pool_source(network, item["address"]) if pool_source else None
+            pool_source_url = (f"{dexscreener_prices.DEX}/{dexscreener_prices.CHAINS[network]}/{item['address']}"
+                               if payload else pool_url)
+            if payload is None:
+                payload = fetch(pool_url)
             pool_observed_at = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
-            pool_source_url = pool_url
         returned_pool = ((payload.get("data") or {}).get("attributes") or {}).get("address")
         if not fundamental_evidence.same_address(network, returned_pool, item["address"]):
             item["token_identity_status"] = "UNVERIFIED (returned pool identity mismatch)"
@@ -440,9 +446,10 @@ def enrich(item, fetch=None, delay=None):
         item["observed_at"] = pool_observed_at
         item["market_source_url"] = pool_source_url
         item["market_snapshot_reused"] = bool(cached)
+        provider = "DexScreener" if attrs.get("price_source") == "dexscreener" else "GeckoTerminal"
         item["price_source"] = (
-            "GeckoTerminal pool base_token_price_usd at recorded observation time; indicative only"
-            if item["base_token_price_usd"] else "GeckoTerminal refresh did not return a valid price"
+            f"{provider} pool base_token_price_usd at recorded observation time; indicative only"
+            if item["base_token_price_usd"] else f"{provider} refresh did not return a valid price"
         )
         address, symbol = _relationship_token(payload, "base_token")
         if not address:
@@ -451,7 +458,7 @@ def enrich(item, fetch=None, delay=None):
         item["token_address"] = address
         item["quote_token_address"] = _relationship_token(payload, "quote_token")[0]
         item["token_symbol"] = symbol
-        item["token_identity_status"] = "Base token from GeckoTerminal pool relationship"
+        item["token_identity_status"] = f"Base token from {provider} pool relationship"
     except (urllib.error.URLError, ValueError, KeyError, TypeError, AttributeError, TimeoutError, OSError) as exc:
         print(f"Enrichment identity unavailable for {item['key']}: {type(exc).__name__}", flush=True)
         return item
@@ -657,8 +664,7 @@ def decision_summary(item):
     # A BUY CANDIDATE is permitted only after independent verification.
     # These fields are not inferred from activity scores or missing API data.
     if (risk == "RESEARCH CANDIDATE — LIMITED CHECKS"
-            and item.get("token_identity_status") ==
-                "Base token from GeckoTerminal pool relationship"
+            and identity_sources.identity_verified(item)
             and item.get("sellability_verified") is True
             and item.get("liquidity_lock_verified") is True
             and item.get("holder_distribution_verified") is True
@@ -1241,7 +1247,7 @@ def main():
                   "articles": [], "optional_providers": {}})
     hourly_collector = hourly_evidence.HourlyEvidence(max_candidates=EVIDENCE_SLOTS)
     for item in selected:
-        enrich(item)
+        enrich(item, pool_source=lambda network, address: dexscreener_prices.pool_payload(network, address, fetch_dexscreener))
         item["fundamental_evidence"] = fundamental_evidence.collect(item, lambda url: get_json(url, headers=HEADERS, retries=0, timeout=5))
         news_context.attach(item.get("project_context"), news_feed)
         item["research_records"], item["research_record_status"] = research_records.load_for(item)
