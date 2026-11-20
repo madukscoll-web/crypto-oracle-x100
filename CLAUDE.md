@@ -29,7 +29,7 @@ Telegram chat. Nothing here is investment advice, and **profitability is NOT EST
    CRITICAL SYSTEM FAILURE (only when the core scan did not succeed).
 
 ## Test before every PR
-`python -m unittest discover -s tests` (1075 tests on this branch; CI runs `test` and
+`python -m unittest discover -s tests` (1078 tests on this branch; CI runs `test` and
 `regression`). New behaviour needs tests, including failure and abuse cases; check a test
 can fail by temporarily breaking the code it guards.
 
@@ -56,6 +56,7 @@ can fail by temporarily breaking the code it guards.
   holds on a time-ordered held-out split with a CI and multiple-comparison correction; below 200 measured
   outcomes it says INSUFFICIENT SAMPLE. It shows no score and never loosens a gate. Next step once a pattern is
   validated: show it as research context only, never as an approval.
+- `technical_followup.invalidation_text`: plain-English INVALIDATED SETUP message (WAT + UTC times, keeps the no-fill disclaimer).
 - `technical_watch.py`: Gate spot reversal alerts. `telegram_notify.py`: health and
   failure messages. `research_notice.py`: signed notice envelope and labels.
 - State is committed by the bot as "Update scanner research state [skip ci]".
