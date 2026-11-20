@@ -2,7 +2,7 @@
 
 Research only. No BUY approval, orders or assumed fills.
 
-Observed UTC: 2026-11-20T19:30:16.433792+00:00
+Observed UTC: 2026-11-20T20:59:08.589441+00:00
 
 ## NEAR_USDT | 1w
 
@@ -24,7 +24,7 @@ Use/value: NEAR pays transaction fees, covers on-chain storage and supports vali
 Token value capture: Storage balances are locked while data remains; delegated staking can earn rewards. Holding alone does not guarantee project profit sharing.
 Supply circ/max: UNKNOWN/UNKNOWN; FDV/cap: UNKNOWN [UNKNOWN].
 Unlocks 30/90/365d, founder vesting, paying users and revenue: UNKNOWN.
-Context retrieved UTC: 2026-11-20T19:30:00.543390+00:00
+Context retrieved UTC: 2026-11-20T20:59:05.167264+00:00
 NEWS: IDENTITY_OR_FEED_UNAVAILABLE (not safety or an entry signal).
 Coverage is limited; absence of a match is not a clean news check.
 
@@ -38,8 +38,8 @@ Coverage is limited; absence of a match is not a clean news check.
 
 ### Source observations
 
-- https://api.gateio.ws/api/v4/spot/currency_pairs/NEAR_USDT | retrieved 2026-11-20T19:29:59.723730+00:00 | raw SHA-256 c9bb2b5bbbd57aef17f0f342f01b26acc1ee00d64bcb0dacb8af9d25aafb3425
-- https://api.gateio.ws/api/v4/spot/candlesticks?currency_pair=NEAR_USDT&interval=7d&limit=1000 | retrieved 2026-11-20T19:30:00.281966+00:00 | raw SHA-256 68f2625e7d725d565d69d09c6ba92b57f29eea31691a1ba055905f63dfa95811
+- https://api.gateio.ws/api/v4/spot/currency_pairs/NEAR_USDT | retrieved 2026-11-20T20:59:01.037121+00:00 | raw SHA-256 c9bb2b5bbbd57aef17f0f342f01b26acc1ee00d64bcb0dacb8af9d25aafb3425
+- https://api.gateio.ws/api/v4/spot/candlesticks?currency_pair=NEAR_USDT&interval=7d&limit=1000 | retrieved 2026-11-20T20:59:01.767027+00:00 | raw SHA-256 f6e379328ab2c268eda4568b574ff0de49865578e3cf299bddd626514949f049
 
 Raw candles, project context and screening observations remain in the accompanying JSON reports.
 
