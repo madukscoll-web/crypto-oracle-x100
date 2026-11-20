@@ -29,7 +29,7 @@ Telegram chat. Nothing here is investment advice, and **profitability is NOT EST
    CRITICAL SYSTEM FAILURE (only when the core scan did not succeed).
 
 ## Test before every PR
-`python -m unittest discover -s tests` (1075 tests on this branch; CI runs `test` and
+`python -m unittest discover -s tests` (1083 tests on this branch; CI runs `test` and
 `regression`). New behaviour needs tests, including failure and abuse cases; check a test
 can fail by temporarily breaking the code it guards.
 
@@ -38,6 +38,9 @@ can fail by temporarily breaking the code it guards.
   triggers, cadence guard, scanner step limit 15 min, state published as git blobs).
   An outside timer may start it with `workflow_dispatch` input `trigger=external`; the guard throttles that like a
   scheduled run (a plain manual dispatch always runs). Never point a timer at it without `trigger=external`.
+- `.github/workflows/keepalive.yml` + `keepalive.py`: that outside timer. One long job dispatches the scanner with
+  `trigger=external` every 20 min for ~340 min, then dispatches a fresh copy of itself; cron `41 */3` restarts a
+  broken chain. `actions: write` via GITHUB_TOKEN only. Check `Keep-alive:` lines and the health report `Scan gap:`.
 - `crypto_oracle_scanner.py`: discovery, per-candidate `enrich()`, research alerts.
   `oracle_http.py` has per-host 429 cooldowns; `_fetch_waiting` waits out one cooldown of
   at most 75s within a per-stage budget (discovery 180s, enrichment 150s, revisit 90s).

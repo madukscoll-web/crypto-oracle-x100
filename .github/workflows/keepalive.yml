@@ -1,0 +1,32 @@
+name: Scanner keep-alive (reliable hourly clock)
+
+# GitHub drops most of the scanner's own cron events. This one long-running job
+# dispatches the scanner with trigger=external every 20 minutes (the cadence guard
+# throttles it to hourly scans), then renews itself before its time limit.
+on:
+  workflow_dispatch:
+  schedule:
+    # Sparse backup: restarts the loop if the self-renewal chain ever breaks.
+    - cron: '41 */3 * * *'
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: scanner-keepalive
+  cancel-in-progress: false
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - name: Download repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Dispatch the scanner every 20 minutes, then renew this loop
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 keepalive.py
