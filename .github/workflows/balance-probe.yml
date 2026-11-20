@@ -1,0 +1,20 @@
+name: Balance probe (read-only research)
+on:
+  push:
+    branches: ['claude/con-balances']
+    paths: ['balance_probe.py', '.github/workflows/balance-probe.yml']
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Read balances (no keys, no orders)
+        run: python balance_probe.py 0x7ad1a8fc42ac150b04ded5825d21a0c90b6d28d8 0xaf24b07427be0e0d49f3cd117202bfe121cadaa5 0x46bca9fcf2f372e76d9ae265da725b222f5ac2e0 0x000000000004444c5dc75cB358380D2e3dE08A90
