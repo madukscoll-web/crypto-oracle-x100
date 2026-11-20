@@ -186,6 +186,42 @@ def collect(receipts, state, fetch, now=None, allowed=()):
     return report
 
 
+WAT = dt.timezone(dt.timedelta(hours=1))
+
+
+def _when(value):
+    """'19 Nov 2026, 11:38 WAT (10:38 UTC)' from an ISO time; the raw value if unparseable."""
+    try:
+        moment = dt.datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+        if moment.tzinfo is None:
+            raise ValueError
+    except (TypeError, ValueError):
+        return str(value)
+    utc, local = moment.astimezone(dt.timezone.utc), moment.astimezone(WAT)
+    return f"{local:%d %b %Y, %H:%M} WAT ({utc:%H:%M} UTC)"
+
+
+def invalidation_text(row, book, sample):
+    """Plain-English cancellation of an earlier reversal watch (first line = exact label)."""
+    pair, alert = row['pair'], row['alert']
+    coin = pair.split('_')[0]
+    return ('INVALIDATED SETUP\n'
+            '🧭 In Plain English\n'
+            f"The {coin} reversal watch sent on {_when(alert['delivered_at']).split(',')[0]} is cancelled. "
+            f"The price fell to {book['best_bid']} USDT, below the {alert['invalidation']} USDT level that "
+            'proves the idea wrong. The bot bought nothing and nothing is required from you.\n\n'
+            '📊 Details\n'
+            f"• Pair: {pair} on Gate Spot ({alert['interval']} chart)\n"
+            f"• Watch first sent: {_when(alert['delivered_at'])}\n"
+            f"• Cancel level (invalidation): {alert['invalidation']} USDT\n"
+            f"• Best buyer price now (best bid): {book['best_bid']} USDT\n"
+            f"• Checked: {_when(sample['observed_at'])}\n\n"
+            'ℹ️ Limits\n'
+            'This is one snapshot of the order book; prices between checks are unknown. '
+            'No stop fill, realised loss, security approval or purchase authority is implied.\n'
+            f"Source: {sample['source_url']}")
+
+
 def deliver_invalidations(state, sender, persist, *, now=None, allowed=(), max_per_run=2):
     """Recompute a fresh sampled breach and notify once per delivered hypothesis.
 
@@ -222,15 +258,7 @@ def deliver_invalidations(state, sender, persist, *, now=None, allowed=(), max_p
             book = analyze_book(raw, '100', now)
             if decimal(book['best_bid']) > decimal(row['alert']['invalidation']):
                 continue
-            text = ('INVALIDATED SETUP\n'
-                    f"Gate Spot: {row['pair']} | timeframe {row['alert']['interval']}\n"
-                    f"Previously delivered technical hypothesis: {row['alert']['delivered_at']}\n"
-                    f"Fresh observed best bid {book['best_bid']} USDT is at/below invalidation "
-                    f"reference {row['alert']['invalidation']} USDT. Withdraw this hypothesis.\n"
-                    f"Observed UTC: {sample['observed_at']}\n"
-                    'Sampled book observation only; between-sample path and actual trade execution are unknown. '
-                    'No stop fill, realized loss, security approval or purchase authority is inferred.\n'
-                    f"Source: {sample['source_url']}")
+            text = invalidation_text(row, book, sample)
         except (ValueError, TypeError, KeyError, AttributeError, ArithmeticError, IndexError) as exc:
             summary['errors'][identifier] = type(exc).__name__
             continue
