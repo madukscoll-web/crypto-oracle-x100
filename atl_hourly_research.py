@@ -9,12 +9,12 @@ import json
 import pathlib
 import os
 import urllib.parse
-from atl_monitor_core import cap_class, positive, classify_low, MID_CAP_FLOOR
+from atl_monitor_core import cap_class, positive, classify_low, ATL_UNIVERSE_FLOOR
 from provider_session import Session
 
 API = 'https://api.coingecko.com/api/v3/coins/markets'
 PAGE_SIZE = 100
-MAX_TAIL_PAGE = 10
+MAX_TAIL_PAGE = 40   # ~top 4,000 by cap, reaching the $5M low-cap floor
 STATE_PATH = pathlib.Path('atl_research_state.json')
 
 
@@ -83,7 +83,7 @@ def run(fetch=None, *, now=None, cursor=2):
                 if abs(cap-price*supply)/cap > positive('0.05'):
                     report['market_cap_unverified'] += 1
                     continue
-                if cap < MID_CAP_FLOOR:
+                if cap < ATL_UNIVERSE_FLOOR:
                     continue
                 report['fresh_provider_cap_observations'] += 1
                 baseline = positive(row.get('atl'))
@@ -114,7 +114,7 @@ def run(fetch=None, *, now=None, cursor=2):
                     telegram_eligible=False, peg_like=peg_like, provider_atl_candidate=candidate))
             if page == cursor:
                 below_floor = [positive(x.get('market_cap')) for x in rows if isinstance(x, dict)]
-                reached_floor = any(x is not None and x < MID_CAP_FLOOR for x in below_floor)
+                reached_floor = any(x is not None and x < ATL_UNIVERSE_FLOOR for x in below_floor)
                 report['next_cursor'] = 2 if reached_floor or len(rows) < PAGE_SIZE or cursor == MAX_TAIL_PAGE else cursor+1
         except (OSError, ValueError, TypeError, KeyError, AttributeError) as exc:
             report['errors'].append(dict(page=page, error_type=type(exc).__name__))

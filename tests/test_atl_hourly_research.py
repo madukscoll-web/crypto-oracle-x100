@@ -17,7 +17,7 @@ def row(**changes):
 
 
 def fetch_rows(rows):
-    return lambda url: rows if 'page=1&' in url else [row(id='tail',market_cap=100000000,circulating_supply=100000000)]
+    return lambda url: rows if 'page=1&' in url else [row(id='tail',market_cap=4000000,circulating_supply=4000000)]
 
 
 class HourlyATLTests(unittest.TestCase):
@@ -35,7 +35,7 @@ class HourlyATLTests(unittest.TestCase):
         self.assertFalse(result['orders_allowed'])
 
     def test_cap_boundaries_and_fdv_never_substitutes(self):
-        rows=[row(id='below',market_cap=199999999),row(id='boundary'),
+        rows=[row(id='below',market_cap=4999999,circulating_supply=4999999),row(id='boundary'),
               row(id='missing',market_cap=None,fully_diluted_valuation=500000000)]
         result=run(now=NOW,fetch=fetch_rows(rows))
         self.assertEqual([x['provider_id'] for x in result['observations']],['boundary'])
@@ -73,7 +73,8 @@ class HourlyATLTests(unittest.TestCase):
         self.assertEqual(result['next_cursor'],4)
         self.assertEqual(len(result['observations']),101)
         self.assertTrue(all(x['cap_classification']=='UNVERIFIED' for x in result['observations']))
-        self.assertEqual(run(now=NOW,fetch=fetch,cursor=10)['next_cursor'],2)
+        self.assertEqual(run(now=NOW,fetch=fetch,cursor=40)['next_cursor'],2)
+        self.assertEqual(run(now=NOW,fetch=fetch,cursor=10)['next_cursor'],11)
         self.assertEqual(run(now=NOW,fetch=fetch_rows([row()]),cursor=3)['next_cursor'],2)
 
     def test_duplicate_provider_ids_are_degraded(self):
@@ -189,3 +190,23 @@ class PegLikeLeadTests(unittest.TestCase):
         self.assertEqual(out['research_dossiers'], [])
         self.assertEqual(state['pending_leads'], {})
         self.assertFalse(out['buy_authorized'])
+
+
+class LowCapUniverseTests(unittest.TestCase):
+    """Owner definition: low cap is $5M-$200M; ATL research must include it."""
+    def test_low_cap_rows_are_observed_and_classified(self):
+        rows=[row(id='low',market_cap=50000000,circulating_supply=50000000),
+              row(id='dust',market_cap=4000000,circulating_supply=4000000)]
+        result=run(now=NOW,fetch=fetch_rows(rows))
+        observed={x['provider_id']:x for x in result['observations']}
+        self.assertIn('low',observed);self.assertNotIn('dust',observed)
+        self.assertEqual(observed['low']['provider_reported_cap_category'],'LOW_CAP')
+        self.assertEqual(observed['low']['cap_classification'],'UNVERIFIED')
+        self.assertFalse(observed['low']['telegram_eligible'])
+        self.assertFalse(result['buy_authorized'])
+
+    def test_rotation_continues_past_200m_and_wraps_at_5m(self):
+        mid=lambda url:[row(id='first')] if 'page=1&' in url else [row(id='m'+str(i),market_cap=150000000,circulating_supply=150000000) for i in range(100)]
+        self.assertEqual(run(now=NOW,fetch=mid,cursor=12)['next_cursor'],13)
+        dust=lambda url:[row(id='first')] if 'page=1&' in url else [row(id='d'+str(i),market_cap=1000000,circulating_supply=1000000) for i in range(100)]
+        self.assertEqual(run(now=NOW,fetch=dust,cursor=30)['next_cursor'],2)

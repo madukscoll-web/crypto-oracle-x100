@@ -7,7 +7,10 @@ class ATLCoreTests(unittest.TestCase):
         self.assertEqual(cap_class(200000000, verified=True, fresh=True), "MID_CAP")
         self.assertEqual(cap_class(1000000000, verified=True, fresh=True), "MID_CAP")
         self.assertEqual(cap_class(1000000001, verified=True, fresh=True), "HIGH_CAP")
-        self.assertEqual(cap_class(199999999, verified=True, fresh=True), "EXCLUDED")
+        self.assertEqual(cap_class(199999999, verified=True, fresh=True), "LOW_CAP")
+        self.assertEqual(cap_class(5000000, verified=True, fresh=True), "LOW_CAP")
+        self.assertEqual(cap_class(4999999, verified=True, fresh=True), "EXCLUDED")
+        self.assertEqual(cap_class(50000000, verified=False, fresh=True), "UNVERIFIED")
         self.assertEqual(cap_class(1000000000, verified=True), "UNVERIFIED")
         self.assertEqual(cap_class(1000000000, verified=True, fresh=True, conflicting=True), "UNVERIFIED")
     def test_price_validation(self):
