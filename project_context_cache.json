@@ -1,6 +1,891 @@
 {
   "version": 1,
   "entries": {
+    "0e07c00b984f69e4c8befb8b33363c20539429d1290a4f5533aea5336ff4850e": {
+      "cached_at": 1795298473.576066,
+      "profile": {
+        "schema_version": 1,
+        "identity": {
+          "venue": "Gate Spot",
+          "pair": "FIL_USDT",
+          "scope": "Exchange market association; on-chain identity not independently verified",
+          "curated_provider_id": "filecoin",
+          "identity_status": "CURATED_ASSOCIATION_UNVERIFIED"
+        },
+        "retrieved_at": "2026-11-21T22:01:13.576066+00:00",
+        "status": "UNVERIFIED_CONTEXT",
+        "buy_authorized": false,
+        "orders_allowed": false,
+        "dimensions": {
+          "purpose": {
+            "status": "PROVIDER_REPORTED_UNVERIFIED",
+            "value": "The Filecoin network achieves staggering economies of scale by allowing anyone worldwide to participate as storage providers. It also makes storage resemble a commodity or utility by decoupling hard-drive space from additional services. On ",
+            "source_url": "https://api.coingecko.com/api/v3/coins/filecoin?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
+            "retrieved_at": "2026-11-21T22:01:13.576066+00:00",
+            "data_observed_at": null,
+            "reason": "Reported metadata; source-origin, completeness and field freshness not independently verified"
+          },
+          "token_value_capture": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          },
+          "team": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          },
+          "development": {
+            "status": "PROVIDER_REPORTED_UNVERIFIED",
+            "value": {
+              "provider_listed_repositories": [
+                "https://github.com/filecoin-project/lotus",
+                "https://github.com/filecoin-project/"
+              ],
+              "roadmap_delivery_and_code_quality": "UNKNOWN"
+            },
+            "source_url": "https://api.coingecko.com/api/v3/coins/filecoin?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
+            "retrieved_at": "2026-11-21T22:01:13.576066+00:00",
+            "data_observed_at": null,
+            "reason": "Reported metadata; source-origin, completeness and field freshness not independently verified"
+          },
+          "funding": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          },
+          "community": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          },
+          "distribution": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          },
+          "supply": {
+            "status": "PROVIDER_REPORTED_UNVERIFIED",
+            "value": {
+              "circulating_supply": 854325391.0,
+              "total_supply": 1956835986.0,
+              "max_supply": null,
+              "market_cap_usd": 439404144.0,
+              "fdv_usd": 1006457083.0,
+              "fdv_to_market_cap": 2.290504303937561,
+              "unlocks_30d": "UNKNOWN",
+              "unlocks_90d": "UNKNOWN",
+              "unlocks_365d": "UNKNOWN",
+              "mint_burn_and_vesting_authority": "UNKNOWN"
+            },
+            "source_url": "https://api.coingecko.com/api/v3/coins/filecoin?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
+            "retrieved_at": "2026-11-21T22:01:13.576066+00:00",
+            "data_observed_at": null,
+            "reason": "Reported metadata; source-origin, completeness and field freshness not independently verified"
+          },
+          "venue": {
+            "status": "EXCHANGE_METADATA_OBSERVATION",
+            "value": {
+              "venue": "Gate Spot",
+              "pair": "FIL_USDT"
+            },
+            "source_url": "https://api.gateio.ws/api/v4/spot/currency_pairs/FIL_USDT",
+            "retrieved_at": "2026-11-21T22:01:13.576066+00:00",
+            "data_observed_at": null,
+            "reason": "A listing is not proof of safety or executable depth"
+          },
+          "adoption": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          }
+        },
+        "sources": [
+          {
+            "provider": "CoinGecko",
+            "url": "https://api.coingecko.com/api/v3/coins/filecoin?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
+            "retrieved_at": "2026-11-21T22:01:13.576066+00:00",
+            "provider_updated_at": "2026-11-21T22:00:58.000Z",
+            "response_sha256": "27d41cd3d55bd0311e65be1d9b757f35fbf8cb93d37d61206ecd5e77cb4ad007",
+            "scope": "Single-provider observations; not independent authentication"
+          }
+        ],
+        "warnings": [],
+        "questions": {
+          "purpose": "What problem is solved, and why is blockchain/token use necessary?",
+          "token_value_capture": "How do usage, fees and revenue benefit the token rather than only the company?",
+          "team": "Who controls the project, with independently checked track record and conflicts?",
+          "development": "Are releases, roadmap delivery and substantive development demonstrated?",
+          "funding": "Are backers, financing terms and insider incentives independently confirmed?",
+          "community": "Are active users retained and organic, rather than purchased followers?",
+          "distribution": "Who owns founder/insider allocations, with vesting and beneficial-owner exclusions?",
+          "supply": "What circulates, what can be minted/burned, and what unlocks in 30/90/365 days?",
+          "venue": "Is the exact asset tradable on Spot/DEX with fresh executable depth?",
+          "adoption": "Are paying users, revenue and counterparties independently corroborated?"
+        },
+        "provider_metadata": {
+          "coin_id": "filecoin",
+          "name": "Filecoin",
+          "provider_listed_homepages": [
+            "https://filecoin.io/"
+          ],
+          "genesis_date_provider_claim": null,
+          "categories": [
+            "Infrastructure",
+            "Smart Contract Platform",
+            "Storage",
+            "Layer 1 (L1)",
+            "DePIN",
+            "Alleged SEC Securities",
+            "Pantera Capital Portfolio",
+            "GMCI DePIN Index"
+          ]
+        }
+      }
+    },
+    "0dd3e4a87a12ae78e8c5b82e78d99cafed1d5ad6b35168ad07e2b0fda40a24a0": {
+      "cached_at": 1795298473.576066,
+      "profile": {
+        "schema_version": 1,
+        "identity": {
+          "venue": "Gate Spot",
+          "pair": "HBAR_USDT",
+          "scope": "Exchange market association; on-chain identity not independently verified",
+          "curated_provider_id": "hedera-hashgraph",
+          "identity_status": "CURATED_ASSOCIATION_UNVERIFIED"
+        },
+        "retrieved_at": "2026-11-21T22:01:13.576066+00:00",
+        "status": "UNVERIFIED_CONTEXT",
+        "buy_authorized": false,
+        "orders_allowed": false,
+        "dimensions": {
+          "purpose": {
+            "status": "PROVIDER_REPORTED_UNVERIFIED",
+            "value": "Hedera is a decentralized public network where developers can build secure, fair applications with near real-time consensus. The platform is owned and governed by a council of global innovators including Avery Dennison, Boeing, Deutsche Tel",
+            "source_url": "https://api.coingecko.com/api/v3/coins/hedera-hashgraph?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
+            "retrieved_at": "2026-11-21T22:01:13.576066+00:00",
+            "data_observed_at": null,
+            "reason": "Reported metadata; source-origin, completeness and field freshness not independently verified"
+          },
+          "token_value_capture": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          },
+          "team": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          },
+          "development": {
+            "status": "PROVIDER_REPORTED_UNVERIFIED",
+            "value": {
+              "provider_listed_repositories": [
+                "https://github.com/hashgraph",
+                "https://github.com/hashgraph/hashgraph.github.io"
+              ],
+              "roadmap_delivery_and_code_quality": "UNKNOWN"
+            },
+            "source_url": "https://api.coingecko.com/api/v3/coins/hedera-hashgraph?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
+            "retrieved_at": "2026-11-21T22:01:13.576066+00:00",
+            "data_observed_at": null,
+            "reason": "Reported metadata; source-origin, completeness and field freshness not independently verified"
+          },
+          "funding": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          },
+          "community": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          },
+          "distribution": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          },
+          "supply": {
+            "status": "PROVIDER_REPORTED_UNVERIFIED",
+            "value": {
+              "circulating_supply": 44327610586.016335,
+              "total_supply": 50000000000.0,
+              "max_supply": 50000000000.0,
+              "market_cap_usd": 2290352600.0,
+              "fdv_usd": 2583437918.0,
+              "fdv_to_market_cap": 1.1279651517412645,
+              "unlocks_30d": "UNKNOWN",
+              "unlocks_90d": "UNKNOWN",
+              "unlocks_365d": "UNKNOWN",
+              "mint_burn_and_vesting_authority": "UNKNOWN"
+            },
+            "source_url": "https://api.coingecko.com/api/v3/coins/hedera-hashgraph?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
+            "retrieved_at": "2026-11-21T22:01:13.576066+00:00",
+            "data_observed_at": null,
+            "reason": "Reported metadata; source-origin, completeness and field freshness not independently verified"
+          },
+          "venue": {
+            "status": "EXCHANGE_METADATA_OBSERVATION",
+            "value": {
+              "venue": "Gate Spot",
+              "pair": "HBAR_USDT"
+            },
+            "source_url": "https://api.gateio.ws/api/v4/spot/currency_pairs/HBAR_USDT",
+            "retrieved_at": "2026-11-21T22:01:13.576066+00:00",
+            "data_observed_at": null,
+            "reason": "A listing is not proof of safety or executable depth"
+          },
+          "adoption": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          }
+        },
+        "sources": [
+          {
+            "provider": "CoinGecko",
+            "url": "https://api.coingecko.com/api/v3/coins/hedera-hashgraph?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
+            "retrieved_at": "2026-11-21T22:01:13.576066+00:00",
+            "provider_updated_at": "2026-11-21T22:00:58.000Z",
+            "response_sha256": "1f6fe267e4c30267f1fbcd90d862d687519cadd6682f98c5176652258edee97a",
+            "scope": "Single-provider observations; not independent authentication"
+          }
+        ],
+        "warnings": [],
+        "questions": {
+          "purpose": "What problem is solved, and why is blockchain/token use necessary?",
+          "token_value_capture": "How do usage, fees and revenue benefit the token rather than only the company?",
+          "team": "Who controls the project, with independently checked track record and conflicts?",
+          "development": "Are releases, roadmap delivery and substantive development demonstrated?",
+          "funding": "Are backers, financing terms and insider incentives independently confirmed?",
+          "community": "Are active users retained and organic, rather than purchased followers?",
+          "distribution": "Who owns founder/insider allocations, with vesting and beneficial-owner exclusions?",
+          "supply": "What circulates, what can be minted/burned, and what unlocks in 30/90/365 days?",
+          "venue": "Is the exact asset tradable on Spot/DEX with fresh executable depth?",
+          "adoption": "Are paying users, revenue and counterparties independently corroborated?"
+        },
+        "provider_metadata": {
+          "coin_id": "hedera-hashgraph",
+          "name": "Hedera",
+          "provider_listed_homepages": [
+            "https://www.hedera.com/",
+            "https://hedera.com/news"
+          ],
+          "genesis_date_provider_claim": null,
+          "categories": [
+            "Smart Contract Platform",
+            "Layer 1 (L1)",
+            "Hedera Ecosystem",
+            "GMCI Layer 1 Index",
+            "GMCI 30 Index",
+            "GMCI Index",
+            "Outlier Ventures Portfolio",
+            "Made in USA"
+          ]
+        }
+      }
+    },
+    "584a382741db1ae3cc2a5d2d9334d4adf37b811115e1b3bcfded4d94fdf8e68d": {
+      "cached_at": 1795298473.576066,
+      "profile": {
+        "schema_version": 1,
+        "identity": {
+          "venue": "Gate Spot",
+          "pair": "LTC_USDT",
+          "scope": "Exchange market association; on-chain identity not independently verified",
+          "curated_provider_id": "litecoin",
+          "identity_status": "CURATED_ASSOCIATION_UNVERIFIED"
+        },
+        "retrieved_at": "2026-11-21T22:01:13.576066+00:00",
+        "status": "UNVERIFIED_CONTEXT",
+        "buy_authorized": false,
+        "orders_allowed": false,
+        "dimensions": {
+          "purpose": {
+            "status": "PROVIDER_REPORTED_UNVERIFIED",
+            "value": "Litecoin is a decentralized, peer-to-peer digital currency designed to enable instant, near-zero cost payments to individuals and merchants worldwide. As an open-source global payment network that functions independently of central banks or",
+            "source_url": "https://api.coingecko.com/api/v3/coins/litecoin?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
+            "retrieved_at": "2026-11-21T22:01:13.576066+00:00",
+            "data_observed_at": null,
+            "reason": "Reported metadata; source-origin, completeness and field freshness not independently verified"
+          },
+          "token_value_capture": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          },
+          "team": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          },
+          "development": {
+            "status": "PROVIDER_REPORTED_UNVERIFIED",
+            "value": {
+              "provider_listed_repositories": [
+                "https://github.com/litecoin-project/litecoin"
+              ],
+              "roadmap_delivery_and_code_quality": "UNKNOWN"
+            },
+            "source_url": "https://api.coingecko.com/api/v3/coins/litecoin?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
+            "retrieved_at": "2026-11-21T22:01:13.576066+00:00",
+            "data_observed_at": null,
+            "reason": "Reported metadata; source-origin, completeness and field freshness not independently verified"
+          },
+          "funding": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          },
+          "community": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          },
+          "distribution": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          },
+          "supply": {
+            "status": "PROVIDER_REPORTED_UNVERIFIED",
+            "value": {
+              "circulating_supply": 77852149.15105782,
+              "total_supply": 77854717.90640745,
+              "max_supply": 84000000.0,
+              "market_cap_usd": 3111894082.0,
+              "fdv_usd": 3111996760.0,
+              "fdv_to_market_cap": 1.0000329953389462,
+              "unlocks_30d": "UNKNOWN",
+              "unlocks_90d": "UNKNOWN",
+              "unlocks_365d": "UNKNOWN",
+              "mint_burn_and_vesting_authority": "UNKNOWN"
+            },
+            "source_url": "https://api.coingecko.com/api/v3/coins/litecoin?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
+            "retrieved_at": "2026-11-21T22:01:13.576066+00:00",
+            "data_observed_at": null,
+            "reason": "Reported metadata; source-origin, completeness and field freshness not independently verified"
+          },
+          "venue": {
+            "status": "EXCHANGE_METADATA_OBSERVATION",
+            "value": {
+              "venue": "Gate Spot",
+              "pair": "LTC_USDT"
+            },
+            "source_url": "https://api.gateio.ws/api/v4/spot/currency_pairs/LTC_USDT",
+            "retrieved_at": "2026-11-21T22:01:13.576066+00:00",
+            "data_observed_at": null,
+            "reason": "A listing is not proof of safety or executable depth"
+          },
+          "adoption": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          }
+        },
+        "sources": [
+          {
+            "provider": "CoinGecko",
+            "url": "https://api.coingecko.com/api/v3/coins/litecoin?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
+            "retrieved_at": "2026-11-21T22:01:13.576066+00:00",
+            "provider_updated_at": "2026-11-21T21:59:47.000Z",
+            "response_sha256": "fa3d8606047277a58a29318199b11902b286ca3b08a998031abed7b2ba208a80",
+            "scope": "Single-provider observations; not independent authentication"
+          }
+        ],
+        "warnings": [],
+        "questions": {
+          "purpose": "What problem is solved, and why is blockchain/token use necessary?",
+          "token_value_capture": "How do usage, fees and revenue benefit the token rather than only the company?",
+          "team": "Who controls the project, with independently checked track record and conflicts?",
+          "development": "Are releases, roadmap delivery and substantive development demonstrated?",
+          "funding": "Are backers, financing terms and insider incentives independently confirmed?",
+          "community": "Are active users retained and organic, rather than purchased followers?",
+          "distribution": "Who owns founder/insider allocations, with vesting and beneficial-owner exclusions?",
+          "supply": "What circulates, what can be minted/burned, and what unlocks in 30/90/365 days?",
+          "venue": "Is the exact asset tradable on Spot/DEX with fresh executable depth?",
+          "adoption": "Are paying users, revenue and counterparties independently corroborated?"
+        },
+        "provider_metadata": {
+          "coin_id": "litecoin",
+          "name": "Litecoin",
+          "provider_listed_homepages": [],
+          "genesis_date_provider_claim": "2011-10-08",
+          "categories": [
+            "Infrastructure",
+            "Smart Contract Platform",
+            "Layer 1 (L1)",
+            "Proof of Work (PoW)",
+            "GMCI 30 Index",
+            "GMCI Index",
+            "Made in USA",
+            "Coinbase 50 Index"
+          ]
+        }
+      }
+    },
+    "485f0abcd5a9c329977a301e276730cbcc7064822b21add3e49a8cb11c0d5b8f": {
+      "cached_at": 1795298473.576066,
+      "profile": {
+        "schema_version": 1,
+        "identity": {
+          "venue": "Gate Spot",
+          "pair": "NEAR_USDT",
+          "scope": "Exchange market association; on-chain identity not independently verified",
+          "curated_provider_id": "near",
+          "identity_status": "CURATED_ASSOCIATION_UNVERIFIED"
+        },
+        "retrieved_at": "2026-11-21T22:01:13.576066+00:00",
+        "status": "UNVERIFIED_CONTEXT",
+        "buy_authorized": false,
+        "orders_allowed": false,
+        "dimensions": {
+          "purpose": {
+            "status": "PRIMARY_DOCUMENTATION_REVIEWED_NOT_CORROBORATED",
+            "value": "NEAR pays transaction fees, covers on-chain storage and supports validator staking.",
+            "source_url": "https://docs.near.org/protocol/network/tokens",
+            "reviewed_on": "2026-11-05",
+            "data_observed_at": "2026-11-05",
+            "reason": "Documented mechanism only; not independent proof of current adoption, revenue or token returns"
+          },
+          "token_value_capture": {
+            "status": "PRIMARY_DOCUMENTATION_REVIEWED_NOT_CORROBORATED",
+            "value": "Storage balances are locked while data remains; delegated staking can earn rewards. Holding alone does not guarantee project profit sharing.",
+            "source_url": "https://docs.near.org/protocol/network/tokens",
+            "reviewed_on": "2026-11-05",
+            "data_observed_at": "2026-11-05",
+            "reason": "Documented mechanism only; not independent proof of current adoption, revenue or token returns"
+          },
+          "team": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          },
+          "development": {
+            "status": "PROVIDER_REPORTED_UNVERIFIED",
+            "value": {
+              "provider_listed_repositories": [
+                "https://github.com/nearprotocol/nearcore",
+                "https://github.com/near",
+                "https://github.com/nearprotocol/near-wallet"
+              ],
+              "roadmap_delivery_and_code_quality": "UNKNOWN"
+            },
+            "source_url": "https://api.coingecko.com/api/v3/coins/near?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
+            "retrieved_at": "2026-11-21T22:01:13.576066+00:00",
+            "data_observed_at": null,
+            "reason": "Reported metadata; source-origin, completeness and field freshness not independently verified"
+          },
+          "funding": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          },
+          "community": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          },
+          "distribution": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          },
+          "supply": {
+            "status": "PROVIDER_REPORTED_UNVERIFIED",
+            "value": {
+              "circulating_supply": 1312345859.0,
+              "total_supply": 1312345898.0,
+              "max_supply": null,
+              "market_cap_usd": 3798736643.0,
+              "fdv_usd": 3798736755.0,
+              "fdv_to_market_cap": 1.0000000294834863,
+              "unlocks_30d": "UNKNOWN",
+              "unlocks_90d": "UNKNOWN",
+              "unlocks_365d": "UNKNOWN",
+              "mint_burn_and_vesting_authority": "UNKNOWN"
+            },
+            "source_url": "https://api.coingecko.com/api/v3/coins/near?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
+            "retrieved_at": "2026-11-21T22:01:13.576066+00:00",
+            "data_observed_at": null,
+            "reason": "Reported metadata; source-origin, completeness and field freshness not independently verified"
+          },
+          "venue": {
+            "status": "EXCHANGE_METADATA_OBSERVATION",
+            "value": {
+              "venue": "Gate Spot",
+              "pair": "NEAR_USDT"
+            },
+            "source_url": "https://api.gateio.ws/api/v4/spot/currency_pairs/NEAR_USDT",
+            "retrieved_at": "2026-11-21T22:01:13.576066+00:00",
+            "data_observed_at": null,
+            "reason": "A listing is not proof of safety or executable depth"
+          },
+          "adoption": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          }
+        },
+        "sources": [
+          {
+            "provider": "CoinGecko",
+            "url": "https://api.coingecko.com/api/v3/coins/near?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
+            "retrieved_at": "2026-11-21T22:01:13.576066+00:00",
+            "provider_updated_at": "2026-11-21T21:59:47.000Z",
+            "response_sha256": "743240ad90ec3e84b0ae35fe5718868ef23221ebea9cc80c53e23f75805a0d6f",
+            "scope": "Single-provider observations; not independent authentication"
+          },
+          {
+            "provider": "Project documentation",
+            "url": "https://docs.near.org/protocol/network/tokens",
+            "reviewed_on": "2026-11-05",
+            "scope": "Manually reviewed public documentation; not a token approval"
+          }
+        ],
+        "warnings": [],
+        "questions": {
+          "purpose": "What problem is solved, and why is blockchain/token use necessary?",
+          "token_value_capture": "How do usage, fees and revenue benefit the token rather than only the company?",
+          "team": "Who controls the project, with independently checked track record and conflicts?",
+          "development": "Are releases, roadmap delivery and substantive development demonstrated?",
+          "funding": "Are backers, financing terms and insider incentives independently confirmed?",
+          "community": "Are active users retained and organic, rather than purchased followers?",
+          "distribution": "Who owns founder/insider allocations, with vesting and beneficial-owner exclusions?",
+          "supply": "What circulates, what can be minted/burned, and what unlocks in 30/90/365 days?",
+          "venue": "Is the exact asset tradable on Spot/DEX with fresh executable depth?",
+          "adoption": "Are paying users, revenue and counterparties independently corroborated?"
+        },
+        "provider_metadata": {
+          "coin_id": "near",
+          "name": "NEAR Protocol",
+          "provider_listed_homepages": [
+            "https://near.org/"
+          ],
+          "genesis_date_provider_claim": null,
+          "categories": [
+            "Artificial Intelligence (AI)",
+            "Smart Contract Platform",
+            "Layer 1 (L1)",
+            "Near Protocol Ecosystem",
+            "Alleged SEC Securities",
+            "FTX Holdings",
+            "Data Availability",
+            "Coinbase Ventures Portfolio"
+          ]
+        }
+      }
+    },
+    "aa9d97123397ffdabb0359bb2a07d351e341cb6e2dfe04e95ef99af65cf92778": {
+      "cached_at": 1795298473.576066,
+      "profile": {
+        "schema_version": 1,
+        "identity": {
+          "venue": "Gate Spot",
+          "pair": "ONDO_USDT",
+          "scope": "Exchange market association; on-chain identity not independently verified",
+          "curated_provider_id": "ondo-finance",
+          "identity_status": "CURATED_ASSOCIATION_UNVERIFIED"
+        },
+        "retrieved_at": "2026-11-21T22:01:13.576066+00:00",
+        "status": "UNVERIFIED_CONTEXT",
+        "buy_authorized": false,
+        "orders_allowed": false,
+        "dimensions": {
+          "purpose": {
+            "status": "PROVIDER_REPORTED_UNVERIFIED",
+            "value": "The Ondo Foundation was founded in 2022 as an independently governed and nonprofit Cayman Islands Foundation Company with no beneficial owners. The Ondo Foundation assisted in the launch of the Ondo DAO, which deployed and currently governs",
+            "source_url": "https://api.coingecko.com/api/v3/coins/ondo-finance?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
+            "retrieved_at": "2026-11-21T22:01:13.576066+00:00",
+            "data_observed_at": null,
+            "reason": "Reported metadata; source-origin, completeness and field freshness not independently verified"
+          },
+          "token_value_capture": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          },
+          "team": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          },
+          "development": {
+            "status": "PROVIDER_REPORTED_UNVERIFIED",
+            "value": {
+              "provider_listed_repositories": [
+                "https://github.com/ondoprotocol/ondo-protocol"
+              ],
+              "roadmap_delivery_and_code_quality": "UNKNOWN"
+            },
+            "source_url": "https://api.coingecko.com/api/v3/coins/ondo-finance?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
+            "retrieved_at": "2026-11-21T22:01:13.576066+00:00",
+            "data_observed_at": null,
+            "reason": "Reported metadata; source-origin, completeness and field freshness not independently verified"
+          },
+          "funding": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          },
+          "community": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          },
+          "distribution": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          },
+          "supply": {
+            "status": "PROVIDER_REPORTED_UNVERIFIED",
+            "value": {
+              "circulating_supply": 4869330647.0,
+              "total_supply": 10000000000.0,
+              "max_supply": 10000000000.0,
+              "market_cap_usd": 1361991797.0,
+              "fdv_usd": 2797082177.0,
+              "fdv_to_market_cap": 2.0536703548149196,
+              "unlocks_30d": "UNKNOWN",
+              "unlocks_90d": "UNKNOWN",
+              "unlocks_365d": "UNKNOWN",
+              "mint_burn_and_vesting_authority": "UNKNOWN"
+            },
+            "source_url": "https://api.coingecko.com/api/v3/coins/ondo-finance?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
+            "retrieved_at": "2026-11-21T22:01:13.576066+00:00",
+            "data_observed_at": null,
+            "reason": "Reported metadata; source-origin, completeness and field freshness not independently verified"
+          },
+          "venue": {
+            "status": "EXCHANGE_METADATA_OBSERVATION",
+            "value": {
+              "venue": "Gate Spot",
+              "pair": "ONDO_USDT"
+            },
+            "source_url": "https://api.gateio.ws/api/v4/spot/currency_pairs/ONDO_USDT",
+            "retrieved_at": "2026-11-21T22:01:13.576066+00:00",
+            "data_observed_at": null,
+            "reason": "A listing is not proof of safety or executable depth"
+          },
+          "adoption": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          }
+        },
+        "sources": [
+          {
+            "provider": "CoinGecko",
+            "url": "https://api.coingecko.com/api/v3/coins/ondo-finance?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
+            "retrieved_at": "2026-11-21T22:01:13.576066+00:00",
+            "provider_updated_at": "2026-11-21T21:59:47.000Z",
+            "response_sha256": "3f0a21c4486d653915bc6ea869ede76ad0f2b7217a6cf785af00e7600fde17b2",
+            "scope": "Single-provider observations; not independent authentication"
+          }
+        ],
+        "warnings": [],
+        "questions": {
+          "purpose": "What problem is solved, and why is blockchain/token use necessary?",
+          "token_value_capture": "How do usage, fees and revenue benefit the token rather than only the company?",
+          "team": "Who controls the project, with independently checked track record and conflicts?",
+          "development": "Are releases, roadmap delivery and substantive development demonstrated?",
+          "funding": "Are backers, financing terms and insider incentives independently confirmed?",
+          "community": "Are active users retained and organic, rather than purchased followers?",
+          "distribution": "Who owns founder/insider allocations, with vesting and beneficial-owner exclusions?",
+          "supply": "What circulates, what can be minted/burned, and what unlocks in 30/90/365 days?",
+          "venue": "Is the exact asset tradable on Spot/DEX with fresh executable depth?",
+          "adoption": "Are paying users, revenue and counterparties independently corroborated?"
+        },
+        "provider_metadata": {
+          "coin_id": "ondo-finance",
+          "name": "Ondo",
+          "provider_listed_homepages": [
+            "https://ondo.foundation/",
+            "https://ondo.finance/"
+          ],
+          "genesis_date_provider_claim": null,
+          "categories": [
+            "Decentralized Finance (DeFi)",
+            "Ethereum Ecosystem",
+            "Real World Assets (RWA)",
+            "Coinbase Ventures Portfolio",
+            "Pantera Capital Portfolio",
+            "GMCI DeFi Index",
+            "RWA Protocol",
+            "GMCI Index"
+          ]
+        }
+      }
+    },
+    "cb45b0eb26d97ccf1292dd1feafaa6e3d65db4182d3d0278657921b61e937dab": {
+      "cached_at": 1795298473.576066,
+      "profile": {
+        "schema_version": 1,
+        "identity": {
+          "venue": "Gate Spot",
+          "pair": "SOL_USDT",
+          "scope": "Exchange market association; on-chain identity not independently verified",
+          "curated_provider_id": "solana",
+          "identity_status": "CURATED_ASSOCIATION_UNVERIFIED"
+        },
+        "retrieved_at": "2026-11-21T22:01:13.576066+00:00",
+        "status": "UNVERIFIED_CONTEXT",
+        "buy_authorized": false,
+        "orders_allowed": false,
+        "dimensions": {
+          "purpose": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          },
+          "token_value_capture": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          },
+          "team": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          },
+          "development": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          },
+          "funding": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          },
+          "community": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          },
+          "distribution": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          },
+          "supply": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          },
+          "venue": {
+            "status": "EXCHANGE_METADATA_OBSERVATION",
+            "value": {
+              "venue": "Gate Spot",
+              "pair": "SOL_USDT"
+            },
+            "source_url": "https://api.gateio.ws/api/v4/spot/currency_pairs/SOL_USDT",
+            "retrieved_at": "2026-11-21T22:01:13.576066+00:00",
+            "data_observed_at": null,
+            "reason": "A listing is not proof of safety or executable depth"
+          },
+          "adoption": {
+            "status": "UNKNOWN",
+            "value": null,
+            "reason": "Source evidence unavailable",
+            "source_url": null,
+            "data_observed_at": null
+          }
+        },
+        "sources": [],
+        "warnings": [
+          "Provider metadata unavailable or identity not established: HTTPError"
+        ],
+        "questions": {
+          "purpose": "What problem is solved, and why is blockchain/token use necessary?",
+          "token_value_capture": "How do usage, fees and revenue benefit the token rather than only the company?",
+          "team": "Who controls the project, with independently checked track record and conflicts?",
+          "development": "Are releases, roadmap delivery and substantive development demonstrated?",
+          "funding": "Are backers, financing terms and insider incentives independently confirmed?",
+          "community": "Are active users retained and organic, rather than purchased followers?",
+          "distribution": "Who owns founder/insider allocations, with vesting and beneficial-owner exclusions?",
+          "supply": "What circulates, what can be minted/burned, and what unlocks in 30/90/365 days?",
+          "venue": "Is the exact asset tradable on Spot/DEX with fresh executable depth?",
+          "adoption": "Are paying users, revenue and counterparties independently corroborated?"
+        }
+      }
+    },
     "6ff63b79e1fe14ede796e0cdbe668072f862ba9319d7fc77bdb9f06e55bd23aa": {
       "cached_at": 1795291351.6945114,
       "profile": {
@@ -17465,897 +18350,6 @@
             "RWA Protocol",
             "GMCI Index"
           ]
-        }
-      }
-    },
-    "1b5e1fab17ba3f2fa19da9e3dfaf2175561939ef98bb851ab8348b0bf1f6fcae": {
-      "cached_at": 1795020740.6817229,
-      "profile": {
-        "schema_version": 1,
-        "identity": {
-          "venue": "Gate Spot",
-          "pair": "SOL_USDT",
-          "scope": "Exchange market association; on-chain identity not independently verified",
-          "curated_provider_id": "solana",
-          "identity_status": "CURATED_ASSOCIATION_UNVERIFIED"
-        },
-        "retrieved_at": "2026-11-18T16:52:20.681723+00:00",
-        "status": "UNVERIFIED_CONTEXT",
-        "buy_authorized": false,
-        "orders_allowed": false,
-        "dimensions": {
-          "purpose": {
-            "status": "PROVIDER_REPORTED_UNVERIFIED",
-            "value": "Solana is a high-performance Layer 1 blockchain designed for mass adoption by providing a fast, secure, and low-cost environment for decentralized applications. It distinguishes itself by scaling globally without the use of complex sharding",
-            "source_url": "https://api.coingecko.com/api/v3/coins/solana?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
-            "retrieved_at": "2026-11-18T16:52:20.681723+00:00",
-            "data_observed_at": null,
-            "reason": "Reported metadata; source-origin, completeness and field freshness not independently verified"
-          },
-          "token_value_capture": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          },
-          "team": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          },
-          "development": {
-            "status": "PROVIDER_REPORTED_UNVERIFIED",
-            "value": {
-              "provider_listed_repositories": [
-                "https://github.com/solana-labs/solana"
-              ],
-              "roadmap_delivery_and_code_quality": "UNKNOWN"
-            },
-            "source_url": "https://api.coingecko.com/api/v3/coins/solana?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
-            "retrieved_at": "2026-11-18T16:52:20.681723+00:00",
-            "data_observed_at": null,
-            "reason": "Reported metadata; source-origin, completeness and field freshness not independently verified"
-          },
-          "funding": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          },
-          "community": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          },
-          "distribution": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          },
-          "supply": {
-            "status": "PROVIDER_REPORTED_UNVERIFIED",
-            "value": {
-              "circulating_supply": 591794818.6038228,
-              "total_supply": 637798872.65658,
-              "max_supply": null,
-              "market_cap_usd": 42910567360.0,
-              "fdv_usd": 46246284400.0,
-              "fdv_to_market_cap": 1.0777364934845737,
-              "unlocks_30d": "UNKNOWN",
-              "unlocks_90d": "UNKNOWN",
-              "unlocks_365d": "UNKNOWN",
-              "mint_burn_and_vesting_authority": "UNKNOWN"
-            },
-            "source_url": "https://api.coingecko.com/api/v3/coins/solana?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
-            "retrieved_at": "2026-11-18T16:52:20.681723+00:00",
-            "data_observed_at": null,
-            "reason": "Reported metadata; source-origin, completeness and field freshness not independently verified"
-          },
-          "venue": {
-            "status": "EXCHANGE_METADATA_OBSERVATION",
-            "value": {
-              "venue": "Gate Spot",
-              "pair": "SOL_USDT"
-            },
-            "source_url": "https://api.gateio.ws/api/v4/spot/currency_pairs/SOL_USDT",
-            "retrieved_at": "2026-11-18T16:52:20.681723+00:00",
-            "data_observed_at": null,
-            "reason": "A listing is not proof of safety or executable depth"
-          },
-          "adoption": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          }
-        },
-        "sources": [
-          {
-            "provider": "CoinGecko",
-            "url": "https://api.coingecko.com/api/v3/coins/solana?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
-            "retrieved_at": "2026-11-18T16:52:20.681723+00:00",
-            "provider_updated_at": "2026-11-18T16:50:58.000Z",
-            "response_sha256": "94b188f6ac4737c60aaa24b8cff92fdaccfb743e2e75db71580a399c7efbc419",
-            "scope": "Single-provider observations; not independent authentication"
-          }
-        ],
-        "warnings": [],
-        "questions": {
-          "purpose": "What problem is solved, and why is blockchain/token use necessary?",
-          "token_value_capture": "How do usage, fees and revenue benefit the token rather than only the company?",
-          "team": "Who controls the project, with independently checked track record and conflicts?",
-          "development": "Are releases, roadmap delivery and substantive development demonstrated?",
-          "funding": "Are backers, financing terms and insider incentives independently confirmed?",
-          "community": "Are active users retained and organic, rather than purchased followers?",
-          "distribution": "Who owns founder/insider allocations, with vesting and beneficial-owner exclusions?",
-          "supply": "What circulates, what can be minted/burned, and what unlocks in 30/90/365 days?",
-          "venue": "Is the exact asset tradable on Spot/DEX with fresh executable depth?",
-          "adoption": "Are paying users, revenue and counterparties independently corroborated?"
-        },
-        "provider_metadata": {
-          "coin_id": "solana",
-          "name": "Solana",
-          "provider_listed_homepages": [
-            "https://solana.com/"
-          ],
-          "genesis_date_provider_claim": null,
-          "categories": [
-            "Smart Contract Platform",
-            "Solana Ecosystem",
-            "Layer 1 (L1)",
-            "FTX Holdings",
-            "Multicoin Capital Portfolio",
-            "Proof of Stake (PoS)",
-            "Alameda Research Portfolio",
-            "Andreessen Horowitz (a16z) Portfolio"
-          ]
-        }
-      }
-    },
-    "0bb0831bff589ed9027b9e41a8428783ff65154e68baa9fc2835ce89dc3836da": {
-      "cached_at": 1795020740.6817229,
-      "profile": {
-        "schema_version": 1,
-        "identity": {
-          "venue": "Gate Spot",
-          "pair": "TAO_USDT",
-          "scope": "Exchange market association; on-chain identity not independently verified",
-          "curated_provider_id": "bittensor",
-          "identity_status": "CURATED_ASSOCIATION_UNVERIFIED"
-        },
-        "retrieved_at": "2026-11-18T16:52:20.681723+00:00",
-        "status": "UNVERIFIED_CONTEXT",
-        "buy_authorized": false,
-        "orders_allowed": false,
-        "dimensions": {
-          "purpose": {
-            "status": "PROVIDER_REPORTED_UNVERIFIED",
-            "value": "Bittensor is an open-source protocol that powers a decentralized, blockchain-based machine learning network. Machine learning models train collaboratively and are rewarded in TAO according to the informational value they offer the collectiv",
-            "source_url": "https://api.coingecko.com/api/v3/coins/bittensor?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
-            "retrieved_at": "2026-11-18T16:52:20.681723+00:00",
-            "data_observed_at": null,
-            "reason": "Reported metadata; source-origin, completeness and field freshness not independently verified"
-          },
-          "token_value_capture": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          },
-          "team": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          },
-          "development": {
-            "status": "PROVIDER_REPORTED_UNVERIFIED",
-            "value": {
-              "provider_listed_repositories": [
-                "https://github.com/opentensor/BitTensor"
-              ],
-              "roadmap_delivery_and_code_quality": "UNKNOWN"
-            },
-            "source_url": "https://api.coingecko.com/api/v3/coins/bittensor?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
-            "retrieved_at": "2026-11-18T16:52:20.681723+00:00",
-            "data_observed_at": null,
-            "reason": "Reported metadata; source-origin, completeness and field freshness not independently verified"
-          },
-          "funding": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          },
-          "community": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          },
-          "distribution": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          },
-          "supply": {
-            "status": "PROVIDER_REPORTED_UNVERIFIED",
-            "value": {
-              "circulating_supply": 11733079.376417076,
-              "total_supply": 11733079.376417076,
-              "max_supply": 21000000.0,
-              "market_cap_usd": 2219176146.0,
-              "fdv_usd": 2219176146.0,
-              "fdv_to_market_cap": 1.0,
-              "unlocks_30d": "UNKNOWN",
-              "unlocks_90d": "UNKNOWN",
-              "unlocks_365d": "UNKNOWN",
-              "mint_burn_and_vesting_authority": "UNKNOWN"
-            },
-            "source_url": "https://api.coingecko.com/api/v3/coins/bittensor?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
-            "retrieved_at": "2026-11-18T16:52:20.681723+00:00",
-            "data_observed_at": null,
-            "reason": "Reported metadata; source-origin, completeness and field freshness not independently verified"
-          },
-          "venue": {
-            "status": "EXCHANGE_METADATA_OBSERVATION",
-            "value": {
-              "venue": "Gate Spot",
-              "pair": "TAO_USDT"
-            },
-            "source_url": "https://api.gateio.ws/api/v4/spot/currency_pairs/TAO_USDT",
-            "retrieved_at": "2026-11-18T16:52:20.681723+00:00",
-            "data_observed_at": null,
-            "reason": "A listing is not proof of safety or executable depth"
-          },
-          "adoption": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          }
-        },
-        "sources": [
-          {
-            "provider": "CoinGecko",
-            "url": "https://api.coingecko.com/api/v3/coins/bittensor?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
-            "retrieved_at": "2026-11-18T16:52:20.681723+00:00",
-            "provider_updated_at": "2026-11-18T16:51:42.000Z",
-            "response_sha256": "a6c29883e00f0abdf6943ffe30d6c9aa6cf32921dd9f5d19fa76f396786f301f",
-            "scope": "Single-provider observations; not independent authentication"
-          }
-        ],
-        "warnings": [],
-        "questions": {
-          "purpose": "What problem is solved, and why is blockchain/token use necessary?",
-          "token_value_capture": "How do usage, fees and revenue benefit the token rather than only the company?",
-          "team": "Who controls the project, with independently checked track record and conflicts?",
-          "development": "Are releases, roadmap delivery and substantive development demonstrated?",
-          "funding": "Are backers, financing terms and insider incentives independently confirmed?",
-          "community": "Are active users retained and organic, rather than purchased followers?",
-          "distribution": "Who owns founder/insider allocations, with vesting and beneficial-owner exclusions?",
-          "supply": "What circulates, what can be minted/burned, and what unlocks in 30/90/365 days?",
-          "venue": "Is the exact asset tradable on Spot/DEX with fresh executable depth?",
-          "adoption": "Are paying users, revenue and counterparties independently corroborated?"
-        },
-        "provider_metadata": {
-          "coin_id": "bittensor",
-          "name": "Bittensor",
-          "provider_listed_homepages": [
-            "https://bittensor.com/",
-            "https://docs.bittensor.com/"
-          ],
-          "genesis_date_provider_claim": null,
-          "categories": [
-            "Artificial Intelligence (AI)",
-            "Smart Contract Platform",
-            "Layer 1 (L1)",
-            "DePIN",
-            "Bittensor Ecosystem",
-            "Polychain Capital Portfolio"
-          ]
-        }
-      }
-    },
-    "9162e83b5d6e96b4ddeb17a8e35f4bfea470174849a0d8005b621b4602b89609": {
-      "cached_at": 1795020740.6817229,
-      "profile": {
-        "schema_version": 1,
-        "identity": {
-          "venue": "Gate Spot",
-          "pair": "UNI_USDT",
-          "scope": "Exchange market association; on-chain identity not independently verified",
-          "curated_provider_id": "uniswap",
-          "identity_status": "CURATED_ASSOCIATION_UNVERIFIED"
-        },
-        "retrieved_at": "2026-11-18T16:52:20.681723+00:00",
-        "status": "UNVERIFIED_CONTEXT",
-        "buy_authorized": false,
-        "orders_allowed": false,
-        "dimensions": {
-          "purpose": {
-            "status": "PROVIDER_REPORTED_UNVERIFIED",
-            "value": "UNI is the governance token for Uniswap, an Automated Market Marker DEX on the Ethereum blockchain. The UNI token allows token holders to participate in the governance of the protocol. Key decisions such as usage of the treasury or future u",
-            "source_url": "https://api.coingecko.com/api/v3/coins/uniswap?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
-            "retrieved_at": "2026-11-18T16:52:20.681723+00:00",
-            "data_observed_at": null,
-            "reason": "Reported metadata; source-origin, completeness and field freshness not independently verified"
-          },
-          "token_value_capture": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          },
-          "team": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          },
-          "development": {
-            "status": "PROVIDER_REPORTED_UNVERIFIED",
-            "value": {
-              "provider_listed_repositories": [
-                "https://github.com/Uniswap/uniswap-v3-core"
-              ],
-              "roadmap_delivery_and_code_quality": "UNKNOWN"
-            },
-            "source_url": "https://api.coingecko.com/api/v3/coins/uniswap?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
-            "retrieved_at": "2026-11-18T16:52:20.681723+00:00",
-            "data_observed_at": null,
-            "reason": "Reported metadata; source-origin, completeness and field freshness not independently verified"
-          },
-          "funding": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          },
-          "community": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          },
-          "distribution": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          },
-          "supply": {
-            "status": "PROVIDER_REPORTED_UNVERIFIED",
-            "value": {
-              "circulating_supply": 607493895.875979,
-              "total_supply": 885754418.7861971,
-              "max_supply": 1000000000.0,
-              "market_cap_usd": 3086803930.0,
-              "fdv_usd": 4500704023.0,
-              "fdv_to_market_cap": 1.458046615549048,
-              "unlocks_30d": "UNKNOWN",
-              "unlocks_90d": "UNKNOWN",
-              "unlocks_365d": "UNKNOWN",
-              "mint_burn_and_vesting_authority": "UNKNOWN"
-            },
-            "source_url": "https://api.coingecko.com/api/v3/coins/uniswap?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
-            "retrieved_at": "2026-11-18T16:52:20.681723+00:00",
-            "data_observed_at": null,
-            "reason": "Reported metadata; source-origin, completeness and field freshness not independently verified"
-          },
-          "venue": {
-            "status": "EXCHANGE_METADATA_OBSERVATION",
-            "value": {
-              "venue": "Gate Spot",
-              "pair": "UNI_USDT"
-            },
-            "source_url": "https://api.gateio.ws/api/v4/spot/currency_pairs/UNI_USDT",
-            "retrieved_at": "2026-11-18T16:52:20.681723+00:00",
-            "data_observed_at": null,
-            "reason": "A listing is not proof of safety or executable depth"
-          },
-          "adoption": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          }
-        },
-        "sources": [
-          {
-            "provider": "CoinGecko",
-            "url": "https://api.coingecko.com/api/v3/coins/uniswap?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
-            "retrieved_at": "2026-11-18T16:52:20.681723+00:00",
-            "provider_updated_at": "2026-11-18T16:51:42.000Z",
-            "response_sha256": "c77c4fd24c0904f5b5a0fe2cf5c909d3cce19434aceba1f697dadddd44f6f4ff",
-            "scope": "Single-provider observations; not independent authentication"
-          }
-        ],
-        "warnings": [],
-        "questions": {
-          "purpose": "What problem is solved, and why is blockchain/token use necessary?",
-          "token_value_capture": "How do usage, fees and revenue benefit the token rather than only the company?",
-          "team": "Who controls the project, with independently checked track record and conflicts?",
-          "development": "Are releases, roadmap delivery and substantive development demonstrated?",
-          "funding": "Are backers, financing terms and insider incentives independently confirmed?",
-          "community": "Are active users retained and organic, rather than purchased followers?",
-          "distribution": "Who owns founder/insider allocations, with vesting and beneficial-owner exclusions?",
-          "supply": "What circulates, what can be minted/burned, and what unlocks in 30/90/365 days?",
-          "venue": "Is the exact asset tradable on Spot/DEX with fresh executable depth?",
-          "adoption": "Are paying users, revenue and counterparties independently corroborated?"
-        },
-        "provider_metadata": {
-          "coin_id": "uniswap",
-          "name": "Uniswap",
-          "provider_listed_homepages": [
-            "https://uniswap.org/"
-          ],
-          "genesis_date_provider_claim": null,
-          "categories": [
-            "Decentralized Exchange (DEX)",
-            "Exchange-based Tokens",
-            "Decentralized Finance (DeFi)",
-            "Yield Farming",
-            "Automated Market Maker (AMM)",
-            "BNB Chain Ecosystem",
-            "Avalanche Ecosystem",
-            "Polygon Ecosystem"
-          ]
-        }
-      }
-    },
-    "09f43de56728f5e46a9b106c8ad86ab017c47b70334426a5066bb1fadfc4038d": {
-      "cached_at": 1794997564.3669686,
-      "profile": {
-        "schema_version": 1,
-        "identity": {
-          "venue": "Gate Spot",
-          "pair": "ADA_USDT",
-          "scope": "Exchange market association; on-chain identity not independently verified",
-          "curated_provider_id": "cardano",
-          "identity_status": "CURATED_ASSOCIATION_UNVERIFIED"
-        },
-        "retrieved_at": "2026-11-18T10:26:04.366969+00:00",
-        "status": "UNVERIFIED_CONTEXT",
-        "buy_authorized": false,
-        "orders_allowed": false,
-        "dimensions": {
-          "purpose": {
-            "status": "PROVIDER_REPORTED_UNVERIFIED",
-            "value": "Cardano is a blockchain platform built on academic research that enables smart contracts and decentralized applications while using significantly less energy than traditional cryptocurrencies like Bitcoin. What sets Cardano apart is its met",
-            "source_url": "https://api.coingecko.com/api/v3/coins/cardano?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
-            "retrieved_at": "2026-11-18T10:26:04.366969+00:00",
-            "data_observed_at": null,
-            "reason": "Reported metadata; source-origin, completeness and field freshness not independently verified"
-          },
-          "token_value_capture": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          },
-          "team": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          },
-          "development": {
-            "status": "PROVIDER_REPORTED_UNVERIFIED",
-            "value": {
-              "provider_listed_repositories": [
-                "https://github.com/input-output-hk/cardano-sl",
-                "https://github.com/input-output-hk/js-cardano-wasm",
-                "https://github.com/input-output-hk/plutus"
-              ],
-              "roadmap_delivery_and_code_quality": "UNKNOWN"
-            },
-            "source_url": "https://api.coingecko.com/api/v3/coins/cardano?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
-            "retrieved_at": "2026-11-18T10:26:04.366969+00:00",
-            "data_observed_at": null,
-            "reason": "Reported metadata; source-origin, completeness and field freshness not independently verified"
-          },
-          "funding": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          },
-          "community": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          },
-          "distribution": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          },
-          "supply": {
-            "status": "PROVIDER_REPORTED_UNVERIFIED",
-            "value": {
-              "circulating_supply": 37572945976.80281,
-              "total_supply": 45000000000.0,
-              "max_supply": 45000000000.0,
-              "market_cap_usd": 5780276465.0,
-              "fdv_usd": 6922865220.0,
-              "fdv_to_market_cap": 1.1976702605694485,
-              "unlocks_30d": "UNKNOWN",
-              "unlocks_90d": "UNKNOWN",
-              "unlocks_365d": "UNKNOWN",
-              "mint_burn_and_vesting_authority": "UNKNOWN"
-            },
-            "source_url": "https://api.coingecko.com/api/v3/coins/cardano?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
-            "retrieved_at": "2026-11-18T10:26:04.366969+00:00",
-            "data_observed_at": null,
-            "reason": "Reported metadata; source-origin, completeness and field freshness not independently verified"
-          },
-          "venue": {
-            "status": "EXCHANGE_METADATA_OBSERVATION",
-            "value": {
-              "venue": "Gate Spot",
-              "pair": "ADA_USDT"
-            },
-            "source_url": "https://api.gateio.ws/api/v4/spot/currency_pairs/ADA_USDT",
-            "retrieved_at": "2026-11-18T10:26:04.366969+00:00",
-            "data_observed_at": null,
-            "reason": "A listing is not proof of safety or executable depth"
-          },
-          "adoption": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          }
-        },
-        "sources": [
-          {
-            "provider": "CoinGecko",
-            "url": "https://api.coingecko.com/api/v3/coins/cardano?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
-            "retrieved_at": "2026-11-18T10:26:04.366969+00:00",
-            "provider_updated_at": "2026-11-18T10:24:54.000Z",
-            "response_sha256": "d0b69b0e31ce6fb3dedfd972cced6a7f641941cdfb17e44b9829f3085a60fc3d",
-            "scope": "Single-provider observations; not independent authentication"
-          }
-        ],
-        "warnings": [],
-        "questions": {
-          "purpose": "What problem is solved, and why is blockchain/token use necessary?",
-          "token_value_capture": "How do usage, fees and revenue benefit the token rather than only the company?",
-          "team": "Who controls the project, with independently checked track record and conflicts?",
-          "development": "Are releases, roadmap delivery and substantive development demonstrated?",
-          "funding": "Are backers, financing terms and insider incentives independently confirmed?",
-          "community": "Are active users retained and organic, rather than purchased followers?",
-          "distribution": "Who owns founder/insider allocations, with vesting and beneficial-owner exclusions?",
-          "supply": "What circulates, what can be minted/burned, and what unlocks in 30/90/365 days?",
-          "venue": "Is the exact asset tradable on Spot/DEX with fresh executable depth?",
-          "adoption": "Are paying users, revenue and counterparties independently corroborated?"
-        },
-        "provider_metadata": {
-          "coin_id": "cardano",
-          "name": "Cardano",
-          "provider_listed_homepages": [
-            "https://cardano.org/"
-          ],
-          "genesis_date_provider_claim": null,
-          "categories": [
-            "Smart Contract Platform",
-            "Layer 1 (L1)",
-            "Cardano Ecosystem",
-            "Proof of Stake (PoS)",
-            "GMCI Layer 1 Index",
-            "GMCI 30 Index",
-            "GMCI Index",
-            "Made in USA"
-          ]
-        }
-      }
-    },
-    "dc91260fde1c38e88badd36155bd871d6954d10ecc9ee8c6a5e28b2701e66789": {
-      "cached_at": 1794997564.3669686,
-      "profile": {
-        "schema_version": 1,
-        "identity": {
-          "venue": "Gate Spot",
-          "pair": "AVAX_USDT",
-          "scope": "Exchange market association; on-chain identity not independently verified",
-          "curated_provider_id": "avalanche-2",
-          "identity_status": "CURATED_ASSOCIATION_UNVERIFIED"
-        },
-        "retrieved_at": "2026-11-18T10:26:04.366969+00:00",
-        "status": "UNVERIFIED_CONTEXT",
-        "buy_authorized": false,
-        "orders_allowed": false,
-        "dimensions": {
-          "purpose": {
-            "status": "PRIMARY_DOCUMENTATION_REVIEWED_NOT_CORROBORATED",
-            "value": "Avalanche network utility: AVAX pays Primary Network fees and secures staking.",
-            "source_url": "https://build.avax.network/docs/primary-network/avax-token",
-            "reviewed_on": "2026-11-05",
-            "data_observed_at": "2026-11-05",
-            "reason": "Documented mechanism only; not independent proof of current adoption, revenue or token returns"
-          },
-          "token_value_capture": {
-            "status": "PRIMARY_DOCUMENTATION_REVIEWED_NOT_CORROBORATED",
-            "value": "Primary Network fees are burned; staking rewards mint AVAX. Burning alone does not guarantee falling supply or price appreciation.",
-            "source_url": "https://build.avax.network/docs/primary-network/avax-token",
-            "reviewed_on": "2026-11-05",
-            "data_observed_at": "2026-11-05",
-            "reason": "Documented mechanism only; not independent proof of current adoption, revenue or token returns"
-          },
-          "team": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          },
-          "development": {
-            "status": "PROVIDER_REPORTED_UNVERIFIED",
-            "value": {
-              "provider_listed_repositories": [
-                "https://github.com/ava-labs/avalanchego"
-              ],
-              "roadmap_delivery_and_code_quality": "UNKNOWN"
-            },
-            "source_url": "https://api.coingecko.com/api/v3/coins/avalanche-2?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
-            "retrieved_at": "2026-11-18T10:26:04.366969+00:00",
-            "data_observed_at": null,
-            "reason": "Reported metadata; source-origin, completeness and field freshness not independently verified"
-          },
-          "funding": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          },
-          "community": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          },
-          "distribution": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          },
-          "supply": {
-            "status": "PROVIDER_REPORTED_UNVERIFIED",
-            "value": {
-              "circulating_supply": 446608997.3886373,
-              "total_supply": 471610990.05025816,
-              "max_supply": 720000000.0,
-              "market_cap_usd": 3177340235.0,
-              "fdv_usd": 3355213583.0,
-              "fdv_to_market_cap": 1.0559818385329451,
-              "unlocks_30d": "UNKNOWN",
-              "unlocks_90d": "UNKNOWN",
-              "unlocks_365d": "UNKNOWN",
-              "mint_burn_and_vesting_authority": "UNKNOWN"
-            },
-            "source_url": "https://api.coingecko.com/api/v3/coins/avalanche-2?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
-            "retrieved_at": "2026-11-18T10:26:04.366969+00:00",
-            "data_observed_at": null,
-            "reason": "Reported metadata; source-origin, completeness and field freshness not independently verified"
-          },
-          "venue": {
-            "status": "EXCHANGE_METADATA_OBSERVATION",
-            "value": {
-              "venue": "Gate Spot",
-              "pair": "AVAX_USDT"
-            },
-            "source_url": "https://api.gateio.ws/api/v4/spot/currency_pairs/AVAX_USDT",
-            "retrieved_at": "2026-11-18T10:26:04.366969+00:00",
-            "data_observed_at": null,
-            "reason": "A listing is not proof of safety or executable depth"
-          },
-          "adoption": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          }
-        },
-        "sources": [
-          {
-            "provider": "CoinGecko",
-            "url": "https://api.coingecko.com/api/v3/coins/avalanche-2?localization=false&tickers=false&market_data=true&community_data=true&developer_data=true&sparkline=false",
-            "retrieved_at": "2026-11-18T10:26:04.366969+00:00",
-            "provider_updated_at": "2026-11-18T10:24:54.000Z",
-            "response_sha256": "7387d2b04e7dc353f2ab27a9a1cd8d0e0a4203cd6fe88afb6e2eacc44747d942",
-            "scope": "Single-provider observations; not independent authentication"
-          },
-          {
-            "provider": "Project documentation",
-            "url": "https://build.avax.network/docs/primary-network/avax-token",
-            "reviewed_on": "2026-11-05",
-            "scope": "Manually reviewed public documentation; not a token approval"
-          }
-        ],
-        "warnings": [],
-        "questions": {
-          "purpose": "What problem is solved, and why is blockchain/token use necessary?",
-          "token_value_capture": "How do usage, fees and revenue benefit the token rather than only the company?",
-          "team": "Who controls the project, with independently checked track record and conflicts?",
-          "development": "Are releases, roadmap delivery and substantive development demonstrated?",
-          "funding": "Are backers, financing terms and insider incentives independently confirmed?",
-          "community": "Are active users retained and organic, rather than purchased followers?",
-          "distribution": "Who owns founder/insider allocations, with vesting and beneficial-owner exclusions?",
-          "supply": "What circulates, what can be minted/burned, and what unlocks in 30/90/365 days?",
-          "venue": "Is the exact asset tradable on Spot/DEX with fresh executable depth?",
-          "adoption": "Are paying users, revenue and counterparties independently corroborated?"
-        },
-        "provider_metadata": {
-          "coin_id": "avalanche-2",
-          "name": "Avalanche",
-          "provider_listed_homepages": [
-            "https://www.avax.network"
-          ],
-          "genesis_date_provider_claim": null,
-          "categories": [
-            "Smart Contract Platform",
-            "Layer 1 (L1)",
-            "Avalanche Ecosystem",
-            "Proof of Stake (PoS)",
-            "DragonFly Capital Portfolio",
-            "DeFiance Capital Portfolio",
-            "Andreessen Horowitz (a16z) Portfolio",
-            "GMCI Layer 1 Index"
-          ]
-        }
-      }
-    },
-    "a66083f2c30a8f1fafa76beac34e4876006543b5c6721365073b6b0d57ccf8dd": {
-      "cached_at": 1794997564.3669686,
-      "profile": {
-        "schema_version": 1,
-        "identity": {
-          "venue": "Gate Spot",
-          "pair": "BNB_USDT",
-          "scope": "Exchange market association; on-chain identity not independently verified",
-          "curated_provider_id": "binancecoin",
-          "identity_status": "CURATED_ASSOCIATION_UNVERIFIED"
-        },
-        "retrieved_at": "2026-11-18T10:26:04.366969+00:00",
-        "status": "UNVERIFIED_CONTEXT",
-        "buy_authorized": false,
-        "orders_allowed": false,
-        "dimensions": {
-          "purpose": {
-            "status": "PRIMARY_DOCUMENTATION_REVIEWED_NOT_CORROBORATED",
-            "value": "BNB pays BNB Smart Chain execution fees and is used for network staking.",
-            "source_url": "https://docs.bnbchain.org/bnb-smart-chain/introduction/",
-            "reviewed_on": "2026-11-05",
-            "data_observed_at": "2026-11-05",
-            "reason": "Documented mechanism only; not independent proof of current adoption, revenue or token returns"
-          },
-          "token_value_capture": {
-            "status": "PRIMARY_DOCUMENTATION_REVIEWED_NOT_CORROBORATED",
-            "value": "Validators receive transaction-fee rewards. Network activity is not a guaranteed dividend or return for every BNB holder.",
-            "source_url": "https://docs.bnbchain.org/bnb-smart-chain/introduction/",
-            "reviewed_on": "2026-11-05",
-            "data_observed_at": "2026-11-05",
-            "reason": "Documented mechanism only; not independent proof of current adoption, revenue or token returns"
-          },
-          "team": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          },
-          "development": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          },
-          "funding": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          },
-          "community": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          },
-          "distribution": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          },
-          "supply": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          },
-          "venue": {
-            "status": "EXCHANGE_METADATA_OBSERVATION",
-            "value": {
-              "venue": "Gate Spot",
-              "pair": "BNB_USDT"
-            },
-            "source_url": "https://api.gateio.ws/api/v4/spot/currency_pairs/BNB_USDT",
-            "retrieved_at": "2026-11-18T10:26:04.366969+00:00",
-            "data_observed_at": null,
-            "reason": "A listing is not proof of safety or executable depth"
-          },
-          "adoption": {
-            "status": "UNKNOWN",
-            "value": null,
-            "reason": "Source evidence unavailable",
-            "source_url": null,
-            "data_observed_at": null
-          }
-        },
-        "sources": [
-          {
-            "provider": "Project documentation",
-            "url": "https://docs.bnbchain.org/bnb-smart-chain/introduction/",
-            "reviewed_on": "2026-11-05",
-            "scope": "Manually reviewed public documentation; not a token approval"
-          }
-        ],
-        "warnings": [
-          "Provider metadata unavailable or identity not established: HTTPError"
-        ],
-        "questions": {
-          "purpose": "What problem is solved, and why is blockchain/token use necessary?",
-          "token_value_capture": "How do usage, fees and revenue benefit the token rather than only the company?",
-          "team": "Who controls the project, with independently checked track record and conflicts?",
-          "development": "Are releases, roadmap delivery and substantive development demonstrated?",
-          "funding": "Are backers, financing terms and insider incentives independently confirmed?",
-          "community": "Are active users retained and organic, rather than purchased followers?",
-          "distribution": "Who owns founder/insider allocations, with vesting and beneficial-owner exclusions?",
-          "supply": "What circulates, what can be minted/burned, and what unlocks in 30/90/365 days?",
-          "venue": "Is the exact asset tradable on Spot/DEX with fresh executable depth?",
-          "adoption": "Are paying users, revenue and counterparties independently corroborated?"
         }
       }
     }
