@@ -151,9 +151,13 @@ def enrich(result, state, fetch, *, now, gate_evidence=None, rpc_request=None, r
                 continue
             pending[observation['provider_id']]=observation
     leads=list(pending.values())
-    leads.sort(key=lambda x:x['provider_id'])
+    # Enrich larger circulating-cap assets first instead of alphabetically
+    # prioritizing tokenized tickers. Preserve fair rotation across runs.
+    leads.sort(key=lambda x: (-float(positive(x.get('market_cap_usd')) or 0), x['provider_id']))
     after=state.get('enrichment_after','')
-    leads=[x for x in leads if x['provider_id']>after]+[x for x in leads if x['provider_id']<=after]
+    prior=next((i for i, x in enumerate(leads) if x['provider_id']==after), None)
+    if prior is not None:
+        leads=leads[prior+1:]+leads[:prior+1]
     cache=state.get('evidence_cache',{})
     if not isinstance(cache,dict):raise ValueError('Invalid ATL evidence cache')
     cache={k:v for k,v in cache.items() if isinstance(v,dict) and fresh(v.get('observed_at'),now.timestamp())}

@@ -186,6 +186,52 @@ def collect(receipts, state, fetch, now=None, allowed=()):
     return report
 
 
+def _readable_utc(value):
+    try:
+        parsed = dt.datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=dt.timezone.utc)
+        return parsed.astimezone(dt.timezone.utc).strftime('%d %b %Y %H:%M UTC')
+    except (ValueError, TypeError):
+        return 'time unknown'
+
+
+def _percent_below(bid, line):
+    try:
+        bid, line = decimal(bid), decimal(line)
+        if line <= 0 or bid >= line:
+            return None
+        return f"{((line - bid) / line * 100):.1f}%"
+    except (ValueError, TypeError, ArithmeticError):
+        return None
+
+
+def invalidation_text(row, book, sample):
+    """Plain-language INVALIDATED SETUP body. The first line stays the exact label."""
+    pair = row['pair']
+    bid, line = book['best_bid'], row['alert']['invalidation']
+    below = _percent_below(bid, line)
+    gap = f" ({below} below it)" if below else ''
+    return (
+        'INVALIDATED SETUP\n'
+        '\U0001F9ED IN PLAIN ENGLISH\n'
+        f"Earlier the bot told you the {pair} chart looked like it might be turning upward. "
+        f"That idea is now cancelled: the price has fallen below the level that would prove it wrong.\n"
+        f"Price now: {bid} USDT. Cancel line: {line} USDT{gap}.\n"
+        'What to do: nothing. This is a cancellation of the earlier alert, not a new one.\n'
+        'The bot has NOT bought or sold anything and cannot trade.\n\n'
+        '\U0001F4CC DETAILS\n'
+        f"Market: {pair} on Gate Spot, {row['alert']['interval']} chart\n"
+        f"Earlier alert sent: {_readable_utc(row['alert']['delivered_at'])}\n"
+        f"Price checked: {_readable_utc(sample['observed_at'])}\n"
+        '(Price = the highest buyer offer in the order book at that moment.)\n\n'
+        '\u26A0\uFE0F LIMITS\n'
+        'This is one price check, not a record of a trade. The price may have moved in between checks. '
+        'Nothing was executed or stopped out, so no gain or loss is implied. '
+        'This is not advice to buy or sell.\n\n'
+        f"\U0001F517 Source: {sample['source_url']}")
+
+
 def deliver_invalidations(state, sender, persist, *, now=None, allowed=(), max_per_run=2):
     """Recompute a fresh sampled breach and notify once per delivered hypothesis.
 
@@ -222,15 +268,7 @@ def deliver_invalidations(state, sender, persist, *, now=None, allowed=(), max_p
             book = analyze_book(raw, '100', now)
             if decimal(book['best_bid']) > decimal(row['alert']['invalidation']):
                 continue
-            text = ('INVALIDATED SETUP\n'
-                    f"Gate Spot: {row['pair']} | timeframe {row['alert']['interval']}\n"
-                    f"Previously delivered technical hypothesis: {row['alert']['delivered_at']}\n"
-                    f"Fresh observed best bid {book['best_bid']} USDT is at/below invalidation "
-                    f"reference {row['alert']['invalidation']} USDT. Withdraw this hypothesis.\n"
-                    f"Observed UTC: {sample['observed_at']}\n"
-                    'Sampled book observation only; between-sample path and actual trade execution are unknown. '
-                    'No stop fill, realized loss, security approval or purchase authority is inferred.\n'
-                    f"Source: {sample['source_url']}")
+            text = invalidation_text(row, book, sample)
         except (ValueError, TypeError, KeyError, AttributeError, ArithmeticError, IndexError) as exc:
             summary['errors'][identifier] = type(exc).__name__
             continue

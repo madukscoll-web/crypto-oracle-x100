@@ -92,6 +92,16 @@ def _send_message(message, *, max_attempts=3, request_timeout=20):
     raise NotificationError(failure) from None
 
 
+def _plain_time(value):
+    import datetime as _dt
+    try:
+        parsed=_dt.datetime.fromisoformat(str(value).replace('Z','+00:00'))
+        if parsed.tzinfo is None:parsed=parsed.replace(tzinfo=_dt.timezone.utc)
+        return parsed.astimezone(_dt.timezone.utc).strftime('%d %b %Y %H:%M UTC')
+    except (ValueError,TypeError):
+        return 'not recorded'
+
+
 def workflow_message(mode):
     run_url = ("https://github.com/" + os.environ.get("GITHUB_REPOSITORY", "")
                + "/actions/runs/" + os.environ.get("GITHUB_RUN_ID", ""))
@@ -107,14 +117,21 @@ def workflow_message(mode):
         # Only a failed core scan is critical; a failed follow-up stage leaves
         # discovery intact and is reported as an ordinary health notice.
         heading = "SYSTEM HEALTH REPORT" if core == "success" else "CRITICAL SYSTEM FAILURE"
-        return (heading + "\n🚨 CRYPTO-ORACLE X100: workflow FAILED.\n\n"
-                "🩺 STATUS\n"
-                "Core scan outcome: " + core + ".\n"
-                "Failed stage(s): " + (', '.join(failed) or 'see run logs') + ".\n\n"
-                "⚠️ WHAT THIS MEANS\n"
-                "Full pipeline completion and alert delivery are not established.\n\n"
-                "🔗 LINKS\n"
-                "Inspect: " + run_url)
+        failed_text = ', '.join(failed) or 'see run logs'
+        if core == "success":
+            plain = ("The main market scan worked, but a later step failed. "
+                     "Alerts from this run may be missing or late.")
+        else:
+            plain = ("The main market scan did not finish. "
+                     "The bot has not checked the market in this run, so no alerts came from it.")
+        return (heading + "\n\U0001F9ED IN PLAIN ENGLISH\n" + plain + "\n"
+                "What to do: nothing urgent. The next scan will try again by itself. "
+                "If this message keeps repeating, open the link below.\n"
+                "The bot has NOT bought or sold anything and cannot trade.\n\n"
+                "\U0001FA7A DETAILS\n"
+                "Main scan result: " + core + ".\n"
+                "Steps that failed: " + failed_text + ".\n\n"
+                "\U0001F517 Run log: " + run_url)
     report = json.loads(pathlib.Path("scan_summary.json").read_text(encoding="utf-8"))
     if report.get("status") != "completed":
         raise NotificationError("Refusing completion summary for an unsuccessful scan")
@@ -299,10 +316,18 @@ def notify_workflow(mode, *, now=None, state_path="operational_digest_state.json
                 and run_id and cadence.get('github_run_id')==run_id
                 and checked_age is not None and checked_age<=3600
                 and state.get('cadence_gap_confirmed_day')!=day):
-            message=('BOT HEALTH | OPERATIONAL\nA stale or missing core-scan heartbeat was observed before this run. '
-                     'The current core scan has completed; uninterrupted hourly operation is not established. '
-                     'Previous heartbeat: '+str(cadence.get('last_core_success_at'))+'. '
-                     'Inspect scanner_cadence_report.json in run '+run_id+'. No investment signal or purchase approval.')
+            message=('BOT HEALTH | OPERATIONAL\n'
+                     '\U0001F9ED IN PLAIN ENGLISH\n'
+                     'The bot was not running for a while, and has now started again. '
+                     'The scan that just finished worked normally. '
+                     'Nothing is wrong right now, but you cannot assume it checked the market every hour.\n'
+                     'What to do: nothing.\n\n'
+                     '\U0001F4CC DETAILS\n'
+                     'Last scan before this one: '+_plain_time(cadence.get('last_core_success_at'))+'\n'
+                     'Why this happens: GitHub sometimes skips scheduled runs.\n'
+                     'Technical record: scanner_cadence_report.json in run '+run_id+'.\n\n'
+                     '\u26A0\uFE0F LIMITS\n'
+                     'This is a status note, not a trading signal. The bot cannot buy or sell.')
             if sender(message) is not True:
                 raise NotificationError('Cadence gap receipt not confirmed')
             state['cadence_gap_confirmed_for']=marker
