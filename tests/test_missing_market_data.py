@@ -192,7 +192,7 @@ class MissingMarketTests(unittest.TestCase):
                     json.dumps(dict(ok=True, result={'message_id': 2, 'chat': {'id': -123}})))) as send:
             self.assertTrue(telegram.send_message(telegram.workflow_message('failure')))
         text = parse_qs(send.call_args.args[0].data.decode())['text'][0]
-        self.assertIn('workflow FAILED', text)
+        self.assertIn('did not finish', text)
         self.assertIn('scan=failure', text)
 
     def test_failure_to_write_diagnostics_still_exits_nonzero(self):

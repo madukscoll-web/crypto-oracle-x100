@@ -23,8 +23,8 @@ def request(token, method, data):
 
 
 DELIVERY_TEST_TEXT = ('TELEGRAM DELIVERY TEST\n'
-                      'This only confirms the bot can reach this chat. It is not a scan, not a health report '
-                      'and not a signal. Nothing was bought; automated trading remains disabled.')
+    'This is a test message. If you can read it, the bot can reach this chat. '
+    'It is not a market alert and not a trading signal. Nothing was bought; the bot cannot trade.')
 
 
 def validate(env, send_test=False, transport=request):

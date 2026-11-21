@@ -48,7 +48,7 @@ class OperationalLayoutTests(unittest.TestCase):
         with patch.dict(os.environ, {"GITHUB_REPOSITORY": "o/r", "GITHUB_RUN_ID": "1", "FAILED_STAGES": "scan=failure"}):
             text = telegram.workflow_message("failure")
         self.assertEqual(cp.format_message(text).splitlines()[0], "CRITICAL SYSTEM FAILURE")
-        self.assertTrue(section_order(text, ["🩺 STATUS", "⚠️ WHAT THIS MEANS", "🔗 LINKS"]))
+        self.assertTrue(section_order(text, ["🧭 IN PLAIN ENGLISH", "🩺 DETAILS", "🔗 Run log"]))
         self.assertIn("/o/r/actions/runs/1", text)
 
     def test_health_report_sections_and_profitability_disclaimer(self):
