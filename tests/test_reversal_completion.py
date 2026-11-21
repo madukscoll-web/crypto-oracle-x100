@@ -105,7 +105,7 @@ class ReversalCompletionTests(unittest.TestCase):
         summary=followup.deliver_invalidations(state,lambda t:sent.append(t) or True,lambda s:saved.append(copy.deepcopy(s)),now=NOW,allowed=[PAIR])
         self.assertEqual(summary['delivered'],1)
         self.assertTrue(sent[0].startswith('INVALIDATED SETUP\n'))
-        self.assertIn('No stop fill',sent[0])
+        self.assertIn('Nothing was executed or stopped out',sent[0]);self.assertIn('has NOT bought or sold',sent[0]);self.assertIn('not advice to buy or sell',sent[0])
         self.assertFalse(summary['buy_authorized'])
         again=followup.deliver_invalidations(state,lambda _:self.fail('Duplicate'),lambda _:None,now=NOW,allowed=[PAIR])
         self.assertEqual(again['delivered'],0)

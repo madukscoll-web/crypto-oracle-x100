@@ -6,7 +6,7 @@ class DeploymentTests(unittest.TestCase):
     def transport(self, token, method, data):
         if method=='getMe':return dict(ok=True,result=dict(is_bot=True))
         if method=='getChat':return dict(ok=True,result=dict(id=-123,type='group'))
-        self.assertIn('not a signal',data['text']);self.assertIn('trading remains disabled',data['text'])
+        self.assertIn('not a trading signal',data['text']);self.assertIn('cannot trade',data['text'])
         return dict(ok=True,result=dict(message_id=1,chat=dict(id=-123)))
     def test_opt_in_delivery(self):
         r=validate(ENV,True,self.transport)
@@ -24,7 +24,7 @@ class DeploymentTests(unittest.TestCase):
         self.assertEqual(len(sent),1)
         self.assertEqual(sent[0].splitlines()[0],'TELEGRAM DELIVERY TEST')
         self.assertNotIn('HEALTH REPORT',sent[0])
-        self.assertIn('not a scan',sent[0]);self.assertIn('not a signal',sent[0])
+        self.assertIn('test message',sent[0]);self.assertIn('not a trading signal',sent[0])
         from classification_policy import classify_existing_message
         self.assertNotEqual(classify_existing_message(sent[0]),'SYSTEM HEALTH REPORT')
     def test_read_only_preflight_does_not_send(self):

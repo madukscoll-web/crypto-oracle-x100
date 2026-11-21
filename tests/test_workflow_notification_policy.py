@@ -42,7 +42,7 @@ class FailureDetailTests(unittest.TestCase):
         from telegram_notify import workflow_message
         with patch.dict(os.environ, {'FAILED_STAGES':'scan=success, state=success, research_health=failure, technical_followup=failure'}):
             text=workflow_message('failure')
-        self.assertIn('Core scan outcome: success',text)
+        self.assertIn('Main scan result: success',text)
         self.assertIn('technical_followup=failure',text)
         self.assertNotIn('scan=success',text)
         self.assertNotIn('No successful scan should be assumed',text)
