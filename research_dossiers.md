@@ -2,6 +2,6 @@
 
 Research only. No BUY approval, orders or assumed fills.
 
-Observed UTC: 2026-11-22T22:41:47.716772+00:00
+Observed UTC: 2026-11-23T03:26:59.490062+00:00
 
 No dossier passed this bounded replay. Reasons: {}
