@@ -2,6 +2,6 @@
 
 Research only. No BUY approval, orders or assumed fills.
 
-Observed UTC: 2026-11-24T00:35:34.382427+00:00
+Observed UTC: 2026-11-24T10:41:32.075180+00:00
 
-No dossier passed this bounded replay. Reasons: {}
+No dossier passed this bounded replay. Reasons: {"Weak volume confirmation": 4}
