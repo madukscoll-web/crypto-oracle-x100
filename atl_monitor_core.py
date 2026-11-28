@@ -3,7 +3,9 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 
+LOW_CAP_FLOOR = Decimal("5000000")    # owner definition: low cap is $5M-$200M
 MID_CAP_FLOOR = Decimal("200000000")
+ATL_UNIVERSE_FLOOR = LOW_CAP_FLOOR
 HIGH_CAP_FLOOR = Decimal("1000000000")
 NEAR_PERCENT = Decimal("5")
 
@@ -20,8 +22,10 @@ def cap_class(market_cap, *, verified=False, fresh=False, conflicting=False):
     cap = positive(market_cap)
     if not verified or not fresh or conflicting or cap is None:
         return "UNVERIFIED"
-    if cap < MID_CAP_FLOOR:
+    if cap < LOW_CAP_FLOOR:
         return "EXCLUDED"
+    if cap < MID_CAP_FLOOR:
+        return "LOW_CAP"
     return "MID_CAP" if cap <= HIGH_CAP_FLOOR else "HIGH_CAP"
 
 def classify_low(current, previous_low, *, lifetime_complete=False,
